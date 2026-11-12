@@ -10,6 +10,7 @@
 - [0007 — Restyle the target, not its surroundings](decisions/0007-restyle-scope.md) — what a restyle may change and what happens when it would drift from the set look
 - [0008 — .NET 10 and Avalonia 12](decisions/0008-target-versions.md) — which .NET and Avalonia versions the library targets and how they are pinned
 - [0009 — Screenshots rendered by tests](decisions/0009-screenshots-from-tests.md) — how rendered looks are produced, with which test framework, and why there is no sample app
+- [0010 — One library, src and tests](decisions/0010-solution-layout.md) — project names, folder layout, tiers as folders, central package versions
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions
