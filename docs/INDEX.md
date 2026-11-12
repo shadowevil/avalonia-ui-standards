@@ -11,6 +11,13 @@
 - [0008 — .NET 10 and Avalonia 12](decisions/0008-target-versions.md) — which .NET and Avalonia versions the library targets and how they are pinned
 - [0009 — Screenshots rendered by tests](decisions/0009-screenshots-from-tests.md) — how rendered looks are produced, with which test framework, and why there is no sample app
 - [0010 — One library, src and tests](decisions/0010-solution-layout.md) — project names, folder layout, tiers as folders, central package versions
+- [0011 — Colour](decisions/0011-colour.md) — light and dark variants, the default accent and the neutral grey ramps
+- [0012 — Type](decisions/0012-type.md) — the typeface and the type ramp
+- [0013 — Spacing and density](decisions/0013-spacing-and-density.md) — the 4 px grid, the named steps and the density default
+- [0014 — Shape](decisions/0014-shape.md) — continuous corners, the radii and the SquircleBorder primitive
+- [0015 — Glass](decisions/0015-glass.md) — the GlassBorder material, where it is used and its fallback
+- [0016 — Motion](decisions/0016-motion.md) — the durations, easing and the reduce-motion rule
+- [0017 — How apps use the library](decisions/0017-app-usage.md) — the theme and builder entry points and the naming of Style tier keys
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

@@ -6,5 +6,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AvaloniaUiStandards.Tests" />
   </ItemGroup>
 </Project>

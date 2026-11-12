@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AvaloniaUiStandards.Tests.XamlSample">
+  <UserControl.Styles>
+    <StandardsTheme Accent="#E91E63" Density="Compact" ReduceTransparency="False" />
+  </UserControl.Styles>
+  <StackPanel>
+    <SquircleBorder x:Name="Squircle" CornerRadius="8" Background="White" BorderThickness="1" />
+    <GlassBorder x:Name="Glass" BlurSigma="6" ChromaticDispersion="0.35" />
+  </StackPanel>
+</UserControl>

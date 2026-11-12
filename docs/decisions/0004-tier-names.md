@@ -3,7 +3,7 @@
 - **Status:** Agreed, 2026-11-12
 - **Decision:**
   - Tiers: everything the library ships belongs to one of four.
-    - **Style**: design values only (colour, spacing, type, corner radius, motion). It is not Avalonia's `Style` class.
+    - **Style**: design values (colour, spacing, type, corner radius, motion) and the shape and material primitives that draw them (`SquircleBorder`, `GlassBorder`; [0014](0014-shape.md), [0015](0015-glass.md)). It is not Avalonia's `Style` class.
     - **Blocks**: single-purpose pieces, some interactive (Button, TextInput, CheckBox, Icon).
     - **Modules**: composite controls, either restyled from Fluent (DatePicker) or composed from Blocks (Dialog).
     - **Screens**: full arrangements of Modules (settings page, form layout, app shell).

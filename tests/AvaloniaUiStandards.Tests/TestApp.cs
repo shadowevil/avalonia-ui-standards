@@ -1,6 +1,6 @@
 using Avalonia;
 using Avalonia.Headless;
-using Avalonia.Themes.Fluent;
+using AvaloniaUiStandards.Style;
 using AvaloniaUiStandards.Tests;
 
 [assembly: AvaloniaTestApplication(typeof(TestApp))]
@@ -11,11 +11,13 @@ public class TestApp : Application
 {
     public override void Initialize()
     {
-        Styles.Add(new FluentTheme());
+        // Fixed "not reduced" settings, so renders do not depend on the machine running the tests.
+        Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
     }
 
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<TestApp>()
             .UseSkia()
+            .UseUiStandards()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }
