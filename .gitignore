@@ -1,0 +1,16 @@
+# AI tool files (decision 0005)
+.claude/
+CLAUDE.md
+working/
+
+# Build, IDE and OS output (decision 0006)
+bin/
+obj/
+TestResults/
+artifacts/
+*.user
+*.suo
+.vs/
+*.DotSettings.user
+.idea/
+.DS_Store
