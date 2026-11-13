@@ -6,7 +6,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using System.Runtime.InteropServices;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -460,12 +462,179 @@ public class TreeViewTests
         }
     }
 
+    // --- Node lines --------------------------------------------------------------------------
+
+    [AvaloniaFact]
+    public void Lines_AreOffByDefault_AndDrawnOnlyWhenOn()
+    {
+        Assert.False(TreeViewOptions.GetShowLines(new TreeView()));
+        foreach (var on in new[] { false, true })
+        {
+            var (window, tree) = ShowLines(1, on);
+            try
+            {
+                var items = Items(tree);
+                Assert.Equal(on, Lines(items[0]).HasStub);
+                Assert.Equal(on, Lines(items[2]).HasBranch);
+                using var frame = Frame.Capture(window);
+                // Style's column through the Colour row.
+                Assert.Equal(on ? 1 : 0, LinePixels(frame, Column(window, items[0]), RowY(window, items[2], 3), 1).Count);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Lines_FollowExpandAndCollapse()
+    {
+        var (window, tree) = ShowLines(1, true);
+        try
+        {
+            var items = Items(tree);
+            var (style, shape, squircle) = (items[0], items[1], items[3]);
+            // Shape is expanded: its stub shows, below its caret.
+            Assert.True(Lines(shape).HasStub);
+            using (var frame = Frame.Capture(window))
+                Assert.Single(LinePixels(frame, Column(window, shape), RowY(window, shape, -3), 1));
+
+            shape.IsExpanded = false;
+            Pump(window);
+            Assert.False(Lines(shape).HasStub);
+            Assert.False(squircle.IsEffectivelyVisible);
+            using (var frame = Frame.Capture(window))
+                Assert.Empty(LinePixels(frame, Column(window, shape), RowY(window, shape, -3), 1));
+
+            // A collapsed root has no lines below it.
+            style.IsExpanded = false;
+            Pump(window);
+            using (var frame = Frame.Capture(window))
+                Assert.Empty(LinePixels(frame, Column(window, style), RowY(window, style, -3), 1));
+
+            style.IsExpanded = true;
+            shape.IsExpanded = true;
+            Pump(window);
+            Assert.True(Lines(shape).HasStub);
+            using (var frame = Frame.Capture(window))
+                Assert.Single(LinePixels(frame, Column(window, shape), RowY(window, shape, -3), 1));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Lines_LastChildEndsWithItsElbow_OthersContinue()
+    {
+        var (window, tree) = ShowLines(1, true);
+        try
+        {
+            var items = Items(tree);
+            var (style, shape, colour, squircle, radii, motion) = (items[0], items[1], items[2], items[3], items[4], items[5]);
+            Assert.True(Lines(colour).Continues);
+            Assert.False(Lines(motion).Continues);
+            Assert.False(Lines(radii).Continues);
+            using var frame = Frame.Capture(window);
+            // Below the elbow, Style's column carries on through Colour (not last), not through Motion (last).
+            Assert.Single(LinePixels(frame, Column(window, style), RowY(window, colour, -3), 1));
+            Assert.Empty(LinePixels(frame, Column(window, style), RowY(window, motion, -3), 1));
+            // Above the elbow the last child still joins the column.
+            Assert.Single(LinePixels(frame, Column(window, style), RowY(window, motion, 3), 1));
+            // Shape's column ends at Radii (its last child); Style's passes through Radii's row (Shape is not last).
+            Assert.Single(LinePixels(frame, Column(window, shape), RowY(window, squircle, -3), 1));
+            Assert.Empty(LinePixels(frame, Column(window, shape), RowY(window, radii, -3), 1));
+            Assert.Single(LinePixels(frame, Column(window, style), RowY(window, radii, -3), 1));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1, "Normal")]
+    [InlineData(2, "Normal")]
+    [InlineData(1, "Compact")]
+    [InlineData(2, "Compact")]
+    public void Lines_AreCrispHairlines_OnTheCaretColumn(double scale, string density)
+    {
+        var (window, tree) = ShowLines(scale, true, density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal);
+        try
+        {
+            var items = Items(tree);
+            using var frame = Frame.Capture(window);
+            foreach (var (parent, child) in new[] { (items[0], items[2]), (items[1], items[3]) })
+            {
+                var column = Column(window, parent);
+                var y = RowY(window, child, 3);
+                var pixels = LinePixels(frame, column, y, scale);
+                // One logical pixel, whole device pixels, all of one colour (no anti-aliased fringe).
+                Assert.Equal((int)scale, pixels.Count);
+                Assert.Single(pixels.Select(p => frame[p, (int)(y * scale)]).Distinct());
+                // Within half a logical pixel of the caret's centre.
+                Assert.InRange((pixels.Average() + 0.5) / scale, column - 0.5, column + 0.5);
+                // The elbow runs level at the child row's centre, one logical pixel thick.
+                var centre = (int)Math.Round((Chrome(child).TranslatePoint(default, window)!.Value.Y + Chrome(child).Bounds.Height / 2) * scale);
+                var x = (int)Math.Round((column + 1.5 * TreeLines.Radius) * scale);
+                var rows = Enumerable.Range(centre - 4, 8).Where(r => frame[x, r] != frame[x, centre - 8]).ToList();
+                Assert.Equal((int)scale, rows.Count);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Lines_LieUnderTheSelectionPill()
+    {
+        var (window, tree) = ShowLines(1, true);
+        try
+        {
+            var items = Items(tree);
+            tree.SelectedItem = items[2];
+            Pump(window);
+            using var frame = Frame.Capture(window);
+            var y = (int)RowY(window, items[2], 3);
+            var column = Column(window, items[0]);
+            Assert.Equal(frame[(int)column - 4, y], frame[(int)column, y]);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Lines_SetOnAnItem_DrawThatItemsConnectionsToItsChildren()
+    {
+        var (window, tree) = ShowLines(1, false);
+        try
+        {
+            var items = Items(tree);
+            TreeViewOptions.SetShowLines(items[1], true);
+            Pump(window);
+            Assert.False(Lines(items[0]).HasStub);
+            Assert.False(Lines(items[1]).HasBranch);
+            Assert.True(Lines(items[1]).HasStub);
+            Assert.True(Lines(items[3]).HasBranch);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Renders -----------------------------------------------------------------------------
 
     [AvaloniaFact]
     public void TreeView_Renders()
     {
-        using var sheet = new Sheet("TreeView: list item rows, a caret that turns down, one caret width of indent per level, no lines");
+        using var sheet = new Sheet("TreeView: list item rows, a caret that turns down, one caret width of indent per level, lines off");
         foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
         {
             sheet.AddSection(themeLabel + ": row states", RowStateLabels,
@@ -478,6 +647,80 @@ public class TreeViewTests
             ]);
         }
         sheet.Save("m3-treeview.png");
+    }
+
+    [AvaloniaFact]
+    public void TreeView_Lines_Render()
+    {
+        using var sheet = new Sheet("TreeView node lines, off and on: Colour selected, Squircle hovered, Blocks collapsed, Motion and Radii last children");
+        foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
+        {
+            sheet.AddSection(themeLabel, ["Lines off", "Lines on"],
+            [
+                ("Normal", [LinesCell(sheet, theme, DensityStyle.Normal, false), LinesCell(sheet, theme, DensityStyle.Normal, true)]),
+                ("Compact", [LinesCell(sheet, theme, DensityStyle.Compact, false), LinesCell(sheet, theme, DensityStyle.Compact, true)]),
+            ]);
+        }
+        sheet.AddSection("Lines under the hover and selection pills (as built), or clipped by them", ["Under", "Clipped"],
+            ButtonRenderTests.Themes.Select(t => (t.Label, (IReadOnlyList<Control>)[LinesCell(sheet, t.Variant, DensityStyle.Normal, true), ClippedCell(sheet, t.Variant)])).ToList());
+        sheet.Save("m3-treeview-lines.png");
+    }
+
+    private static Control LinesCell(Sheet sheet, ThemeVariant theme, DensityStyle density, bool lines)
+    {
+        using var capture = CaptureLines(theme, density, lines, out _);
+        return sheet.Image(capture);
+    }
+
+    // The clipped look, composited from real renders: the lines-on render with the lit rows taken from the lines-off render.
+    private static Control ClippedCell(Sheet sheet, ThemeVariant theme)
+    {
+        using var on = CaptureLines(theme, DensityStyle.Normal, true, out var lit);
+        using var off = CaptureLines(theme, DensityStyle.Normal, false, out _);
+        using (var target = on.Lock())
+        using (var source = off.Lock())
+        {
+            var row = new byte[target.RowBytes];
+            foreach (var rect in lit)
+                for (var y = rect.Y; y < rect.Bottom; y++)
+                {
+                    Marshal.Copy(source.Address + y * source.RowBytes + rect.X * 4, row, 0, rect.Width * 4);
+                    Marshal.Copy(row, 0, target.Address + y * target.RowBytes + rect.X * 4, rect.Width * 4);
+                }
+        }
+        return sheet.Image(on);
+    }
+
+    // The test tree on the glass panel at 2x, Shape expanded, Colour selected and Squircle hovered; lit: their rows in pixels.
+    private static WriteableBitmap CaptureLines(ThemeVariant theme, DensityStyle density, bool lines, out List<PixelRect> lit)
+    {
+        var tree = NewTree();
+        tree.Width = 220;
+        TreeViewOptions.SetShowLines(tree, lines);
+        var surface = new Border { Padding = new Thickness(16, 12), Child = ListBoxRenderTests.OnSurface(tree, ListBoxRenderTests.Surface.GlassPanel) };
+        surface.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SystemRegionColor"));
+        var window = new Window { SizeToContent = SizeToContent.WidthAndHeight, RequestedThemeVariant = theme };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Content = surface;
+        window.SetRenderScaling(Sheet.Scale);
+        window.Show();
+        window.UpdateLayout();
+        var items = Items(tree);
+        items[1].IsExpanded = true;
+        window.UpdateLayout();
+        tree.SelectedItem = items[2];
+        ((IPseudoClasses)Chrome(items[3]).Classes).Set(":pointerover", true);
+        Pump(window);
+        lit = [.. new[] { items[2], items[3] }.Select(i =>
+        {
+            var chrome = Chrome(i);
+            var origin = chrome.TranslatePoint(default, window)!.Value;
+            return new PixelRect((int)Math.Round(origin.X * Sheet.Scale), (int)Math.Round(origin.Y * Sheet.Scale),
+                (int)Math.Round(chrome.Bounds.Width * Sheet.Scale), (int)Math.Round(chrome.Bounds.Height * Sheet.Scale));
+        })];
+        var capture = window.CaptureRenderedFrame()!;
+        window.Close();
+        return capture;
     }
 
     private static Control StateCell(Sheet sheet, ThemeVariant theme, RowState state)
@@ -582,6 +825,48 @@ public class TreeViewTests
         item.GetVisualDescendants().OfType<T>().First(c => c.Name == name && c.TemplatedParent == item);
 
     private static Matrix Rounded(Matrix m) => new(Math.Round(m.M11, 6), Math.Round(m.M12, 6), Math.Round(m.M21, 6), Math.Round(m.M22, 6), 0, 0);
+
+    // A tree on a white window at the scale, Style and Shape expanded, lines on or off.
+    private static (Window Window, TreeView Tree) ShowLines(double scale, bool lines, DensityStyle density = DensityStyle.Normal)
+    {
+        var tree = NewTree();
+        tree.Width = 260;
+        TreeViewOptions.SetShowLines(tree, lines);
+        var window = new Window { Width = 400, Height = 400, Content = tree, Background = Brushes.White, RequestedThemeVariant = ThemeVariant.Light };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.SetRenderScaling(scale);
+        window.Show();
+        Pump(window);
+        Items(tree)[1].IsExpanded = true;
+        Pump(window);
+        return (window, tree);
+    }
+
+    private static TreeLines Lines(TreeViewItem item) => Part<TreeLines>(item, TreeLines.Part);
+
+    // The x of an item's caret centre (its children's column), in the window's logical pixels.
+    private static double Column(Window window, TreeViewItem item)
+    {
+        var caret = Caret(item);
+        return caret.TranslatePoint(new Point(caret.Bounds.Width / 2, caret.Bounds.Height / 2), window)!.Value.X;
+    }
+
+    // A y in an item's row: dy below its top, or -dy above its bottom when negative.
+    private static double RowY(Window window, TreeViewItem item, double dy)
+    {
+        var chrome = Chrome(item);
+        var top = chrome.TranslatePoint(default, window)!.Value.Y;
+        return dy >= 0 ? top + dy : top + chrome.Bounds.Height + dy;
+    }
+
+    // The device pixels within 4 logical pixels of x, on the pixel row at y, that differ from the background at the left end.
+    private static List<int> LinePixels(Frame frame, double x, double y, double scale)
+    {
+        var row = (int)(y * scale);
+        var from = (int)((x - 4) * scale);
+        var background = frame[from, row];
+        return [.. Enumerable.Range(from, (int)(8 * scale)).Where(px => frame[px, row] != background)];
+    }
 
     // A point on the row, x in from where its caret starts (past the caret from 20 on).
     private static Point RowPoint(Window window, TreeViewItem item, double x) =>

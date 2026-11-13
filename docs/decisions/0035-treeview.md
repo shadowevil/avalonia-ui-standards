@@ -1,6 +1,6 @@
 # 0035 — TreeView
 
-- **Status:** Proposed, 2026-11-13 (click modes added)
+- **Status:** Proposed, 2026-11-13 (click modes and lines added)
 - **Decision:**
   - TreeView and TreeViewItem are restyled Fluent Blocks ([0003](0003-restyle-fluent.md), [0004](0004-tier-names.md)). Selection and keyboard stay Fluent's: Up and Down move between visible rows; Right expands a collapsed item, then moves to its first child; Left collapses an expanded item, then moves to its parent; Enter toggles.
     - **Why:** Fluent's tree keyboard model is the Windows and macOS outline model; only the look changes.
@@ -19,10 +19,19 @@
   - Hover and press are the row's own, not the item's: an item's bounds include its children's rows, so hovering or pressing a child does not light its parent.
   - Row content: the indent, the caret, then the header `SpacingXS` after it. Padding 4 left and 12 right at Normal, 2 and 8 at Compact; the caret's own box already insets its glyph, so the glyph lands near the list items' 12 px text inset.
   - The indent is one caret width per level: 20 px at Normal, 16 at Compact (the Icon sizes; [0026](0026-icon.md)). A child's caret starts where its parent's caret ends.
-    - **Why:** On the 4 px grid, proportional to the row at each density, and each level steps by exactly one caret, so the hierarchy reads without lines.
+    - **Why:** On the 4 px grid, proportional to the row at each density, and each level steps by exactly one caret, so the hierarchy reads with or without lines.
   - The caret is `Icons.CaretRight` in an `Icon` at the density size, in the row's text colour (white on the selected row). It turns to point down when expanded, over `MotionNormal` with the motion easing, instantly under reduce motion ([0016](0016-motion.md)). It is not a Tab stop. Items without children keep the caret's room, empty, so sibling headers line up.
     - **Why:** The turn shows the change of state without moving anything; `MotionNormal` is the duration for toggles ([0016](0016-motion.md)).
-  - No connecting lines between levels.
-    - **Why:** The clean list design: indentation and the caret carry the hierarchy, as in macOS and Fluent.
+  - Node lines are an option, the attached property `TreeViewOptions.ShowLines` ([0017](0017-app-usage.md)), set on the TreeView and inherited by its items. On an item it draws that item's lines to its children, so it can be turned on for one subtree. The default is false for now; whether the default turns lines on is pending, to be decided from the renders.
+    - **Why:** The clean list design (indentation and the caret carry the hierarchy, as in macOS and Fluent) stays available, and deep or long trees, where the eye loses which parent a row belongs to, can show the structure.
+  - The lines are solid 1 px hairlines in the border colour (`BaseLow`, the Separator's line, [0039](0039-separator-and-gridsplitter.md)):
+    - Under each expanded parent with children, a vertical line runs down its caret's centre column, from the bottom of the caret's box through its children's rows.
+    - Each child gets an elbow from that line into its row: a rounded corner of radius 4 (`SpacingXS`, a quarter circle), then a level line at the row's centre that ends `SpacingXS` before the child's caret glyph, or on a row without children `SpacingXS` before its header.
+    - The column stops at the last child's elbow; it carries on past every other child, through that child's own expanded rows.
+    - Collapsed children are hidden, so they have no lines; lines follow expand and collapse, and items added or removed.
+    - The lines sit on the caret columns, one indent (one caret width: 20 Normal, 16 Compact) per level, and are snapped to device pixels: whole device pixels thick (1 at scale 1, 2 at scale 2), so they stay crisp at any scale.
+    - **Why:** One line language with the separators and borders; the rounded elbow follows the library's continuous corners instead of the square elbows of older trees; ending short of the caret or header keeps the line from touching content.
+  - The lines lie under the rows' hover, press and selection pills, never over them. The hover, press and selection fills are opaque, so a lit row hides the lines inside it, exactly as if the lines were clipped by the pill (the renders show both side by side: they are identical).
+    - **Why:** Lines never cross the pill's text or caret, in any state, and drawing under needs no clip shapes per row state that would have to follow every hover change.
   - Children appear and disappear at once on expand and collapse; only the caret animates.
 - **Why:** The tree reuses the list's row, shape, colours and motion, so it fits beside every other list in the library.

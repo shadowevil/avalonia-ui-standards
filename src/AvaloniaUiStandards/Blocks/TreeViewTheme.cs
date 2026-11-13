@@ -24,8 +24,9 @@ namespace AvaloniaUiStandards.Blocks;
 /// pill inset from the tree's edges, list-medium hover, base-medium-low press, accent selection
 /// with white text, density heights, the focus ring), full width at every level. The row holds
 /// the indent (one caret width per level), a caret that turns from right to down as the item
-/// expands, and the header. There are no connecting lines. Keyboard and selection are Fluent's;
-/// clicks on the row expand and collapse it as <see cref="TreeViewOptions"/> sets (<see cref="RowClicks"/>).
+/// expands, and the header. Node lines, when on, lie under the rows (<see cref="TreeLines"/>).
+/// Keyboard and selection are Fluent's; clicks on the row expand and collapse it as
+/// <see cref="TreeViewOptions"/> sets (<see cref="RowClicks"/>).
 /// </summary>
 internal static class TreeViewTheme
 {
@@ -197,9 +198,13 @@ internal static class TreeViewTheme
         items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
         items.Bind(Visual.IsVisibleProperty, new TemplateBinding(TreeViewItem.IsExpandedProperty));
 
-        foreach (var part in new Control[] { caret, header, row, chrome, items })
+        // The node lines lie under the row and the children's rows (TreeViewOptions.ShowLines).
+        var lines = new TreeLines(item, chrome, caret, header);
+        lines.Bind(TreeLines.StrokeProperty, Resource("SystemControlForegroundBaseLowBrush"));
+
+        foreach (var part in new Control[] { caret, header, row, chrome, items, lines })
             part.RegisterInNameScope(scope);
-        return new StackPanel { Children = { FocusRing.Wrap(chrome, scope), items } };
+        return new Panel { Children = { lines, new StackPanel { Children = { FocusRing.Wrap(chrome, scope), items } } } };
     }
 
     // The row shows :pressed while the left button is held on it (the item has no pressed state of its own).

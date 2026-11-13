@@ -39,6 +39,12 @@ public static class TreeViewOptions
         AvaloniaProperty.RegisterAttached<Control, TreeViewClickAction>("CollapseOn", typeof(TreeViewOptions),
             defaultValue: TreeViewClickAction.DoubleClick, inherits: true);
 
+    /// <summary>
+    /// Whether an expanded item draws hairline lines from its caret to its children. Default false.
+    /// </summary>
+    public static readonly AttachedProperty<bool> ShowLinesProperty =
+        AvaloniaProperty.RegisterAttached<Control, bool>("ShowLines", typeof(TreeViewOptions), inherits: true);
+
     public static TreeViewClickAction GetExpandOn(Control control) => control.GetValue(ExpandOnProperty);
 
     public static void SetExpandOn(Control control, TreeViewClickAction value) => control.SetValue(ExpandOnProperty, value);
@@ -46,4 +52,8 @@ public static class TreeViewOptions
     public static TreeViewClickAction GetCollapseOn(Control control) => control.GetValue(CollapseOnProperty);
 
     public static void SetCollapseOn(Control control, TreeViewClickAction value) => control.SetValue(CollapseOnProperty, value);
+
+    public static bool GetShowLines(Control control) => control.GetValue(ShowLinesProperty);
+
+    public static void SetShowLines(Control control, bool value) => control.SetValue(ShowLinesProperty, value);
 }

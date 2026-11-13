@@ -37,6 +37,9 @@ internal sealed class TreeViewPage : UserControl
         var options = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto"), ColumnSpacing = 12, RowSpacing = 8 };
         AddOption(options, 0, "Expand on", ClickChoice(tree, TreeViewOptions.ExpandOnProperty));
         AddOption(options, 1, "Collapse on", ClickChoice(tree, TreeViewOptions.CollapseOnProperty));
+        var lines = new ToggleSwitch { IsChecked = TreeViewOptions.GetShowLines(tree) };
+        lines.IsCheckedChanged += (_, _) => TreeViewOptions.SetShowLines(tree, lines.IsChecked == true);
+        AddOption(options, 2, "Lines", lines);
         return new StackPanel
         {
             Spacing = 12,
