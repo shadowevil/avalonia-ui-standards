@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Modules;
 using AvaloniaUiStandards.Style;
 using Catalog;
@@ -116,6 +117,47 @@ public class CatalogRenderTests
             toolbarWindow.Close();
         }
 
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>
+    /// Every state grid's keyboard focus column ("Keyboard focus" where a grid has one, otherwise "Focused") shows the
+    /// library's focus ring on each sample that can take focus.
+    /// </summary>
+    [AvaloniaFact]
+    public void Pages_FocusedCellsShowTheFocusRing()
+    {
+        var problems = new List<string>();
+        var checkedCells = 0;
+        foreach (var page in CatalogPages.All)
+        {
+            var window = NewHost(ThemeVariant.Light, 1000 + ShadowAndPanelMargins, reduceMotion: true);
+            window.Content = page.Create();
+            window.Show();
+            Settle(window);
+
+            foreach (var grid in ((Control)window.Content!).GetVisualDescendants().OfType<Grid>())
+            {
+                var captions = grid.Children.OfType<TextBlock>().Where(t => Grid.GetRow(t) == 0).ToList();
+                var focus = captions.FirstOrDefault(t => t.Text == "Keyboard focus") ?? captions.FirstOrDefault(t => t.Text == "Focused");
+                if (focus is null)
+                    continue;
+
+                var column = Grid.GetColumn(focus);
+                foreach (var cell in grid.Children.Where(c => Grid.GetColumn(c) == column && Grid.GetRow(c) > 0))
+                {
+                    var descendants = cell.GetVisualDescendants().OfType<Control>().ToList();
+                    if (!descendants.Any(c => c.Focusable))
+                        continue;
+                    checkedCells++;
+                    if (!descendants.Any(c => c.Name == FocusRing.Part && c.IsEffectivelyVisible))
+                        problems.Add($"{page.Title}, row {Grid.GetRow(cell)}: no focus ring in the \"{focus.Text}\" cell");
+                }
+            }
+            window.Close();
+        }
+
+        Assert.True(checkedCells > 0, "no focus cells found");
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 

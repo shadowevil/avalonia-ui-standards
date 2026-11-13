@@ -56,12 +56,15 @@ internal static class StateGrid
         Ui.Place(grid, control, row, column);
     }
 
-    /// <summary>Wraps a control in a non-interactive host and forces it into <paramref name="state"/>.</summary>
+    /// <summary>
+    /// Wraps a control in a non-interactive host and forces it into <paramref name="state"/>. Focus
+    /// is shown as keyboard focus on the control (its <c>:focus-visible</c>, and its
+    /// <c>:focus-visible-within</c> for a ring drawn around a composite control), which draws the
+    /// library's focus ring.
+    /// </summary>
     private static Control Sample(Control control, SampleState state)
     {
         control.IsEnabled = state != SampleState.Disabled;
-        AdornerLayer? layer = null;
-        Control? ring = null;
 
         // Forced once attached: a control resets some of its pseudo-classes when it joins the tree.
         control.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() =>
@@ -73,22 +76,12 @@ internal static class StateGrid
                 pseudo.Set(":pointerover", true);
             if (state == SampleState.Pressed)
                 pseudo.Set(":pressed", true);
-            if (state == SampleState.Focused && ring is null && control.FocusAdorner?.Build() is { } adorner)
+            if (state == SampleState.Focused)
             {
-                layer = AdornerLayer.GetAdornerLayer(control);
-                if (layer is null)
-                    return;
-                AdornerLayer.SetAdornedElement(adorner, control);
-                layer.Children.Add(adorner);
-                ring = adorner;
+                ((IPseudoClasses)control.Classes).Set(":focus-visible", true);
+                ((IPseudoClasses)control.Classes).Set(":focus-visible-within", true);
             }
         });
-        control.DetachedFromVisualTree += (_, _) =>
-        {
-            if (ring is not null)
-                layer?.Children.Remove(ring);
-            ring = null;
-        };
         return new Border { Padding = new Thickness(12), IsHitTestVisible = false, Child = control };
     }
 
