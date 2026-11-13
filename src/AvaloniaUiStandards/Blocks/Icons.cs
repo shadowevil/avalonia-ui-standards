@@ -3,10 +3,10 @@ using Avalonia.Media;
 namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
-/// The Phosphor Regular icons (MIT, see THIRD-PARTY-NOTICES.md) used by the library and its
-/// catalog, one geometry per icon, for <see cref="Icon"/>'s <c>Data</c>. Each is the icon's SVG
+/// The Phosphor Regular icons (MIT, see THIRD-PARTY-NOTICES.md) that the library's Blocks and its
+/// catalog need, one geometry per icon, for <see cref="Icon"/>'s <c>Data</c>. Each is the icon's SVG
 /// path data, verbatim, in its 256 x 256 design box, prefixed with <c>F1</c> for SVG's nonzero
-/// fill rule. Each geometry is parsed on first use and shared.
+/// fill rule. Each geometry is parsed on first use and shared; icons are read on the UI thread.
 /// </summary>
 public static class Icons
 {
