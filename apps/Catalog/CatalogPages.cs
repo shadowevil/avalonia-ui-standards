@@ -21,6 +21,7 @@ internal static class CatalogPages
         new("Motion", Icons.Play, () => new MotionPage()),
         new("Button", Icons.CursorClick, () => new ButtonPage()),
         new("Button family", Icons.CheckSquare, () => new ButtonFamilyPage()),
+        new("ListBox", Icons.List, () => new ListBoxPage()),
         new("Icon", Icons.Bell, () => new IconPage()),
         new("TextInput", Icons.ChatText, () => new TextInputPage()),
         new("ComboBox", Icons.ListBullets, () => new ComboBoxPage()),
