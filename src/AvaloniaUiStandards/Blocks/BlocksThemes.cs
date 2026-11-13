@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Themes.Fluent;
@@ -16,6 +17,15 @@ internal static class BlocksThemes
         resources[typeof(HyperlinkButton)] = HyperlinkButtonTheme.Create();
         resources[typeof(DropDownButton)] = DropDownButtonTheme.Create();
         resources[typeof(SplitButton)] = SplitButtonTheme.Create();
+    }
+
+    /// <summary>
+    /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
+    /// is <c>MotionFast</c>, or zero under reduce motion (no transitions).
+    /// </summary>
+    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, Easing easing)
+    {
+        resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>

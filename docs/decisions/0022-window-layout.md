@@ -8,7 +8,7 @@
     - The library handles drag, resize, minimise, maximise and close.
   - Tiers ([0004](0004-tier-names.md)):
     - Window buttons (traffic lights, caption buttons) are Blocks.
-    - The window frame, title band, sidebar (with its collapse stages), status bar and content panel are Modules.
+    - The window frame (which draws the window background, including the backdrop wash below), title band, sidebar (with its collapse stages), status bar and content panel are Modules.
     - The app shell Screen assembles them.
   - Title band: the title and the toolbar share one band at the top (a unified toolbar).
   - Areas on the window background: the title band, an optional sidebar on the left (a plain list, not a panel) and an optional status bar at the bottom.

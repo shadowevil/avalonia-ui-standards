@@ -213,7 +213,26 @@ public class ButtonThemeTests
 
         theme.ReduceMotion = true;
         window.UpdateLayout();
-        Assert.All(transitions, t => Assert.Equal(TimeSpan.Zero, t.Duration));
+        Assert.Empty(Chrome(button).Transitions!);
+
+        theme.ReduceMotion = false;
+        window.UpdateLayout();
+        Assert.Equal(3, Chrome(button).Transitions!.Count);
+    }
+
+    [AvaloniaFact]
+    public void Transitions_KeepTheirEasing_WhenTheButtonLeavesTheTree()
+    {
+        var host = new ContentControl();
+        var (window, button) = Show(variant: null);
+        window.Content = host;
+        host.Content = button;
+        window.UpdateLayout();
+        var transitions = Chrome(button).Transitions!.Cast<TransitionBase>().ToList();
+
+        host.Content = null;
+        Assert.All(transitions, t => Assert.NotNull(t.Easing));
+        Assert.All(transitions, t => Assert.Equal(TimeSpan.FromMilliseconds(100), t.Duration));
     }
 
     [AvaloniaFact]

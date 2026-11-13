@@ -48,6 +48,7 @@ public class StandardsTheme : Styles
     private static readonly TimeSpan MotionFast = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan MotionNormal = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan MotionSlow = TimeSpan.FromMilliseconds(300);
+    private static readonly Easing MotionEasing = new CubicEaseOut();
 
     private readonly FluentTheme _fluent;
     private readonly ColorPaletteResources _light;
@@ -176,6 +177,9 @@ public class StandardsTheme : Styles
         Resources["MotionFast"] = reduced ? TimeSpan.Zero : MotionFast;
         Resources["MotionNormal"] = reduced ? TimeSpan.Zero : MotionNormal;
         Resources["MotionSlow"] = reduced ? TimeSpan.Zero : MotionSlow;
+
+        // Control transitions are fixed objects (as Fluent declares them), replaced here when motion changes.
+        Blocks.BlocksThemes.ApplyMotion(Resources, reduced ? TimeSpan.Zero : MotionFast, MotionEasing);
     }
 
     private static void AddResources(IResourceDictionary r)
@@ -213,7 +217,7 @@ public class StandardsTheme : Styles
         r["CornerSmoothing"] = SquircleBorder.DefaultSmoothing;
 
         // Motion (durations are set by UpdateMotion)
-        r["MotionEasing"] = new CubicEaseOut();
+        r["MotionEasing"] = MotionEasing;
 
         // Glass
         r["GlassBlurSigma"] = GlassBorder.DefaultBlurSigma;

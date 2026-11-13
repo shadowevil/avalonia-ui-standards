@@ -118,6 +118,7 @@ internal static class SplitButtonTheme
             Setters = { new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ContentControl>(BuildContentTemplate)) },
             Children =
             {
+                ChromeMotion(),
                 State(":pointerover", looks.Hover),
                 State(":pressed", looks.Pressed),
                 State(":disabled", looks.Disabled),

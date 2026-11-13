@@ -33,6 +33,7 @@ internal static class DropDownButtonTheme
         theme.Setters.Add(new Setter(Control.FocusAdornerProperty, FocusRing.Template));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<DropDownButton>(BuildTemplate)));
 
+        theme.Children.Add(ChromeMotion());
         theme.Children.Add(PressedScale());
         theme.Children.Add(Glyph(null, "SystemControlForegroundBaseMediumHighBrush", margin: true));
         theme.Children.Add(State(":pointerover", looks.Hover));

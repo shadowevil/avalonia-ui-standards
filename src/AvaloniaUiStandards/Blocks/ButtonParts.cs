@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -28,6 +29,9 @@ internal static class ButtonParts
     internal static readonly object MinHeightKey = new();
     internal static readonly object PaddingKey = new();
     internal static readonly object GlyphMarginKey = new();
+
+    // The chrome transitions, set by BlocksThemes.ApplyMotion under this non-public key.
+    internal static readonly object ChromeTransitionsKey = new();
 
     /// <summary>Normal density: height 32, SpacingM at the sides and SpacingXS top and bottom (replaces Fluent's 8,5,8,6).</summary>
     public static readonly (double MinHeight, Thickness Padding) Normal = (32, new Thickness(Spacing.M, Spacing.XS));
@@ -71,6 +75,7 @@ internal static class ButtonParts
         theme.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
         theme.Setters.Add(new Setter(Control.FocusAdornerProperty, FocusRing.Template));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ContentControl>(BuildContentTemplate)));
+        theme.Children.Add(ChromeMotion());
         theme.Children.Add(PressedScale());
         theme.Children.Add(State(":pointerover", looks.Hover));
         theme.Children.Add(State(":pressed", looks.Pressed));
@@ -87,6 +92,29 @@ internal static class ButtonParts
         new Setter(Layoutable.HorizontalAlignmentProperty, HorizontalAlignment.Left),
         new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Center),
     ];
+
+    /// <summary>
+    /// The chrome's transitions, from a theme resource, as Fluent declares transitions in its themes:
+    /// fixed transition objects, so their duration and easing never depend on where the chrome is
+    /// in the tree. The resource is replaced when motion changes (empty under reduce motion).
+    /// </summary>
+    public static IStyle ChromeMotion() => new Avalonia.Styling.Style(x => Chrome(x.Nesting()))
+    {
+        Setters = { new Setter(Animatable.TransitionsProperty, new DynamicResourceExtension(ChromeTransitionsKey)) },
+    };
+
+    /// <summary>
+    /// The chrome transitions for the given motion: background and border fades and the pressed
+    /// scale over <paramref name="duration"/>, or none when it is zero (reduce motion).
+    /// </summary>
+    public static Transitions ChromeTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
+        ? []
+        :
+        [
+            new BrushTransition { Property = SquircleBorder.BackgroundProperty, Duration = duration, Easing = easing },
+            new BrushTransition { Property = SquircleBorder.BorderBrushProperty, Duration = duration, Easing = easing },
+            new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = duration, Easing = easing },
+        ];
 
     /// <summary>Fluent's 0.98 pressed scale, applied to the chrome.</summary>
     public static IStyle PressedScale() => new Avalonia.Styling.Style(x => x.Nesting())
@@ -120,7 +148,7 @@ internal static class ButtonParts
         return presenter;
     }
 
-    /// <summary>The PART_Chrome squircle, bound to the templated control's brushes and shape, with MotionFast fades.</summary>
+    /// <summary>The PART_Chrome squircle, bound to the templated control's brushes and shape. Its transitions come from <see cref="ChromeMotion"/>.</summary>
     public static SquircleBorder CreateChrome(Control child)
     {
         var chrome = new SquircleBorder { Name = ChromePart, Child = child };
@@ -128,10 +156,6 @@ internal static class ButtonParts
         chrome.Bind(SquircleBorder.BorderBrushProperty, new TemplateBinding(TemplatedControl.BorderBrushProperty));
         chrome.Bind(SquircleBorder.BorderThicknessProperty, new TemplateBinding(TemplatedControl.BorderThicknessProperty));
         chrome.Bind(SquircleBorder.CornerRadiusProperty, new TemplateBinding(TemplatedControl.CornerRadiusProperty));
-        chrome.Transitions = MotionTransitions.Create(chrome, "MotionFast",
-            new BrushTransition { Property = SquircleBorder.BackgroundProperty },
-            new BrushTransition { Property = SquircleBorder.BorderBrushProperty },
-            new TransformOperationsTransition { Property = Visual.RenderTransformProperty });
         return chrome;
     }
 
