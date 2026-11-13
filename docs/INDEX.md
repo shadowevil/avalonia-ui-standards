@@ -9,7 +9,7 @@
 - [0006 — Build, IDE and OS output is gitignored](decisions/0006-tooling-ignores.md) — which tooling output is ignored
 - [0007 — Restyle the target, not its surroundings](decisions/0007-restyle-scope.md) — what a restyle may change and what happens when it would drift from the set look
 - [0008 — .NET 10 and Avalonia 12](decisions/0008-target-versions.md) — which .NET and Avalonia versions the library targets and how they are pinned
-- [0009 — Screenshots rendered by tests](decisions/0009-screenshots-from-tests.md) — how rendered looks are produced, with which test framework, and why there is no sample app
+- [0009 — Screenshots rendered by tests](decisions/0009-screenshots-from-tests.md) — how rendered looks are produced, with which test framework, and how test renders relate to the catalog app
 - [0010 — One library, src and tests](decisions/0010-solution-layout.md) — project names, folder layout, tiers as folders, central package versions
 - [0011 — Colour](decisions/0011-colour.md) — light and dark variants, the default accent and the neutral grey ramps
 - [0012 — Type](decisions/0012-type.md) — the typeface and the type ramp
@@ -20,6 +20,8 @@
 - [0017 — How apps use the library](decisions/0017-app-usage.md) — the theme and builder entry points and the naming of Style tier keys
 - [0018 — Button](decisions/0018-button.md) — the Button variants, size, chrome and state colours
 - [0019 — Focus ring](decisions/0019-focus-ring.md) — how keyboard focus is shown on every Block
+- [0020 — Catalog app](decisions/0020-catalog-app.md) — the live browsing app, what its pages and toolbar show, and how it relates to test renders
+- [0021 — Button siblings](decisions/0021-button-siblings.md) — how ToggleButton, RepeatButton, SplitButton, DropDownButton and HyperlinkButton differ from Button
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

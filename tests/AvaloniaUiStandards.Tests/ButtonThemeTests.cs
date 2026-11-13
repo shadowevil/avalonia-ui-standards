@@ -14,6 +14,8 @@ using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
 using Xunit;
 
+using static AvaloniaUiStandards.Tests.Colours;
+
 namespace AvaloniaUiStandards.Tests;
 
 public class ButtonThemeTests
@@ -24,9 +26,9 @@ public class ButtonThemeTests
         var (_, button) = Show(variant: null);
 
         var chrome = Assert.IsType<SquircleBorder>(Assert.Single(button.GetVisualChildren()));
-        Assert.Equal(ButtonTheme.ChromePart, chrome.Name);
+        Assert.Equal(ButtonParts.ChromePart, chrome.Name);
         var presenter = Assert.IsType<ContentPresenter>(chrome.Child);
-        Assert.Equal(ButtonTheme.ContentPart, presenter.Name);
+        Assert.Equal(ButtonParts.ContentPart, presenter.Name);
         Assert.Equal(new CornerRadius(8), button.CornerRadius);
         Assert.Equal(0.6, chrome.Smoothing);
     }
@@ -92,11 +94,11 @@ public class ButtonThemeTests
         var (hover, hoverText) = StateColours(variant, themeVariant, ":pointerover");
         var (pressed, pressedText) = StateColours(variant, themeVariant, ":pressed");
 
-        Assert.True(FillColors.ContrastRatio(restText, rest) >= 4.5, $"rest {rest}");
-        Assert.True(FillColors.ContrastRatio(hoverText, hover) >= 4.5, $"hover {hover}");
-        Assert.True(FillColors.ContrastRatio(pressedText, pressed) >= 4.5, $"pressed {pressed}");
-        Assert.True(FillColors.RelativeLuminance(hover) < FillColors.RelativeLuminance(rest));
-        Assert.True(FillColors.RelativeLuminance(pressed) < FillColors.RelativeLuminance(hover));
+        Assert.True(AccessibleColors.ContrastRatio(restText, rest) >= 4.5, $"rest {rest}");
+        Assert.True(AccessibleColors.ContrastRatio(hoverText, hover) >= 4.5, $"hover {hover}");
+        Assert.True(AccessibleColors.ContrastRatio(pressedText, pressed) >= 4.5, $"pressed {pressed}");
+        Assert.True(AccessibleColors.RelativeLuminance(hover) < AccessibleColors.RelativeLuminance(rest));
+        Assert.True(AccessibleColors.RelativeLuminance(pressed) < AccessibleColors.RelativeLuminance(hover));
     }
 
     [AvaloniaFact]
@@ -107,8 +109,8 @@ public class ButtonThemeTests
         Assert.True(theme.TryGetResource("DangerColor", ThemeVariant.Light, out var danger));
         Assert.Equal(Color.Parse("#007CEA"), accent);
         Assert.Equal(Color.Parse("#E1332A"), danger);
-        Assert.Equal(FillColors.ForWhiteText((Color)accent!).Normal, Resource<Color>(theme, "AccentFillColor"));
-        Assert.Equal(FillColors.ForWhiteText((Color)danger!).Normal, Resource<Color>(theme, "DangerFillColor"));
+        Assert.Equal(AccessibleColors.ForWhiteText((Color)accent!).Normal, Resource<Color>(theme, "AccentFillColor"));
+        Assert.Equal(AccessibleColors.ForWhiteText((Color)danger!).Normal, Resource<Color>(theme, "DangerFillColor"));
         Assert.Equal(Colors.White, Resource<Color>(theme, "DangerForeground"));
     }
 
@@ -121,7 +123,7 @@ public class ButtonThemeTests
     {
         var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Accent = Color.Parse(accent) };
         foreach (var key in new[] { "AccentFillColor", "AccentFillColorPointerOver", "AccentFillColorPressed" })
-            Assert.True(FillColors.ContrastRatio(Colors.White, Resource<Color>(theme, key)) >= 4.5, key);
+            Assert.True(AccessibleColors.ContrastRatio(Colors.White, Resource<Color>(theme, key)) >= 4.5, key);
     }
 
     // Standard and Subtle text over their (possibly translucent) fills, on the region and on a card.
@@ -145,7 +147,7 @@ public class ButtonThemeTests
                 var fill = Over(Effective(Chrome(button).GetBaseValue(SquircleBorder.BackgroundProperty).Value as IBrush), surface);
                 // Text has no transition, so its effective value is its end value (at rest it is inherited).
                 var text = Over(Effective(Content(button).Foreground), fill);
-                Assert.True(FillColors.ContrastRatio(text, fill) >= 4.5, $"{state ?? "rest"} on {surfaceKey}: {text} over {fill}");
+                Assert.True(AccessibleColors.ContrastRatio(text, fill) >= 4.5, $"{state ?? "rest"} on {surfaceKey}: {text} over {fill}");
             }
     }
 
@@ -272,18 +274,19 @@ public class ButtonThemeTests
         Assert.Equal(new CornerRadius(8), ring.CornerRadius);
     }
 
-    // Fluent controls whose templates hold buttons keep Fluent's look for them (0007): their plain
-    // Buttons set an explicit theme, and the Button subclasses have theme keys of their own.
+    // Fluent controls whose templates hold button-family controls keep Fluent's look for them
+    // (0007): their plain Buttons set an explicit theme, and the subclasses they use either set
+    // one too or have theme keys of their own.
     public static TheoryData<string> FluentControlsWithButtons => new()
     {
         nameof(CalendarDatePicker), nameof(Calendar), nameof(DatePicker), nameof(TimePicker),
-        nameof(DatePickerPresenter), nameof(TimePickerPresenter), nameof(NumericUpDown),
-        nameof(Expander), nameof(ComboBox), nameof(SplitButton),
+        nameof(DatePickerPresenter), nameof(TimePickerPresenter), nameof(NumericUpDown), nameof(ButtonSpinner),
+        nameof(Expander), nameof(ComboBox), nameof(ScrollBar), nameof(Slider), nameof(TreeView),
     };
 
     [AvaloniaTheory]
     [MemberData(nameof(FluentControlsWithButtons))]
-    public void FluentTemplates_DoNotPickUpTheLibraryButtonTheme(string name)
+    public void FluentTemplates_DoNotPickUpLibraryButtonThemes(string name)
     {
         Control control = name switch
         {
@@ -294,16 +297,19 @@ public class ButtonThemeTests
             nameof(DatePickerPresenter) => new DatePickerPresenter(),
             nameof(TimePickerPresenter) => new TimePickerPresenter(),
             nameof(NumericUpDown) => new NumericUpDown(),
+            nameof(ButtonSpinner) => new ButtonSpinner { Content = "Spin" },
             nameof(Expander) => new Expander { Header = "Header", Content = "Content" },
             nameof(ComboBox) => new ComboBox { ItemsSource = new[] { "Item" } },
-            _ => new SplitButton { Content = "Split" },
+            nameof(ScrollBar) => new ScrollBar { Orientation = Avalonia.Layout.Orientation.Vertical, Height = 200, AllowAutoHide = false, ViewportSize = 10, Maximum = 100 },
+            nameof(Slider) => new Slider { Width = 200 },
+            _ => new TreeView { ItemsSource = new[] { new TreeViewItem { Header = "Parent", IsExpanded = true, ItemsSource = new[] { "Child" } } } },
         };
         var window = new Window { Width = 400, Height = 400, Content = control };
         window.Show();
 
-        var libraryThemed = control.GetVisualDescendants().OfType<Button>()
-            .Where(b => b.GetVisualChildren().FirstOrDefault() is SquircleBorder { Name: ButtonTheme.ChromePart })
-            .Select(b => $"{b.GetType().Name}#{b.Name}");
+        var libraryThemed = control.GetVisualDescendants().OfType<TemplatedControl>()
+            .Where(c => c.GetVisualChildren().FirstOrDefault() is SquircleBorder { Name: ButtonParts.ChromePart })
+            .Select(c => $"{c.GetType().Name}#{c.Name}");
         Assert.Empty(libraryThemed);
     }
 
@@ -324,14 +330,6 @@ public class ButtonThemeTests
         return Assert.IsType<T>(value);
     }
 
-    // A colour with alpha composited over an opaque background.
-    private static Color Over(Color top, Color bottom)
-    {
-        var a = top.A / 255.0;
-        byte Mix(byte t, byte b) => (byte)Math.Round(t * a + b * (1 - a));
-        return Color.FromRgb(Mix(top.R, bottom.R), Mix(top.G, bottom.G), Mix(top.B, bottom.B));
-    }
-
     private static SquircleBorder Chrome(Button button) => (SquircleBorder)button.GetVisualChildren().Single();
 
     private static ContentPresenter Content(Button button) => (ContentPresenter)Chrome(button).Child!;
@@ -341,12 +339,4 @@ public class ButtonThemeTests
         Assert.True(window.TryFindResource(key, variant, out var value), key);
         return value!;
     }
-
-    // A colour or solid brush as one colour, with brush opacity folded into alpha.
-    private static Color Effective(object? value) => value switch
-    {
-        Color c => c,
-        ISolidColorBrush b => Color.FromArgb((byte)Math.Round(b.Color.A * b.Opacity), b.Color.R, b.Color.G, b.Color.B),
-        _ => throw new InvalidOperationException($"Not a colour: {value}"),
-    };
 }

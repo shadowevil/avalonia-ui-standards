@@ -1,0 +1,23 @@
+# 0021 — Button siblings
+
+- **Status:** Agreed, 2026-11-12
+- **Decision:**
+  - ToggleButton, RepeatButton, SplitButton, DropDownButton and HyperlinkButton follow the pattern of [0018](0018-button.md): `SquircleBorder` chrome, density sizes, `MotionFast` fades, the focus ring ([0019](0019-focus-ring.md)) and WCAG AA contrast.
+  - RepeatButton: Button's Standard look.
+  - ToggleButton:
+    - Standard when unchecked.
+    - Checked uses `AccentFill*` with white text, including pressed (a darker accent, not Fluent's grey).
+    - Indeterminate follows Fluent.
+  - DropDownButton: Standard with Fluent's chevron. The glyph margin is on the grid (the side padding: 12 Normal, 8 Compact).
+  - SplitButton:
+    - Fluent's structure: primary half, 1 px separator, chevron half.
+    - Each half keeps only its outer squircle corners, so together they form one outline.
+    - The chevron half is square (width = height).
+    - No pressed scale, as in Fluent.
+    - The accent is ToggleSplitButton's checked state, using `AccentFill*`. Fluent has no accent class for SplitButton.
+  - HyperlinkButton:
+    - No fill in any state; Fluent's faint fills are dropped.
+    - Underlined always, as in Fluent.
+    - Text colours are `AccentTextColor` and `AccentTextColorPressed`, defined with their rule in [0011](0011-colour.md). Hover keeps the rest colour.
+    - Fluent's visited colours are kept (they pass AA).
+- **Why:** One consistent button family on the shared pattern.

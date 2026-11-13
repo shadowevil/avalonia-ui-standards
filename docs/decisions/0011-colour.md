@@ -14,6 +14,13 @@
     | Accent | `#0075DD` 4.58:1 | `#006AC9` 5.38:1 | `#0060B4` 6.30:1 |
     | Danger | `#E02F26` 4.56:1 | `#D4271E` 5.11:1 | `#C2231B` 5.92:1 |
 
+  - Link text uses `AccentTextColor` and `AccentTextColorPressed`. The accent's lightness is stepped (darker in light, lighter in dark) until text reaches 4.5:1 on both the page and the card; pressed is one 0.04 step further. It is recomputed for any app accent. Defaults (contrast on page / card):
+
+    | Theme | `AccentTextColor` | Pressed |
+    |---|---|---|
+    | Light | `#0070D3` (4.52 / 4.93) | `#0065BF` |
+    | Dark | `#1692FF` (5.23 / 4.50) | `#2B9BFF` |
+
   - Neutral greys with no tint, and a dark grey (not black) dark variant. Region and card values are in the table.
   - The full ramps are set through Fluent's `ColorPaletteResources`:
 

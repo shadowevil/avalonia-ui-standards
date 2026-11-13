@@ -84,9 +84,14 @@ internal sealed class Sheet : IDisposable
     /// <summary>Renders the sheet at 2x and saves it under the test output (screenshots/).</summary>
     public void Save(string name)
     {
+        // Sized explicitly to the laid-out content, because SizeToContent is limited to the
+        // headless screen size: shown large first, then shrunk to the content's bounds.
+        _root.HorizontalAlignment = HorizontalAlignment.Left;
+        _root.VerticalAlignment = VerticalAlignment.Top;
         var window = new Window
         {
-            SizeToContent = SizeToContent.WidthAndHeight,
+            Width = 4000,
+            Height = 4000,
             RequestedThemeVariant = ThemeVariant.Light,
             Background = Brushes.White,
             Foreground = Brushes.Black,
@@ -94,6 +99,10 @@ internal sealed class Sheet : IDisposable
         };
         window.SetRenderScaling(Scale);
         window.Show();
+        window.UpdateLayout();
+        window.Width = Math.Ceiling(_root.Bounds.Right + _root.Margin.Right);
+        window.Height = Math.Ceiling(_root.Bounds.Bottom + _root.Margin.Bottom);
+        window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
         using var frame = Frame.Capture(window);
         frame.Save(name);

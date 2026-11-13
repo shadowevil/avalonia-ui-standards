@@ -3,12 +3,14 @@ using Avalonia.Media;
 namespace AvaloniaUiStandards.Style;
 
 /// <summary>
-/// Derives the fills of a filled control (white text on a brand colour) that meet WCAG AA:
-/// rest is the brand colour, darkened by the smallest lightness step that gives white text
-/// at least 4.5:1; hover and pressed are further lightness steps darker. The same rule applies
-/// to any brand colour, so an app's accent override keeps AA contrast.
+/// Derives colours from a brand colour that meet WCAG AA (4.5:1), by the smallest HSL lightness
+/// step that reaches it. The same rule applies to any brand colour, so an app's accent override
+/// keeps AA contrast. Fills for white text: the brand colour darkened until white text reaches
+/// 4.5:1, with hover and pressed further steps darker. Text on given backgrounds: the brand colour
+/// darkened (light backgrounds) or lightened (dark backgrounds) until it reaches 4.5:1 on all of
+/// them, with pressed a further step.
 /// </summary>
-internal static class FillColors
+internal static class AccessibleColors
 {
     /// <summary>The WCAG AA minimum for normal text.</summary>
     public const double MinContrast = 4.5;
@@ -28,6 +30,22 @@ internal static class FillColors
         return (WithLightness(hsl, lightness),
                 WithLightness(hsl, lightness - StateStep),
                 WithLightness(hsl, lightness - 2 * StateStep));
+    }
+
+    /// <summary>
+    /// Text in <paramref name="brand"/>'s hue that reaches 4.5:1 on every one of
+    /// <paramref name="backgrounds"/>, stepping lightness away from them (lighter when
+    /// <paramref name="onDark"/>, darker otherwise); pressed is one more state step that way.
+    /// </summary>
+    public static (Color Normal, Color Pressed) ForText(Color brand, IReadOnlyList<Color> backgrounds, bool onDark)
+    {
+        var hsl = brand.ToHsl();
+        var direction = onDark ? 1 : -1;
+        var lightness = hsl.L;
+        while (backgrounds.Min(b => ContrastRatio(WithLightness(hsl, lightness), b)) < MinContrast && lightness is > 0 and < 1)
+            lightness = Math.Clamp(lightness + direction * SearchStep, 0, 1);
+
+        return (WithLightness(hsl, lightness), WithLightness(hsl, lightness + direction * StateStep));
     }
 
     /// <summary>The WCAG contrast ratio between two opaque colours.</summary>

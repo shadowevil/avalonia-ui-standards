@@ -80,6 +80,7 @@ public class StandardsTheme : Styles
         AddResources(Resources);
         AddDanger(Resources, Danger);
         AddFills(Resources, "AccentFillColor", _accent);
+        AddAccentText(_accent);
         UpdateMotion();
 
         // The Blocks tier control themes (Fluent overrides, 0004).
@@ -118,6 +119,7 @@ public class StandardsTheme : Styles
             {
                 _light.Accent = _dark.Accent = value;
                 AddFills(Resources, "AccentFillColor", value);
+                AddAccentText(value);
             }
         }
     }
@@ -243,12 +245,30 @@ public class StandardsTheme : Styles
     }
 
     /// <summary>
+    /// Sets <c>AccentTextColor</c> and <c>AccentTextColorPressed</c> per theme: accent-hued text
+    /// that meets WCAG AA on that theme's page (<c>RegionColor</c>) and card (<c>ChromeMediumLow</c>)
+    /// colours (see <see cref="AccessibleColors"/>).
+    /// </summary>
+    private void AddAccentText(Color brand)
+    {
+        SetAccentText(ThemeVariant.Light, AccessibleColors.ForText(brand, [_light.RegionColor, _light.ChromeMediumLow], onDark: false));
+        SetAccentText(ThemeVariant.Dark, AccessibleColors.ForText(brand, [_dark.RegionColor, _dark.ChromeMediumLow], onDark: true));
+    }
+
+    private void SetAccentText(ThemeVariant variant, (Color Normal, Color Pressed) text)
+    {
+        var dictionary = (IResourceDictionary)Resources.ThemeDictionaries[variant];
+        dictionary["AccentTextColor"] = text.Normal;
+        dictionary["AccentTextColorPressed"] = text.Pressed;
+    }
+
+    /// <summary>
     /// Sets <c>{key}</c>, <c>{key}PointerOver</c> and <c>{key}Pressed</c>: the WCAG AA fills for
-    /// white text on <paramref name="brand"/> (see <see cref="FillColors"/>).
+    /// white text on <paramref name="brand"/> (see <see cref="AccessibleColors"/>).
     /// </summary>
     private static void AddFills(IResourceDictionary r, string key, Color brand)
     {
-        var (normal, pointerOver, pressed) = FillColors.ForWhiteText(brand);
+        var (normal, pointerOver, pressed) = AccessibleColors.ForWhiteText(brand);
         r[key] = normal;
         r[key + "PointerOver"] = pointerOver;
         r[key + "Pressed"] = pressed;

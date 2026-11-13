@@ -13,5 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AvaloniaUiStandards\AvaloniaUiStandards.csproj" />
+    <ProjectReference Include="..\..\apps\Catalog\Catalog.csproj" />
   </ItemGroup>
 </Project>

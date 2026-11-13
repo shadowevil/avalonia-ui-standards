@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Catalog.ThemeToolbar">
+  <WrapPanel Orientation="Horizontal">
+    <StackPanel Spacing="4" Margin="0,0,16,0">
+      <TextBlock Text="Theme" FontSize="{DynamicResource FontSizeCaption}" />
+      <ComboBox x:Name="ThemeBox" Width="110" SelectedIndex="0">
+        <ComboBoxItem>System</ComboBoxItem>
+        <ComboBoxItem>Light</ComboBoxItem>
+        <ComboBoxItem>Dark</ComboBoxItem>
+      </ComboBox>
+    </StackPanel>
+    <StackPanel Spacing="4" Margin="0,0,16,0">
+      <TextBlock Text="Density" FontSize="{DynamicResource FontSizeCaption}" />
+      <ComboBox x:Name="DensityBox" Width="110" SelectedIndex="0">
+        <ComboBoxItem>Normal</ComboBoxItem>
+        <ComboBoxItem>Compact</ComboBoxItem>
+      </ComboBox>
+    </StackPanel>
+    <StackPanel Spacing="4" Margin="0,0,16,0">
+      <TextBlock Text="Accent" FontSize="{DynamicResource FontSizeCaption}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ComboBox x:Name="AccentBox" Width="130" />
+        <TextBox x:Name="AccentHex" Width="100" MaxLength="9" />
+      </StackPanel>
+    </StackPanel>
+    <StackPanel Spacing="4" Margin="0,0,16,0">
+      <TextBlock Text="Reduce motion" FontSize="{DynamicResource FontSizeCaption}" />
+      <ComboBox x:Name="MotionBox" Width="120" SelectedIndex="0">
+        <ComboBoxItem>Follow OS</ComboBoxItem>
+        <ComboBoxItem>On</ComboBoxItem>
+        <ComboBoxItem>Off</ComboBoxItem>
+      </ComboBox>
+    </StackPanel>
+    <StackPanel Spacing="4">
+      <TextBlock Text="Reduce transparency" FontSize="{DynamicResource FontSizeCaption}" />
+      <ComboBox x:Name="TransparencyBox" Width="120" SelectedIndex="0">
+        <ComboBoxItem>Follow OS</ComboBoxItem>
+        <ComboBoxItem>On</ComboBoxItem>
+        <ComboBoxItem>Off</ComboBoxItem>
+      </ComboBox>
+    </StackPanel>
+  </WrapPanel>
+</UserControl>

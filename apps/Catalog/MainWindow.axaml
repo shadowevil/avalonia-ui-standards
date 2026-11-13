@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:Catalog"
+        x:Class="Catalog.MainWindow"
+        Title="Avalonia UI Standards catalog"
+        Width="1200" Height="800" MinWidth="720" MinHeight="480">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Padding="16,12" BorderThickness="0,0,0,1"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+      <c:ThemeToolbar />
+    </Border>
+    <ListBox x:Name="Sidebar" DockPanel.Dock="Left" Width="180" Padding="8" />
+    <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" />
+  </DockPanel>
+</Window>
