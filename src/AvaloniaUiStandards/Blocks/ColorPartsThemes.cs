@@ -11,7 +11,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
-using Avalonia.Media.Transformation;
+
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using AvaloniaUiStandards.Style;
@@ -29,10 +29,10 @@ namespace AvaloniaUiStandards.Blocks;
 internal static class ColorPartsThemes
 {
     public const string RingPart = "PART_Ring";
+    public const string ThumbVisualPart = "PART_ColorThumb";
     public const string ThumbPart = "ColorSliderThumb";
     public const string SelectionPanelPart = "PART_SelectionEllipsePanel";
     public const string SpectrumBoxPart = "PART_SpectrumBox";
-    public const string TrackPart = "PART_Track";
 
     /// <summary>The spectrum's side; the ColorView's pages share its height.</summary>
     public const double SpectrumSize = 256;
@@ -47,10 +47,6 @@ internal static class ColorPartsThemes
     internal static readonly object ViewWidthKey = new();
     internal static readonly object ChipMarginKey = new();
     internal static readonly object HashMarginKey = new();
-
-    private static readonly ITransform Rest = TransformOperations.Identity;
-    private static readonly ITransform Hover = TransformOperations.Parse("scale(1.1)");
-    private static readonly ITransform Pressed = TransformOperations.Parse("scale(1.2)");
 
     private static readonly ToBrushConverter ToBrush = new();
     private static readonly AccentColorConverter Accent = new();
@@ -87,19 +83,28 @@ internal static class ColorPartsThemes
     }
 
     /// <summary>
-    /// The colour thumb's look: a white ring (<see cref="RingPart"/>) between two hairline edges,
-    /// with the Slider thumb's shadow, filling its parent. The centre is open, so the colour under
-    /// it shows.
+    /// The colour thumb's look (<see cref="ThumbVisualPart"/>): a white ring (<see cref="RingPart"/>)
+    /// between two hairline edges, with the Slider thumb's shadow, filling its parent. The centre is
+    /// open, so the colour under it shows.
     /// </summary>
     public static Panel Ring(INameScope scope)
     {
         var edge = new SolidColorBrush(SliderTheme.ThumbEdge);
         var outer = new Border { CornerRadius = Pill, BorderBrush = edge, BorderThickness = new Thickness(1), BoxShadow = SliderTheme.ThumbShadow };
-        var ring = new Border { Name = RingPart, CornerRadius = Pill, BorderThickness = new Thickness(RingWidth), Margin = new Thickness(1) };
+        var ring = new Border { Name = RingPart, CornerRadius = Pill, BorderBrush = Brushes.White, BorderThickness = new Thickness(RingWidth), Margin = new Thickness(1) };
         var inner = new Border { CornerRadius = Pill, BorderBrush = edge, BorderThickness = new Thickness(1), Margin = new Thickness(1 + RingWidth) };
+        var visual = new Panel { Name = ThumbVisualPart, IsHitTestVisible = false, Children = { outer, ring, inner } };
         ring.RegisterInNameScope(scope);
-        return new Panel { IsHitTestVisible = false, Children = { outer, ring, inner } };
+        visual.RegisterInNameScope(scope);
+        return visual;
     }
+
+    /// <summary>A disabled colour thumb: the same white ring at this opacity, so it stays visible over any gradient.</summary>
+    public const double DisabledThumbOpacity = 0.4;
+
+    /// <summary>The colour thumb's opacity when <paramref name="disabled"/> (a state of the templated control) applies.</summary>
+    private static Avalonia.Styling.Style DisabledThumb(Func<Selector?, Selector> disabled) =>
+        On(x => disabled(x).Template().OfType<Panel>().Name(ThumbVisualPart), new Setter(Visual.OpacityProperty, DisabledThumbOpacity));
 
     /// <summary>A circular focus ring around a thumb, hidden until a style shows it.</summary>
     private static SquircleBorder ThumbFocusRing(INameScope scope)
@@ -152,9 +157,7 @@ internal static class ColorPartsThemes
         },
         Children =
         {
-            On(x => x.Nesting().Template().OfType<Border>().Name(RingPart), new Setter(Border.BorderBrushProperty, Brushes.White)),
-            On(x => x.Nesting().Class(":disabled").Template().OfType<Border>().Name(RingPart),
-                new Setter(Border.BorderBrushProperty, Resource("SystemControlBackgroundBaseLowBrush"))),
+            DisabledThumb(x => x.Nesting().Class(":disabled")),
         },
     };
 
@@ -176,9 +179,9 @@ internal static class ColorPartsThemes
                 new Setter(orientation == Orientation.Horizontal ? Layoutable.HeightProperty : Layoutable.WidthProperty,
                     new DynamicResourceExtension(RangeParts.ThumbKey))));
 
-        theme.Children.Add(On(x => x.Nesting().Template().OfType<Thumb>(), new Setter(Visual.RenderTransformProperty, Rest)));
-        theme.Children.Add(On(x => x.Nesting().Class(":pointerover").Template().OfType<Thumb>(), new Setter(Visual.RenderTransformProperty, Hover)));
-        theme.Children.Add(On(x => x.Nesting().Class(":pressed").Template().OfType<Thumb>(), new Setter(Visual.RenderTransformProperty, Pressed)));
+        theme.Children.Add(On(x => x.Nesting().Template().OfType<Thumb>(), new Setter(Visual.RenderTransformProperty, SliderTheme.Rest)));
+        theme.Children.Add(On(x => x.Nesting().Class(":pointerover").Template().OfType<Thumb>(), new Setter(Visual.RenderTransformProperty, SliderTheme.Hover)));
+        theme.Children.Add(On(x => x.Nesting().Class(":pressed").Template().OfType<Thumb>(), new Setter(Visual.RenderTransformProperty, SliderTheme.Pressed)));
         theme.Children.Add(On(x => x.Nesting().Class(":focus-visible").Template().OfType<Thumb>(), new Setter(SliderTheme.ShowsFocusRingProperty, true)));
         theme.Children.Add(On(x => x.Nesting().Class(":focus-visible"), new Setter(Visual.ZIndexProperty, 1)));
         return theme;
@@ -197,7 +200,7 @@ internal static class ColorPartsThemes
         thumb.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(RangeParts.ThumbKey));
         var decrease = new RepeatButton { Name = SliderTheme.DecreasePart, Theme = TrackPartTheme, Focusable = false };
         var increase = new RepeatButton { Name = SliderTheme.IncreasePart, Theme = TrackPartTheme, Focusable = false };
-        var track = new Track { Name = TrackPart, Orientation = orientation, Thumb = thumb, DecreaseButton = decrease, IncreaseButton = increase };
+        var track = new Track { Name = SliderTheme.TrackPart, Orientation = orientation, Thumb = thumb, DecreaseButton = decrease, IncreaseButton = increase };
         track.Bind(Track.MinimumProperty, new TemplateBinding(RangeBase.MinimumProperty));
         track.Bind(Track.MaximumProperty, new TemplateBinding(RangeBase.MaximumProperty));
         track.Bind(Track.ValueProperty, new TemplateBinding(RangeBase.ValueProperty) { Mode = BindingMode.TwoWay });
@@ -231,9 +234,9 @@ internal static class ColorPartsThemes
         theme.Children.Add(On(x => Selection(x.Nesting()),
             new Setter(Layoutable.WidthProperty, new DynamicResourceExtension(RangeParts.ThumbKey)),
             new Setter(Layoutable.HeightProperty, new DynamicResourceExtension(RangeParts.ThumbKey)),
-            new Setter(Visual.RenderTransformProperty, Rest)));
-        theme.Children.Add(On(x => Selection(x.Nesting().Class(":pointerover")), new Setter(Visual.RenderTransformProperty, Hover)));
-        theme.Children.Add(On(x => Selection(x.Nesting().Class(":pressed")), new Setter(Visual.RenderTransformProperty, Pressed)));
+            new Setter(Visual.RenderTransformProperty, SliderTheme.Rest)));
+        theme.Children.Add(On(x => Selection(x.Nesting().Class(":pointerover")), new Setter(Visual.RenderTransformProperty, SliderTheme.Hover)));
+        theme.Children.Add(On(x => Selection(x.Nesting().Class(":pressed")), new Setter(Visual.RenderTransformProperty, SliderTheme.Pressed)));
         // Fluent's large selector under a touch press (so a finger does not hide it).
         theme.Children.Add(On(x => Selection(x.Nesting().Class(":large-selector")),
             new Setter(Layoutable.WidthProperty, 48d), new Setter(Layoutable.HeightProperty, 48d)));
@@ -241,9 +244,7 @@ internal static class ColorPartsThemes
         theme.Children.Add(On(x => x.Nesting().Class(":focus-visible").Template().OfType<SquircleBorder>().Name(FocusRing.Part),
             new Setter(Visual.IsVisibleProperty, true)));
         theme.Children.Add(On(x => x.Nesting().Class(":focus-visible"), new Setter(Visual.ZIndexProperty, 1)));
-        theme.Children.Add(On(x => x.Nesting().Template().OfType<Border>().Name(RingPart), new Setter(Border.BorderBrushProperty, Brushes.White)));
-        theme.Children.Add(On(x => x.Nesting().Class(":disabled").Template().OfType<Border>().Name(RingPart),
-            new Setter(Border.BorderBrushProperty, Resource("SystemControlBackgroundBaseLowBrush"))));
+        theme.Children.Add(DisabledThumb(x => x.Nesting().Class(":disabled")));
         return theme;
     }
 

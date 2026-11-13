@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -42,7 +43,9 @@ public class ColorPickerThemeTests
             Assert.IsAssignableFrom<IBrush>(checker);
             // The package's styles are a child of the theme, after Fluent; the library's themes win over them.
             var theme = window.Styles.OfType<StandardsTheme>().Single();
-            var include = theme.OfType<Avalonia.Markup.Xaml.Styling.StyleInclude>().Single();
+            // Selected by its source: other packages' styles are included the same way.
+            var include = theme.OfType<Avalonia.Markup.Xaml.Styling.StyleInclude>()
+                .Single(i => i.Source?.ToString().Contains("Avalonia.Controls.ColorPicker") == true);
             Assert.Equal("avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml", include.Source!.ToString());
             Assert.True(theme.IndexOf(include) > theme.IndexOf(theme.OfType<FluentTheme>().Single()));
             foreach (var type in new[] { typeof(ColorPicker), typeof(ColorView), typeof(ColorSpectrum), typeof(ColorSlider), typeof(ColorPreviewer) })
@@ -402,11 +405,16 @@ public class ColorPickerThemeTests
             var spectrum = Part<ColorSpectrum>(view, "ColorSpectrum");
             Assert.Equal(Colors.White, Effective(Part<Border>(spectrum, ColorPartsThemes.RingPart).BorderBrush));
 
+            // Disabled: the same white ring, faded, so it stays visible over any gradient.
+            foreach (var owner in new Control[] { thumb, spectrum })
+                Assert.Equal(1, Part<Panel>(owner, ColorPartsThemes.ThumbVisualPart).Opacity);
             view.IsEnabled = false;
             Settle(window);
-            var disabled = Effective(Resolve(window, "SystemControlBackgroundBaseLowBrush", ThemeVariant.Light));
-            Assert.Equal(disabled, Effective(ring.BorderBrush));
-            Assert.Equal(disabled, Effective(Part<Border>(spectrum, ColorPartsThemes.RingPart).BorderBrush));
+            foreach (var owner in new Control[] { thumb, spectrum })
+            {
+                Assert.Equal(Colors.White, Effective(Part<Border>(owner, ColorPartsThemes.RingPart).BorderBrush));
+                Assert.Equal(ColorPartsThemes.DisabledThumbOpacity, Part<Panel>(owner, ColorPartsThemes.ThumbVisualPart).Opacity);
+            }
         }
         finally
         {
@@ -426,6 +434,126 @@ public class ColorPickerThemeTests
             var selection = Part<Panel>(Part<ColorSpectrum>(view, "ColorSpectrum"), ColorPartsThemes.SelectionPanelPart);
             foreach (var animated in new Animatable[] { thumb, selection })
                 Assert.Equal(reduceMotion, animated.Transitions is null || animated.Transitions.Count == 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // --- Keyboard ----------------------------------------------------------------------------
+
+    private static void Press(Window window, PhysicalKey key)
+    {
+        window.KeyPressQwerty(key, RawInputModifiers.None);
+        Settle(window);
+    }
+
+    [AvaloniaFact]
+    public void Palette_ArrowKeys_MoveOnTheGrid_AndSelect()
+    {
+        var palette = new FluentColorPalette();
+        var (window, view) = Show(new ColorView { Color = palette.GetColor(0, 0), SelectedIndex = (int)ColorViewTab.Palette });
+        try
+        {
+            var list = view.GetVisualDescendants().OfType<ListBox>().Single();
+            var columns = palette.ColorCount;
+            Assert.Equal(0, list.SelectedIndex);
+            ((InputElement)list.ContainerFromIndex(0)!).Focus(NavigationMethod.Tab);
+            Settle(window);
+
+            void Check(PhysicalKey key, int expected)
+            {
+                Press(window, key);
+                Assert.Equal(expected, list.SelectedIndex);
+                Assert.True(list.ContainerFromIndex(expected)!.IsFocused, $"{key}: focus not on {expected}");
+                Assert.Equal(view.PaletteColors!.ElementAt(expected), view.Color);
+            }
+            Check(PhysicalKey.ArrowLeft, 0);            // stops at the row's start
+            Check(PhysicalKey.ArrowUp, 0);              // stops at the top
+            Check(PhysicalKey.ArrowRight, 1);
+            Check(PhysicalKey.ArrowDown, 1 + columns);
+            Check(PhysicalKey.ArrowLeft, columns);
+            Check(PhysicalKey.ArrowLeft, columns);      // does not wrap to the row above
+            Check(PhysicalKey.End, list.ItemCount - 1);
+            Check(PhysicalKey.ArrowRight, list.ItemCount - 1);
+            Check(PhysicalKey.ArrowDown, list.ItemCount - 1);
+            Check(PhysicalKey.Home, 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Spectrum_AndSliders_TakeTheArrowKeys()
+    {
+        var (window, view) = Show(new ColorView { Color = Color.FromRgb(0x80, 0x40, 0x40) });
+        try
+        {
+            var spectrum = Part<ColorSpectrum>(view, "ColorSpectrum");
+            spectrum.Focus(NavigationMethod.Tab);
+            var before = view.HsvColor;
+            Press(window, PhysicalKey.ArrowRight);
+            Assert.NotEqual(before.H, view.HsvColor.H);
+
+            var third = Part<ColorSlider>(view, "ColorSpectrumThirdComponentSlider");
+            third.Focus(NavigationMethod.Tab);
+            var value = third.Value;
+            Press(window, PhysicalKey.ArrowUp);
+            Assert.True(third.Value > value, $"{third.Value} after {value}");
+
+            view.SelectedIndex = (int)ColorViewTab.Components;
+            Settle(window);
+            var red = Part<ColorSlider>(view, "Component1Slider");
+            red.Focus(NavigationMethod.Tab);
+            var r = view.Color.R;
+            Press(window, PhysicalKey.ArrowRight);
+            Assert.Equal(r + 1, view.Color.R);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // --- Strings -----------------------------------------------------------------------------
+
+    [AvaloniaFact]
+    public void Names_FollowTheColourModel_AndAppsCanOverrideThem()
+    {
+        var (window, view) = Show(new ColorView { Color = Blue, SelectedIndex = (int)ColorViewTab.Components });
+        try
+        {
+            string? Name(Control c) => AutomationProperties.GetName(c);
+            var number = Part<NumericUpDown>(view, "Component1NumericUpDown");
+            var slider = Part<ColorSlider>(view, "Component2Slider");
+            var alpha = Part<NumericUpDown>(view, "AlphaComponentNumericUpDown");
+            var letters = view.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("colorLabel") && t.Text != "#").Select(t => t.Text).ToList();
+            Assert.Equal("Red", Name(number));
+            Assert.Equal("Green", Name(slider));
+            Assert.Equal("Alpha", Name(alpha));
+            Assert.Equal(["R", "G", "B", "A"], letters);
+            var tabs = view.GetVisualDescendants().OfType<TabItem>().ToList();
+            Assert.Equal(["Spectrum", "Palette", "Components"], tabs.Select(t => Name(t)));
+            Assert.Equal("Components", ToolTip.GetTip(tabs[2]));
+            Assert.Equal("Hexadecimal colour", Name(Part<TextBox>(view, ColorPickerThemes.HexTextBoxPart)));
+
+            view.ColorModel = ColorModel.Hsva;
+            Settle(window);
+            Assert.Equal("Hue", Name(number));
+            Assert.Equal("Saturation", Name(slider));
+            Assert.Equal("H", view.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("colorLabel") && t.Text != "#").Text);
+
+            // An app's own resources win over the theme's English defaults.
+            window.Resources[ColorPickerThemes.HueTextKey] = "Farbton";
+            window.Resources[ColorPickerThemes.ComponentsTextKey] = "Komponenten";
+            window.Resources[ColorPickerThemes.RgbTextKey] = "Rot-Grün-Blau";
+            Settle(window);
+            Assert.Equal("Farbton", Name(number));
+            Assert.Equal("Komponenten", Name(tabs[2]));
+            Assert.Equal("Rot-Grün-Blau", Part<SegmentedControl>(view, ColorPickerThemes.ColorModelPart).ContainerFromIndex(0) is ContentControl c ? c.Content : null);
         }
         finally
         {

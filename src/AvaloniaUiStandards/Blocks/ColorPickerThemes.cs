@@ -13,6 +13,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Style;
 using static AvaloniaUiStandards.Blocks.ButtonParts;
 
@@ -47,8 +48,84 @@ internal static class ColorPickerThemes
     private static readonly IValueConverter ModelIndex = new FuncValueConverter<ColorModel, int>(
         m => m == ColorModel.Hsva ? 1 : 0, i => i == 1 ? ColorModel.Hsva : ColorModel.Rgba);
 
-    private static IValueConverter Letter(string rgb, string hsv) =>
-        new FuncValueConverter<ColorModel, string>(m => m == ColorModel.Hsva ? hsv : rgb);
+    // --- Strings -----------------------------------------------------------------------------
+
+    // The view's shown and spoken strings, as theme resources with English defaults. Parts look
+    // them up dynamically, so an app overrides one by putting the key in its own resources.
+    public const string SpectrumTextKey = "ColorViewSpectrumText";
+    public const string PaletteTextKey = "ColorViewPaletteText";
+    public const string ComponentsTextKey = "ColorViewComponentsText";
+    public const string RgbTextKey = "ColorViewRgbText";
+    public const string HsvTextKey = "ColorViewHsvText";
+    public const string HexTextKey = "ColorViewHexText";
+    public const string RedTextKey = "ColorViewRedText";
+    public const string GreenTextKey = "ColorViewGreenText";
+    public const string BlueTextKey = "ColorViewBlueText";
+    public const string HueTextKey = "ColorViewHueText";
+    public const string SaturationTextKey = "ColorViewSaturationText";
+    public const string ValueTextKey = "ColorViewValueText";
+    public const string AlphaTextKey = "ColorViewAlphaText";
+    public const string RedLetterKey = "ColorViewRedLetter";
+    public const string GreenLetterKey = "ColorViewGreenLetter";
+    public const string BlueLetterKey = "ColorViewBlueLetter";
+    public const string HueLetterKey = "ColorViewHueLetter";
+    public const string SaturationLetterKey = "ColorViewSaturationLetter";
+    public const string ValueLetterKey = "ColorViewValueLetter";
+    public const string AlphaLetterKey = "ColorViewAlphaLetter";
+
+    internal static readonly (string Key, string Text)[] Strings =
+    [
+        (SpectrumTextKey, "Spectrum"), (PaletteTextKey, "Palette"), (ComponentsTextKey, "Components"),
+        (RgbTextKey, "RGB"), (HsvTextKey, "HSV"), (HexTextKey, "Hexadecimal colour"),
+        (RedTextKey, "Red"), (GreenTextKey, "Green"), (BlueTextKey, "Blue"),
+        (HueTextKey, "Hue"), (SaturationTextKey, "Saturation"), (ValueTextKey, "Value"), (AlphaTextKey, "Alpha"),
+        (RedLetterKey, "R"), (GreenLetterKey, "G"), (BlueLetterKey, "B"),
+        (HueLetterKey, "H"), (SaturationLetterKey, "S"), (ValueLetterKey, "V"), (AlphaLetterKey, "A"),
+    ];
+
+    public static void AddResources(IResourceDictionary resources)
+    {
+        foreach (var (key, text) in Strings)
+            resources[key] = text;
+    }
+
+    /// <summary>What picks a part's string: the colour model or the spectrum's third component, bound per part.</summary>
+    private static readonly AttachedProperty<object?> TextSelectorProperty =
+        AvaloniaProperty.RegisterAttached<Control, object?>("TextSelector", typeof(ColorPickerThemes));
+
+    /// <summary>
+    /// Sets <paramref name="property"/> on <paramref name="target"/> to the string resource that
+    /// <paramref name="key"/> picks for the current value of <paramref name="selector"/>, following
+    /// both the selector and the resources.
+    /// </summary>
+    private static void BindText(Control target, AvaloniaProperty property, BindingBase selector, Func<object?, string> key, params string[] keys)
+    {
+        var values = new Dictionary<string, object?>();
+        void Update() => target.SetValue(property, values.GetValueOrDefault(key(target.GetValue(TextSelectorProperty))));
+        foreach (var candidate in keys)
+            target.GetResourceObservable(candidate).Subscribe(new Avalonia.Reactive.AnonymousObserver<object?>(v =>
+            {
+                values[candidate] = v;
+                Update();
+            }));
+        target.GetObservable(TextSelectorProperty).Subscribe(new Avalonia.Reactive.AnonymousObserver<object?>(_ => Update()));
+        target.Bind(TextSelectorProperty, selector);
+    }
+
+    /// <summary>The string for a colour component in a model: the full name or the letter.</summary>
+    private static string ComponentKey(ColorComponent component, ColorModel model, bool letter) => (component, model) switch
+    {
+        (ColorComponent.Alpha, _) => letter ? AlphaLetterKey : AlphaTextKey,
+        (ColorComponent.Component1, ColorModel.Hsva) => letter ? HueLetterKey : HueTextKey,
+        (ColorComponent.Component2, ColorModel.Hsva) => letter ? SaturationLetterKey : SaturationTextKey,
+        (ColorComponent.Component3, ColorModel.Hsva) => letter ? ValueLetterKey : ValueTextKey,
+        (ColorComponent.Component1, _) => letter ? RedLetterKey : RedTextKey,
+        (ColorComponent.Component2, _) => letter ? GreenLetterKey : GreenTextKey,
+        _ => letter ? BlueLetterKey : BlueTextKey,
+    };
+
+    private static readonly string[] ComponentTextKeys = [RedTextKey, GreenTextKey, BlueTextKey, HueTextKey, SaturationTextKey, ValueTextKey, AlphaTextKey];
+    private static readonly string[] ComponentLetterKeys = [RedLetterKey, GreenLetterKey, BlueLetterKey, HueLetterKey, SaturationLetterKey, ValueLetterKey, AlphaLetterKey];
 
     // --- ColorView ---------------------------------------------------------------------------
 
@@ -56,7 +133,7 @@ internal static class ColorPickerThemes
     {
         var theme = new ControlTheme(typeof(ColorView));
         AddViewSetters(theme);
-        theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ColorView>(BuildView)));
+        theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ColorView>(Body)));
         return theme;
     }
 
@@ -70,8 +147,6 @@ internal static class ColorPickerThemes
         theme.Setters.Add(new Setter(Avalonia.Controls.ColorView.PaletteProperty, new FluentColorPalette()));
     }
 
-    private static Control BuildView(ColorView view, INameScope scope) => Body(view, scope);
-
     /// <summary>The view: the tabs, then the previewer, all bound to <paramref name="view"/>.</summary>
     private static Control Body(ColorView view, INameScope scope)
     {
@@ -81,9 +156,9 @@ internal static class ColorPickerThemes
 
         var tabs = new TabControl { Name = TabControlPart, Padding = new Thickness(0) };
         tabs.Bind(Layoutable.WidthProperty, new DynamicResourceExtension(ColorPartsThemes.ViewWidthKey));
-        tabs.Items.Add(Tab("Spectrum", Icons.Drop, SpectrumPage(view, scope, Of, Both), Of(nameof(Avalonia.Controls.ColorView.IsColorSpectrumVisible))));
-        tabs.Items.Add(Tab("Palette", Icons.SquaresFour, PalettePage(Of), Of(nameof(Avalonia.Controls.ColorView.IsColorPaletteVisible))));
-        tabs.Items.Add(Tab("Components", Icons.SlidersHorizontal, ComponentsPage(scope, Of, Both), Of(nameof(Avalonia.Controls.ColorView.IsColorComponentsVisible))));
+        tabs.Items.Add(Tab(SpectrumTextKey, Icons.Drop, SpectrumPage(scope, Of), Of(nameof(Avalonia.Controls.ColorView.IsColorSpectrumVisible))));
+        tabs.Items.Add(Tab(PaletteTextKey, Icons.SquaresFour, PalettePage(Of), Of(nameof(Avalonia.Controls.ColorView.IsColorPaletteVisible))));
+        tabs.Items.Add(Tab(ComponentsTextKey, Icons.SlidersHorizontal, ComponentsPage(scope, Of, Both), Of(nameof(Avalonia.Controls.ColorView.IsColorComponentsVisible))));
         // Bound once the tabs are in, so the view's index is not lost to an empty control.
         tabs.Bind(SelectingItemsControl.SelectedIndexProperty, Of(nameof(Avalonia.Controls.ColorView.SelectedIndex), BindingMode.TwoWay));
 
@@ -109,12 +184,12 @@ internal static class ColorPickerThemes
         Setters = { new Setter(TextBlock.ForegroundProperty, Resource(key)) },
     };
 
-    /// <summary>An icon tab, named by its tooltip and for automation.</summary>
-    private static TabItem Tab(string name, Geometry icon, Control page, Binding visible)
+    /// <summary>An icon tab, named (by the string resource <paramref name="nameKey"/>) by its tooltip and for automation.</summary>
+    private static TabItem Tab(string nameKey, Geometry icon, Control page, Binding visible)
     {
         var tab = new TabItem { Header = new Icon { Data = icon }, Content = page };
-        ToolTip.SetTip(tab, name);
-        AutomationProperties.SetName(tab, name);
+        tab.Bind(ToolTip.TipProperty, new DynamicResourceExtension(nameKey));
+        tab.Bind(AutomationProperties.NameProperty, new DynamicResourceExtension(nameKey));
         tab.Bind(Visual.IsVisibleProperty, visible);
         // Every page has the spectrum's height, so the view keeps its size between tabs.
         page.Height = ColorPartsThemes.SpectrumSize;
@@ -122,8 +197,7 @@ internal static class ColorPickerThemes
         return tab;
     }
 
-    private static Control SpectrumPage(ColorView view, INameScope scope,
-        Func<string, BindingMode, IValueConverter?, object?, Binding> of, Func<string, string, MultiBinding> both)
+    private static Control SpectrumPage(INameScope scope, Func<string, BindingMode, IValueConverter?, object?, Binding> of)
     {
         Binding Of(string path, BindingMode mode = BindingMode.OneWay) => of(path, mode, null, null);
 
@@ -141,6 +215,7 @@ internal static class ColorPickerThemes
                      (ColorSpectrum.MaxValueProperty, nameof(Avalonia.Controls.ColorView.MaxValue)),
                  })
             spectrum.Bind(target, Of(source));
+        spectrum.Bind(AutomationProperties.NameProperty, new DynamicResourceExtension(SpectrumTextKey));
         Grid.SetColumn(spectrum, 1);
 
         var third = new ColorSlider
@@ -154,8 +229,10 @@ internal static class ColorPickerThemes
             VerticalAlignment = VerticalAlignment.Stretch,
             Margin = new Thickness(0, 0, Spacing.M, 0),
         };
-        AutomationProperties.SetName(third, "Third Component");
         third.Bind(ColorSlider.ColorComponentProperty, new Binding(nameof(ColorSpectrum.ThirdComponent)) { Source = spectrum });
+        // Named by the component it sets, which the spectrum's components decide (HSV).
+        BindText(third, AutomationProperties.NameProperty, new Binding(nameof(ColorSpectrum.ThirdComponent)) { Source = spectrum },
+            c => ComponentKey(c is ColorComponent component ? component : ColorComponent.Component3, ColorModel.Hsva, letter: false), ComponentTextKeys);
         third.Bind(ColorSlider.HsvColorProperty, new Binding(nameof(ColorSpectrum.HsvColor)) { Source = spectrum, Mode = BindingMode.TwoWay });
         third.Bind(Visual.IsVisibleProperty, Of(nameof(Avalonia.Controls.ColorView.IsColorSpectrumSliderVisible)));
 
@@ -169,7 +246,7 @@ internal static class ColorPickerThemes
             VerticalAlignment = VerticalAlignment.Stretch,
             Margin = new Thickness(Spacing.M, 0, 0, 0),
         };
-        AutomationProperties.SetName(alpha, "Alpha Component");
+        alpha.Bind(AutomationProperties.NameProperty, new DynamicResourceExtension(AlphaTextKey));
         alpha.Bind(ColorSlider.HsvColorProperty, new Binding(nameof(ColorSpectrum.HsvColor)) { Source = spectrum, Mode = BindingMode.TwoWay });
         alpha.Bind(InputElement.IsEnabledProperty, Of(nameof(Avalonia.Controls.ColorView.IsAlphaEnabled)));
         alpha.Bind(Visual.IsVisibleProperty, Of(nameof(Avalonia.Controls.ColorView.IsAlphaVisible)));
@@ -195,9 +272,57 @@ internal static class ColorPickerThemes
             Padding = new Thickness(Spacing.XS),
         };
         ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
+        list.Bind(AutomationProperties.NameProperty, new DynamicResourceExtension(PaletteTextKey));
         list.Bind(ItemsControl.ItemsSourceProperty, of(nameof(Avalonia.Controls.ColorView.PaletteColors), BindingMode.OneWay, null, null));
         list.Bind(SelectingItemsControl.SelectedItemProperty, of(nameof(Avalonia.Controls.ColorView.Color), BindingMode.TwoWay, DoNothingForNull, null));
+        // Before the list's own handling, which has no arrow navigation in a uniform grid.
+        list.AddHandler(InputElement.KeyDownEvent, OnPaletteKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         return list;
+    }
+
+    /// <summary>
+    /// The palette's keys, as on a grid: Left and Right move along a row (swapped right to left),
+    /// Up and Down along a column, Home and End to the first and last colour. Movement stops at
+    /// the grid's edges. The colour under the keyboard is selected, as on the segmented control.
+    /// </summary>
+    private static void OnPaletteKeyDown(object? sender, KeyEventArgs e)
+    {
+        var list = (ListBox)sender!;
+        if (e.KeyModifiers != KeyModifiers.None || e.Key is not (Key.Home or Key.End or Key.Left or Key.Right or Key.Up or Key.Down))
+            return;
+        // Navigation keys are always handled, so they never scroll a page around the palette.
+        e.Handled = true;
+        var count = list.ItemCount;
+        if (count == 0)
+            return;
+        var columns = Math.Max(1, (list.ItemsPanelRoot as UniformGrid)?.Columns ?? 1);
+        var container = (e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(includeSelf: true);
+        var focused = container is null ? -1 : list.IndexFromContainer(container);
+        var from = focused >= 0 ? focused : list.SelectedIndex;
+        var rtl = list.FlowDirection == FlowDirection.RightToLeft;
+        int? target = from < 0
+            ? 0
+            : e.Key switch
+            {
+                Key.Home => 0,
+                Key.End => count - 1,
+                Key.Left => Step(rtl ? +1 : -1),
+                Key.Right => Step(rtl ? -1 : +1),
+                Key.Up => from - columns >= 0 ? from - columns : null,
+                _ => from + columns < count ? from + columns : null,
+            };
+        if (target is not { } index || index == from)
+            return;
+        list.SelectedIndex = index;
+        list.ScrollIntoView(index);
+        (list.ContainerFromIndex(index) as InputElement)?.Focus(NavigationMethod.Directional);
+
+        // Along the row, stopping at its ends.
+        int? Step(int step)
+        {
+            var next = from + step;
+            return next >= 0 && next < count && next / columns == from / columns ? next : null;
+        }
     }
 
     private static Control ComponentsPage(INameScope scope,
@@ -206,11 +331,17 @@ internal static class ColorPickerThemes
         Binding Of(string path, BindingMode mode = BindingMode.OneWay, IValueConverter? converter = null) => of(path, mode, converter, null);
 
         // The colour model is a setting with two values, so it is a segmented control.
+        SegmentedControlItem Segment(string key)
+        {
+            var segment = new SegmentedControlItem();
+            segment.Bind(ContentControl.ContentProperty, new DynamicResourceExtension(key));
+            return segment;
+        }
         var model = new SegmentedControl
         {
             Name = ColorModelPart,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Items = { new SegmentedControlItem { Content = "RGB" }, new SegmentedControlItem { Content = "HSV" } },
+            Items = { Segment(RgbTextKey), Segment(HsvTextKey) },
         };
         model.Bind(SelectingItemsControl.SelectedIndexProperty, Of(nameof(Avalonia.Controls.ColorView.ColorModel), BindingMode.TwoWay, ModelIndex));
         model.Bind(Visual.IsVisibleProperty, Of(nameof(Avalonia.Controls.ColorView.IsColorModelVisible)));
@@ -218,7 +349,7 @@ internal static class ColorPickerThemes
         var hash = new TextBlock { Text = "#", Classes = { LabelClass }, VerticalAlignment = VerticalAlignment.Center };
         hash.Bind(Layoutable.MarginProperty, new DynamicResourceExtension(ColorPartsThemes.HashMarginKey));
         var hex = new TextBox { Name = HexTextBoxPart, MaxLength = 9, InnerLeftContent = hash, HorizontalAlignment = HorizontalAlignment.Stretch };
-        AutomationProperties.SetName(hex, "Hexadecimal Color");
+        hex.Bind(AutomationProperties.NameProperty, new DynamicResourceExtension(HexTextKey));
         hex.Bind(Visual.IsVisibleProperty, Of(nameof(Avalonia.Controls.ColorView.IsHexInputVisible)));
         Grid.SetColumn(hex, 2);
         var top = new Grid { ColumnDefinitions = new ColumnDefinitions($"*,{Spacing.M},*"), Children = { model, hex } };
@@ -233,20 +364,23 @@ internal static class ColorPickerThemes
             Children = { top },
         };
 
-        var rows = new (string Name, ColorComponent Component, string Rgb, string Hsv)[]
+        // Fluent's element names; the shown and spoken names follow the colour model.
+        var rows = new (string Name, ColorComponent Component)[]
         {
-            ("Component1", ColorComponent.Component1, "R", "H"),
-            ("Component2", ColorComponent.Component2, "G", "S"),
-            ("Component3", ColorComponent.Component3, "B", "V"),
-            ("AlphaComponent", ColorComponent.Alpha, "A", "A"),
+            ("Component1", ColorComponent.Component1),
+            ("Component2", ColorComponent.Component2),
+            ("Component3", ColorComponent.Component3),
+            ("AlphaComponent", ColorComponent.Alpha),
         };
         for (var i = 0; i < rows.Length; i++)
         {
-            var (name, component, rgb, hsv) = rows[i];
+            var (name, component) = rows[i];
             var isAlpha = component == ColorComponent.Alpha;
+            Func<object?, string> Key(bool letter) => m => ComponentKey(component, m is ColorModel model ? model : ColorModel.Rgba, letter);
 
+            // A 16 px letter column, SpacingS before the field.
             var label = new TextBlock { Classes = { LabelClass }, Width = Spacing.L, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 0, Spacing.S, 0) };
-            label.Bind(TextBlock.TextProperty, Of(nameof(Avalonia.Controls.ColorView.ColorModel), converter: Letter(rgb, hsv)));
+            BindText(label, TextBlock.TextProperty, Of(nameof(Avalonia.Controls.ColorView.ColorModel)), Key(letter: true), ComponentLetterKeys);
 
             var slider = new ColorSlider
             {
@@ -261,6 +395,7 @@ internal static class ColorPickerThemes
             };
             slider.Bind(ColorSlider.ColorModelProperty, Of(nameof(Avalonia.Controls.ColorView.ColorModel)));
             slider.Bind(ColorSlider.HsvColorProperty, Of(nameof(Avalonia.Controls.ColorView.HsvColor), BindingMode.TwoWay));
+            BindText(slider, AutomationProperties.NameProperty, Of(nameof(Avalonia.Controls.ColorView.ColorModel)), Key(letter: false), ComponentTextKeys);
 
             var number = new NumericUpDown
             {
@@ -268,11 +403,11 @@ internal static class ColorPickerThemes
                 AllowSpin = true,
                 ShowButtonSpinner = false,
                 NumberFormat = ComponentFormat,
-                Width = Spacing.XXXL + Spacing.L,
+                Width = 64,
                 Margin = new Thickness(0, 0, Spacing.M, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            AutomationProperties.SetName(number, isAlpha ? "Alpha" : name);
+            BindText(number, AutomationProperties.NameProperty, Of(nameof(Avalonia.Controls.ColorView.ColorModel)), Key(letter: false), ComponentTextKeys);
             number.Bind(NumericUpDown.MinimumProperty, new Binding(nameof(ColorSlider.Minimum)) { Source = slider });
             number.Bind(NumericUpDown.MaximumProperty, new Binding(nameof(ColorSlider.Maximum)) { Source = slider });
             number.Bind(NumericUpDown.ValueProperty, new Binding(nameof(ColorSlider.Value)) { Source = slider, Mode = BindingMode.TwoWay });

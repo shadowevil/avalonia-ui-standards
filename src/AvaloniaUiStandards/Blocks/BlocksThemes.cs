@@ -73,6 +73,7 @@ internal static class BlocksThemes
         resources[typeof(CalendarDayButton)] = CalendarThemes.DayButton();
         resources[typeof(CalendarButton)] = CalendarThemes.MonthButton();
         resources[typeof(CalendarDatePicker)] = CalendarDatePickerTheme.Create(fluentTheme(typeof(CalendarDatePicker)), fieldButton, innerTextBox);
+        ColorPickerThemes.AddResources(resources);
         resources[typeof(ColorView)] = ColorPickerThemes.ColorView();
         resources[typeof(ColorPicker)] = ColorPickerThemes.ColorPicker();
         resources[typeof(ColorSpectrum)] = ColorPartsThemes.Spectrum();

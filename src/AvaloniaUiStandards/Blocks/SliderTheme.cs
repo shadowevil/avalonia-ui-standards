@@ -43,9 +43,9 @@ internal static class SliderTheme
     internal static readonly Color ThumbEdge = Color.Parse("#1F000000");
     internal static readonly BoxShadows ThumbShadow = BoxShadows.Parse("0 1 3 0 #40000000");
 
-    private static readonly ITransform Rest = TransformOperations.Identity;
-    private static readonly ITransform Hover = TransformOperations.Parse("scale(1.1)");
-    private static readonly ITransform Pressed = TransformOperations.Parse("scale(1.2)");
+    internal static readonly ITransform Rest = TransformOperations.Identity;
+    internal static readonly ITransform Hover = TransformOperations.Parse("scale(1.1)");
+    internal static readonly ITransform Pressed = TransformOperations.Parse("scale(1.2)");
 
     // Bare themes for the parts, so no other theme styles them.
     private static readonly ControlTheme HorizontalPart = PartTheme(Orientation.Horizontal);

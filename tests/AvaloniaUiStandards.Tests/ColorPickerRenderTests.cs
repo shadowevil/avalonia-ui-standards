@@ -23,6 +23,9 @@ public class ColorPickerRenderTests
     internal static readonly Color Blue = Color.FromRgb(0x00, 0x7C, 0xEA);
     internal static readonly Color Translucent = Color.FromArgb(0x80, 0xE1, 0x33, 0x2A);
 
+    /// <summary>A colour in the second row of the Fluent palette, so the palette shows its selection.</summary>
+    internal static readonly Color PaletteColour = new FluentColorPalette().GetColor(2, 1);
+
     private enum ButtonState { Rest, Hover, KeyboardFocus, Disabled }
 
     private static readonly ButtonState[] ButtonStates = Enum.GetValues<ButtonState>();
@@ -68,7 +71,9 @@ public class ColorPickerRenderTests
                     ]),
                 ]);
         foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
-            sheet.AddSection($"{themeLabel}: states", ["Keyboard focus on the spectrum", "Keyboard focus on a slider", "Palette: hover and keyboard focus", "Disabled"],
+        {
+            sheet.AddSection($"{themeLabel}: focus and selection", ["Keyboard focus on the spectrum", "Keyboard focus on a slider",
+                    "Palette: selected (row 2), hover (row 1), keyboard focus (row 3)", "Palette: selected with keyboard focus"],
             [
                 ("On the glass panel", [
                     ViewCell(sheet, theme, DensityStyle.Normal, 0, v => Part<ColorSpectrum>(v, "ColorSpectrum").Focus(NavigationMethod.Tab)),
@@ -77,11 +82,21 @@ public class ColorPickerRenderTests
                     {
                         var items = v.GetVisualDescendants().OfType<ListBoxItem>().ToList();
                         ((IPseudoClasses)items[3].Classes).Set(":pointerover", true);
-                        items[9].Focus(NavigationMethod.Tab);
-                    }),
+                        items[15].Focus(NavigationMethod.Tab);
+                    }, PaletteColour),
+                    ViewCell(sheet, theme, DensityStyle.Normal, 1, v =>
+                        v.GetVisualDescendants().OfType<ListBoxItem>().Single(i => i.IsSelected).Focus(NavigationMethod.Tab), PaletteColour),
+                ]),
+            ]);
+            sheet.AddSection($"{themeLabel}: disabled (thumbs at reduced opacity, colours in full)", ["Spectrum", "Palette", "Components"],
+            [
+                ("On the glass panel", [
+                    ViewCell(sheet, theme, DensityStyle.Normal, 0, v => v.IsEnabled = false),
+                    ViewCell(sheet, theme, DensityStyle.Normal, 1, v => v.IsEnabled = false, PaletteColour),
                     ViewCell(sheet, theme, DensityStyle.Normal, 2, v => v.IsEnabled = false),
                 ]),
             ]);
+        }
         sheet.Save("m3-colorview.png");
     }
 
@@ -127,9 +142,9 @@ public class ColorPickerRenderTests
         }
     }
 
-    private static Control ViewCell(Sheet sheet, ThemeVariant theme, DensityStyle density, int tab, Action<ColorView>? state = null)
+    private static Control ViewCell(Sheet sheet, ThemeVariant theme, DensityStyle density, int tab, Action<ColorView>? state = null, Color? colour = null)
     {
-        var view = new ColorView { Color = Blue, SelectedIndex = tab };
+        var view = new ColorView { Color = colour ?? Blue, SelectedIndex = tab };
         return sheet.Cell(ListBoxRenderTests.OnSurface(view, ListBoxRenderTests.Surface.GlassPanel), theme,
             beforeShow: w =>
             {
