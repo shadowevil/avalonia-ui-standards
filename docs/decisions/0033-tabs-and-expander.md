@@ -1,0 +1,33 @@
+# 0033 — TabControl, TabStrip and Expander
+
+- **Status:** Proposed, 2026-11-13
+- **Decision:**
+  - TabControl and TabStrip are restyled Fluent ([0003](0003-restyle-fluent.md)): Fluent's selection, keyboard behaviour (arrows, Home and End, stopping at the ends), content hosts and `PageTransition` are kept.
+  - Tab headers (TabItem, TabStripItem):
+    - Text in Body (14, regular), replacing Fluent's 24 px semilight, with an optional `TabItem.Icon` before it, 8 px apart (`SpacingS`).
+    - Height 32 at Normal density and 24 at Compact, with Button's side padding (12 Normal, 8 Compact) ([0013](0013-spacing-and-density.md), [0018](0018-button.md)).
+    - No fill in any state. The text uses Fluent's tab colours: unselected `TabItemHeaderForegroundUnselected` (secondary text, AA), hover and pressed one step stronger, selected primary text, disabled Fluent's disabled text. All enabled states meet 4.5:1 on the page; this is tested.
+    - The selected header keeps the regular weight.
+    - The focus ring ([0019](0019-focus-ring.md)) around the focused header, on a squircle with `CornerRadiusControl`.
+    - **Why:** Apple HIG keeps tabs for switching content areas and segmented controls for choosing a value, so the two look different: tabs are text with an underline, the segmented control ([0032](0032-segmented-control.md)) a filled track with a pill. Body text matches the rest of the controls; a bolder selected header would change its width and shift the tabs after it.
+  - The selected tab is marked by one accent underline, 3 px thick with fully rounded ends, in Fluent's `TabItemHeaderSelectedPipeFill` (the accent). It spans the header's content (inside its padding) on the edge facing the content, and slides and resizes between headers over `MotionNormal` with the ease-out ([0016](0016-motion.md)), instantly under reduce motion; on a layout change it moves at once. It uses the same sliding element as the segmented control's pill.
+    - **Why:** One sliding indicator shows where the selection went, as the segmented control's pill does, while the thin line keeps tabs light. Spanning the text ties the line to its label.
+  - A 1 px hairline in the line colour (`SystemControlForegroundBaseLowBrush`) runs along the whole strip on the side facing the content; the underline sits on it. TabStrip has the same strip as TabControl.
+    - **Why:** It marks where the tabs end and the content starts, and anchors the underline.
+  - `TabStripPlacement` Left and Right stack the headers vertically, with the underline and hairline on the inner edge and 8 px (`SpacingS`) between the headers and the underline, so a focused header's ring does not cross it.
+  - The content sits directly on the surface below the tabs (no fill or card of its own), padded by the tab's side padding left and right and 12 (`SpacingM`) top and bottom, so it lines up with the header text.
+    - **Why:** The content area is the surface it is placed on ([0015](0015-glass.md): no glass on glass, no extra card).
+  - Expander is restyled Fluent: Fluent's `IsExpanded`, `ExpandDirection` and events are kept; the template is the library's.
+    - One squircle card with `CornerRadiusControl` (8) ([0014](0014-shape.md)), in the card colour (`ExpanderContentBackground`) with a 1 px border in the line colour (`ExpanderContentBorderBrush`), holding the header row and the content. It stretches to its container's width (Fluent: left-aligned).
+    - The header row is a toggle with the list item fills ([0024](0024-lists-and-scrolling.md)): transparent at rest, `ListMedium` on hover, `BaseMediumLow` pressed, Fluent's disabled text. Height 32 Normal and 24 Compact, with Button's side padding. No pressed scale.
+    - A caret (`Icons.CaretRight`, [0026](0026-icon.md)) before the header, 8 px (`SpacingS`) from it, turns over `MotionNormal` to point at the content as it opens: opening downwards it turns +90° from right to down, the same glyph and turn as tree rows; upwards, right to up; to the right, down to right; to the left, down to left.
+    - The content reveals over `MotionNormal`: its visible length grows from 0 to its full length (clipped), so the layout around the expander moves with it; closing runs back. Under reduce motion both are instant. An expander that starts open shows open at once. Closed content is hidden, so it takes no focus.
+    - The theme sets `ContentTransition` to null, so an app-set content transition does not run on top of the reveal or under reduce motion.
+    - A 1 px hairline in the border colour separates the header from the content, revealed with it. The content padding is the header's side padding on every side (12 Normal, 8 Compact), so it lines up with the caret.
+    - The focus ring is drawn around the whole card while the header has keyboard focus. Focus on a control inside the content shows that control's own ring, not the card's.
+    - **Why:** The card groups the header and its content as one object, as Fluent's expander does, with the shared radius and list item fills. The leading caret and its turn are the tree's, as on macOS disclosure. Its gap is 8 px where the tree's is 4 px: the expander header is a padded card row, with the same icon-to-text gap as a tab header, while tree rows are dense. For the same reason a tree's children appear at once, while an Expander reveals a block of content, so it animates, and a reveal that moves the layout keeps the reader's place better than a jump. Stretching avoids the header changing width when the content opens. The card clips its content to its corners, so a ring around the header alone would be cut off.
+- **Accepted consequences:**
+  - Expander's `Expanded` and `Collapsed` events fire when `IsExpanded` changes, before the reveal ends.
+  - `TabControl.IndicatorTemplate` and `TabItem.IndicatorTemplate` are ignored; the strip draws the one sliding underline.
+  - Fluent's TabItem and TabStripItem parts `Border#PART_LayoutRoot` and the per-tab `Border#PART_SelectedPipe` are not in the template, so app styles that target them no longer apply; the header is `SquircleBorder#PART_Chrome` around the icon and `ContentPresenter#PART_ContentPresenter`.
+- **Why:** Tabs and the expander join the family's shape, density, type, focus ring and motion, while staying visibly different from the segmented control.
