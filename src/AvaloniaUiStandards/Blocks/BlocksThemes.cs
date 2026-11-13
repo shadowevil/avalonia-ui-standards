@@ -19,6 +19,8 @@ internal static class BlocksThemes
         resources[typeof(ComboBox)] = ComboBoxTheme.Create(fluentTheme(typeof(ComboBox)));
         resources[typeof(ScrollViewer)] = ScrollViewerTheme.Create(fluentTheme(typeof(ScrollViewer)));
         ScrollViewerTheme.AddResources(resources);
+        resources[typeof(ScrollBar)] = ScrollBarTheme.Create(fluentTheme(typeof(ScrollBar)));
+        ScrollBarTheme.AddResources(resources);
 
         resources[typeof(Button)] = ButtonTheme.Create();
         resources[typeof(RepeatButton)] = RepeatButtonTheme.Create();
@@ -39,6 +41,7 @@ internal static class BlocksThemes
     {
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
+        resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>

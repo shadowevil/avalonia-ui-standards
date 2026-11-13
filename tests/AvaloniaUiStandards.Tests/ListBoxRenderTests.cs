@@ -26,7 +26,7 @@ public class ListBoxRenderTests
 
     private static readonly string[] ItemStateLabels = ["Rest", "Hover", "Pressed", "Selected", "Selected + hover", "Disabled", "Focused"];
 
-    private enum Surface { GlassPanel, Backdrop, Card }
+    internal enum Surface { GlassPanel, Backdrop, Card }
 
     [AvaloniaFact]
     public void Selection_Renders()
@@ -182,7 +182,7 @@ public class ListBoxRenderTests
         }
     }
 
-    private static Control OnSurface(Control content, Surface surface)
+    internal static Control OnSurface(Control content, Surface surface)
     {
         switch (surface)
         {

@@ -25,6 +25,7 @@
 - [0022 — Window layout](decisions/0022-window-layout.md) — the library-drawn window frame, title band, areas, glass content panel, backdrop and narrow-window behaviour
 - [0023 — Versioning](decisions/0023-versioning.md) — the versioning scheme, the starting version and where it is set
 - [0024 — ListBox, ScrollViewer and ComboBox drop-down](decisions/0024-lists-and-scrolling.md) — the shared list item design, the drop-down popup and the scroll-edge shadow
+- [0025 — Overlay scrollbar](decisions/0025-overlay-scrollbar.md) — the overlay ScrollBar Block: reveal, sizes, colours and motion
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

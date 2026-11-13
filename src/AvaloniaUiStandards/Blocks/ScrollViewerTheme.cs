@@ -14,9 +14,10 @@ using Avalonia.Threading;
 namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
-/// The ScrollViewer theme: Fluent's ScrollViewer, unchanged, with a shadow layer over its content
-/// cell (below the scroll bars). Along each edge with content out of view a soft shadow shows, a
-/// gradient from a darkened accent to transparent; it fades in and out as you scroll.
+/// The ScrollViewer theme: Fluent's ScrollViewer with its scroll bars always overlaying the
+/// content, and a shadow layer over the content (below the scroll bars). Along each edge with
+/// content out of view a soft shadow shows, a gradient from a darkened accent to transparent; it
+/// fades in and out as you scroll.
 /// </summary>
 internal static class ScrollViewerTheme
 {
@@ -52,6 +53,13 @@ internal static class ScrollViewerTheme
     {
         if (root is not Panel panel || scope.Find<ScrollContentPresenter>("PART_ContentPresenter") is not { } presenter)
             return root;
+
+        // The scroll bars overlay the content and take no space (as Fluent's auto-hide), and the
+        // corner square between them is not drawn.
+        Grid.SetRowSpan(presenter, 2);
+        Grid.SetColumnSpan(presenter, 2);
+        if (panel.Children.OfType<Panel>().FirstOrDefault(c => c.Name == "PART_ScrollBarsSeparator") is { } separator)
+            separator.IsVisible = false;
 
         // Over the content cell, below the scroll bars; it follows the cell the presenter takes.
         var shadows = new ScrollShadowOverlay { Name = ShadowsPart };
