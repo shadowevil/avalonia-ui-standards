@@ -1,19 +1,16 @@
 # 0042 — Accent flag
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - The attached property `SelectionOptions.AccentFlag` (bool, default false; [0017](0017-app-usage.md)) is set on a ListBox (and so the Sidebar, [0034](0034-sidebar.md)), a ComboBox, an AutoCompleteBox or a TreeView, and inherited by its items. An item overrides it for itself, and in a tree for its descendants.
     - **Why:** It follows the library's other app-facing options (`TreeViewOptions.ShowLines`): one setting on the control, an item's own value where one item or subtree differs. One name covers every selectable list, so it is not tied to one control.
   - When on, a selected item keeps its accent fill and white text ([0024](0024-lists-and-scrolling.md)) and adds the flag: a bar 3 px wide, the item's full height, flush on its leading edge. The item's leading corners turn square; its trailing corners keep `CornerRadiusControl`. The square corners follow the item's own `CornerRadius`, so an item with another radius keeps its trailing corners.
     - **Why:** It is the Windows 11 selection flag, on the library's accent selection. A bar flush on a rounded corner would be clipped into a sliver at top and bottom; square corners where it sits keep it a full-height bar.
   - The bar is 3 px at both densities.
-    - **Why:** It is the Windows 11 width. Rendered beside 4 px it is as clear on the 32 and 24 px rows, while 4 px reads heavier with no gain in clarity. The bar is a stroke, like the 2 px ring and 1 px tree lines, not a spacing step, so the 4 px grid does not set its width.
+    - **Why:** It is the Windows 11 width. The bar is a stroke, like the 2 px ring and 1 px tree lines, not a spacing step, so the 4 px grid does not set its width.
   - The bar's colour is a lighter accent, `SystemAccentColorLight2` (`#77BFFF` for the default accent, the same in light and dark). On a disabled selected item it is the disabled text colour (`AccentButtonForegroundDisabled`).
-    - **Why:** The bar is flush on the edge, so it sits between the fill on one side and the surface beside the item on the other, and needs to stand apart from both. The three options were rendered side by side:
-      - A darker accent (`AccentFillColorPressed`) disappears on a selected item that is pressed, where the fill is that same colour (1.0:1).
-      - White (the selected text colour) reads well in dark, but in light it matches the white card, the glass panel, the drop-downs and the overlay (1.0:1 on the card), so the flag reads as a notch cut out of the fill rather than a bar.
-      - The lighter accent reads as a bar on every fill state and surface in both themes: at least 2.33:1 against the fill (rest; 2.74 hover, 3.21 pressed) and 1.80:1 against the lightest surface (`SystemRegionColor` in light), 7.3:1 on the dark card. It is a step of the app's own accent, so it follows any accent.
-      - The selected state is already shown by the AA accent fill and white text, so the flag is an extra cue and the non-text 3:1 minimum is not needed for the state to be seen.
+    - **Why:** The bar is flush on the edge, so it sits between the fill on one side and the surface beside the item on the other, and needs to stand apart from both. The lighter accent reads as a bar on every fill state and surface in both themes: at least 2.33:1 against the fill (rest; 2.74 hover, 3.21 pressed) and 1.80:1 against the lightest surface (`SystemRegionColor` in light), 7.3:1 on the dark card. It is a step of the app's own accent, so it follows any accent. The selected state is already shown by the AA accent fill and white text, so the flag is an extra cue and the non-text 3:1 minimum is not needed for the state to be seen.
+  - Three bar colours and a 4 px width were compared: the darker accent (`AccentFillColorPressed`) disappears on a pressed selected item, whose fill is that colour; white matches the light theme's white surfaces, so the flag reads as a notch cut out of the fill; 4 px reads heavier than 3 with no gain in clarity.
   - Hover and press on an unselected item show no flag; a selected item keeps it while hovered or pressed.
     - **Why:** It is Windows behaviour: the flag marks the selection only.
   - The flag fades in and out with the selection fill: the bar's fill uses the chrome's fixed cross-fade transitions (`MotionFast`), instantly under reduce motion ([0016](0016-motion.md)). The corners change at once. No new animation is added.

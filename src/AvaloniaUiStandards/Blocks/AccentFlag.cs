@@ -5,7 +5,6 @@ using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Layout;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using AvaloniaUiStandards.Style;
 using static AvaloniaUiStandards.Blocks.ButtonParts;
@@ -52,10 +51,10 @@ internal static class AccentFlag
     }
 
     /// <summary>
-    /// Adds the flag's states to an item theme whose template holds <see cref="Add"/>'s bar and
-    /// <paramref name="chromePart"/>, wrapped with <see cref="FocusRing.Wrap"/>.
+    /// Adds the flag's states to an item theme whose template holds <c>PART_Chrome</c> with
+    /// <see cref="Add"/>'s bar, wrapped with <see cref="FocusRing.Wrap"/>.
     /// </summary>
-    public static void AddTo(ControlTheme theme, string chromePart = ChromePart)
+    public static void AddTo(ControlTheme theme)
     {
         theme.Children.Add(ChromeMotion(Part));
         theme.Children.Add(new Avalonia.Styling.Style(x => Flagged(x))
@@ -63,7 +62,7 @@ internal static class AccentFlag
             Children =
             {
                 PartStyle(Part, new Setter(SquircleBorder.BackgroundProperty, Resource(BarKey))),
-                PartStyle(chromePart, new Setter(SquircleBorder.CornerRadiusProperty,
+                PartStyle(ChromePart, new Setter(SquircleBorder.CornerRadiusProperty,
                     new TemplateBinding(TemplatedControl.CornerRadiusProperty) { Converter = SquareLeading })),
                 PartStyle(FocusRing.Part, new Setter(SquircleBorder.CornerRadiusProperty,
                     new TemplateBinding(TemplatedControl.CornerRadiusProperty) { Converter = SquareLeadingRing })),

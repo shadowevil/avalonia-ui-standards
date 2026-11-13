@@ -257,12 +257,15 @@ public class AccentFlagTests
                 Pump(window);
                 sidebar.SelectedIndex = 2;
                 Pump(window);
-                var rows = sidebar.Items.OfType<SidebarItem>().ToList();
-                var selected = rows.Single(r => r.IsSelected);
-                Assert.Equal(BarColour(selected), Fill(Bar(selected)));
-                Assert.Equal(Flagged, Chrome(selected).CornerRadius);
-                Assert.Equal(selected.Bounds.Height, Bar(selected).Bounds.Height);
-                Assert.All(rows.Where(r => r != selected), r => Assert.Equal(Colors.Transparent, Fill(Bar(r))));
+                AssertFlagged(sidebar);
+                if (width < 1000)
+                {
+                    // The icon rail's overlay shows the same rows, flagged the same way.
+                    sidebar.Toggle();
+                    Pump(window);
+                    Assert.True(sidebar.IsOverlayOpen);
+                    AssertFlagged(sidebar);
+                }
             }
             finally
             {
@@ -270,6 +273,17 @@ public class AccentFlagTests
                 window.Close();
             }
         }
+    }
+
+    // Only the selected row has the bar, full height, with square leading corners.
+    private static void AssertFlagged(Sidebar sidebar)
+    {
+        var rows = sidebar.Items.OfType<SidebarItem>().ToList();
+        var selected = rows.Single(r => r.IsSelected);
+        Assert.Equal(BarColour(selected), Fill(Bar(selected)));
+        Assert.Equal(Flagged, Chrome(selected).CornerRadius);
+        Assert.Equal(selected.Bounds.Height, Bar(selected).Bounds.Height);
+        Assert.All(rows.Where(r => r != selected), r => Assert.Equal(Colors.Transparent, Fill(Bar(r))));
     }
 
     [AvaloniaFact]

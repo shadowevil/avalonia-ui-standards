@@ -18,7 +18,7 @@ using Xunit;
 
 namespace AvaloniaUiStandards.Tests;
 
-/// <summary>Renders the accent flag sheet: ListBox, Sidebar and TreeView, off and on, the bar colours and widths, states, themes and densities (2x).</summary>
+/// <summary>Renders the accent flag sheet: ListBox, Sidebar and TreeView, off and on, states, themes and densities (2x).</summary>
 public class AccentFlagRenderTests
 {
     private enum State { Rest, Hover, Pressed, Selected, SelectedHover, SelectedPressed, SelectedFocus, SelectedDisabled }
@@ -26,18 +26,14 @@ public class AccentFlagRenderTests
     private static readonly string[] StateLabels =
         ["Rest", "Hover", "Pressed", "Selected", "Selected + hover", "Selected + pressed", "Selected + focus", "Selected, disabled"];
 
-    /// <summary>A bar colour: null is the theme's (the selected text colour), else a resource key drawn instead.</summary>
-    private sealed record Look(string Label, bool Flag, string? BarKey = null, double BarWidth = AccentFlag.Width,
-        DensityStyle Density = DensityStyle.Normal);
+    /// <summary>A row of the ListBox and TreeView sections: the flag off or on, at a density.</summary>
+    private sealed record Look(string Label, bool Flag, DensityStyle Density = DensityStyle.Normal);
 
-    private static readonly Look[] ListLooks =
+    private static readonly Look[] Looks =
     [
         new("Off (default)", false),
-        new("On: (c) lighter accent (chosen)", true),
-        new("On: (a) darker accent", true, "AccentFillColorPressed"),
-        new("On: (b) white", true, "AccentButtonForeground"),
-        new("On: (c), 4 px", true, BarWidth: 4),
-        new("On, Compact", true, Density: DensityStyle.Compact),
+        new("On", true),
+        new("On, Compact", true, DensityStyle.Compact),
     ];
 
     [AvaloniaFact]
@@ -47,7 +43,7 @@ public class AccentFlagRenderTests
         foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
         {
             sheet.AddSection($"ListBox, {themeLabel}", StateLabels,
-                ListLooks.Select(look => (look.Label, (IReadOnlyList<Control>)Enum.GetValues<State>().Select(s => ListCell(sheet, theme, s, look)).ToList())));
+                Looks.Select(look => (look.Label, (IReadOnlyList<Control>)Enum.GetValues<State>().Select(s => ListCell(sheet, theme, s, look)).ToList())));
 
             sheet.AddSection($"Sidebar, {themeLabel}", ["Expanded, off", "Expanded, on", "Icon rail, off", "Icon rail, on", "Icon rail, on + focus", "Overlay, on"],
                 new[] { ("Normal", DensityStyle.Normal), ("Compact", DensityStyle.Compact) }.Select(d => (d.Item1, (IReadOnlyList<Control>)
@@ -61,8 +57,7 @@ public class AccentFlagRenderTests
                 ])));
 
             sheet.AddSection($"TreeView, {themeLabel}", StateLabels,
-                new[] { new Look("Off (default)", false), new Look("On", true), new Look("On, Compact", true, Density: DensityStyle.Compact) }
-                    .Select(look => (look.Label, (IReadOnlyList<Control>)Enum.GetValues<State>().Select(s => TreeCell(sheet, theme, s, look)).ToList())));
+                Looks.Select(look => (look.Label, (IReadOnlyList<Control>)Enum.GetValues<State>().Select(s => TreeCell(sheet, theme, s, look)).ToList())));
         }
         sheet.Save("m3-accent-flag.png");
     }
@@ -80,7 +75,6 @@ public class AccentFlagRenderTests
                 w.UpdateLayout();
                 var item = (ListBoxItem)list.ContainerFromIndex(0)!;
                 Apply(item, item, state);
-                Restyle(w, item, state == State.SelectedDisabled ? look with { BarKey = null } : look);
             });
     }
 
@@ -96,7 +90,6 @@ public class AccentFlagRenderTests
                 w.UpdateLayout();
                 var row = item.GetVisualDescendants().OfType<Control>().First(c => c.Name == TreeViewTheme.RowPart && c.TemplatedParent == item);
                 Apply(item, row, state);
-                Restyle(w, item, state == State.SelectedDisabled ? look with { BarKey = null } : look);
             });
     }
 
@@ -166,18 +159,6 @@ public class AccentFlagRenderTests
             item.IsEnabled = false;
         if (state == State.SelectedFocus)
             ((InputElement)item).Focus(NavigationMethod.Tab);
-    }
-
-    // An alternative bar colour (not on a disabled item, whose bar takes the disabled text colour) or width, drawn over the theme's on the item's own bar.
-    private static void Restyle(Window window, Control item, Look look)
-    {
-        window.UpdateLayout();
-        var bar = item.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == AccentFlag.Part && b.TemplatedParent == item);
-        bar.Transitions = null;
-        if (look.BarKey is { } key && bar.Background is ISolidColorBrush { Color.A: > 0 })
-            bar.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension(key));
-        if (look.BarWidth != AccentFlag.Width)
-            bar.Width = look.BarWidth;
     }
 
     private static void Pump(Window window)
