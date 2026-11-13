@@ -1,4 +1,3 @@
-using System.Reflection;
 using Avalonia;
 using AvaloniaUiStandards;
 using AvaloniaUiStandards.Modules;
@@ -10,8 +9,7 @@ public partial class MainWindow : StandardsWindow
     public MainWindow()
     {
         InitializeComponent();
-        var version = typeof(StandardsTheme).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
-        StatusVersion.Text = $"AvaloniaUiStandards {version.Split('+')[0]}";
+        StatusVersion.Text = AppInfo.LibraryText;
 
         PageList.ItemsSource = CatalogPages.All.Select(p => new SidebarItem { Icon = p.Icon, Content = p.Title }).ToList();
         PageList.SelectionChanged += (_, _) =>
