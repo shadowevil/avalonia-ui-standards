@@ -1,6 +1,6 @@
 # 0033 — TabControl, TabStrip and Expander
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - TabControl and TabStrip are restyled Fluent ([0003](0003-restyle-fluent.md)): Fluent's selection, keyboard behaviour (arrows, Home and End, stopping at the ends), content hosts and `PageTransition` are kept.
   - Tab headers (TabItem, TabStripItem):

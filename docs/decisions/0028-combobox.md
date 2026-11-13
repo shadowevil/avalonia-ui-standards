@@ -1,6 +1,6 @@
 # 0028 — ComboBox
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - The closed ComboBox field has the TextInput chrome ([0027](0027-text-input.md)): `SquircleBorder` `PART_BorderElement` with `CornerRadiusControl` 8, the density height (32 Normal, 24 Compact), a 1 px border, and TextInput's padding with no right padding (12,4,0,4 Normal, 8,2,0,2 Compact) because the caret zone follows the content. Its minimum width is Fluent's `TextControlThemeMinWidth`, as for TextInput. The ComboBox gets the library's own template, keeping Fluent's part names (`PART_Popup`, `PART_EditableTextBox`, `PlaceholderTextBlock`, `ContentPresenter`, `DropDownGlyph`, `DropDownOverlay`, `PART_ItemsPresenter`); the drop-down is unchanged from [0024](0024-lists-and-scrolling.md).
     - **Why:** Fields line up in height, shape and text position with TextInput and Button in a row.

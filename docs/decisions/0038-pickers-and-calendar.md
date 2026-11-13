@@ -1,11 +1,11 @@
 # 0038 — DatePicker, TimePicker, Calendar and CalendarDatePicker
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - All four are Fluent's controls restyled ([0003](0003-restyle-fluent.md)): Fluent's templates are kept and extended, so their parts, behaviour and keyboard handling stay Fluent's.
     - **Why:** The pickers' code drives many named parts (selectors, step buttons, segments, day cells); keeping Fluent's templates keeps every behaviour while the look changes.
   - They are Blocks ([0004](0004-tier-names.md)), with their themes in the Blocks tier.
-    - **Why:** Each serves one purpose (entering a date or a time, or choosing a day), composite inside like ComboBox, and the roadmap lists them under the M3 Blocks. [0004](0004-tier-names.md) names DatePicker as an example Module; that example is not changed here.
+    - **Why:** Each serves one purpose (entering a date or a time, or choosing a day), composite inside like ComboBox, and the roadmap lists them under the M3 Blocks.
   - **The field.** DatePicker, TimePicker and CalendarDatePicker are drawn as fields with TextInput's values ([0027](0027-text-input.md)): height 32 at Normal and 24 at Compact, `CornerRadiusControl` 8, Fluent's TextControl colours per state, a 1 px border that turns accent while focus is anywhere inside, and the focus ring ([0019](0019-focus-ring.md)) around the whole field while a part of it has keyboard focus. The field chrome is drawn behind Fluent's flyout button or text box, which keep no chrome of their own.
     - **Why:** Pickers sit in forms next to text fields; the same height, fill, border and focus cues make them line up and read as one family.
   - DatePicker and TimePicker keep Fluent's segments (day, month, year; hour, minute, period) and their 1 px dividers. Segment text is centred in the field height; the month segment starts at the density's side padding (12, or 8 at Compact). Fluent's off-grid paddings (3 above, 6 below, 9 before the month) are dropped.

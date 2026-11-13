@@ -1,6 +1,6 @@
 # 0039 — Separator and GridSplitter
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - Separator is a Block with its own template ([0003](0003-restyle-fluent.md)): a 1 px hairline in the border colour (`BaseLow`, [0011](0011-colour.md)), stretched across its container, with `SpacingXS` above and below and no side margin. It is not focusable.
     - **Why:** `BaseLow` is the palette's colour for borders and lines, so a separator matches the window frame and other borders. Fluent draws it in the darker `BaseMediumLow` with a 12 px side inset meant for menus; outside a menu the inset belongs to the layout, not the line.

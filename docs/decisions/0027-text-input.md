@@ -1,6 +1,6 @@
 # 0027 — TextInput
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - TextInput is Fluent's `TextBox`, restyled ([0003](0003-restyle-fluent.md)) with the library's own template. It keeps Fluent's structure and part names (`PART_BorderElement`, `PART_InnerDockPanel`, `PART_FloatingPlaceholder`, `PART_ScrollViewer`, `PART_Placeholder`, `PART_TextPresenter`), the `InnerLeftContent` and `InnerRightContent` slots, the `DataValidationErrors` root, the `.clearButton` and `.revealPasswordButton` classes and Fluent's context menus.
     - **Why:** Behaviour, keyboard handling and validation stay Fluent's; apps and Fluent controls that look for these parts still find them.

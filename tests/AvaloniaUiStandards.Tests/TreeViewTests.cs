@@ -513,7 +513,7 @@ public class TreeViewTests
             {
                 var items = Items(tree);
                 Assert.Equal(on, Lines(items[0]).HasStub);
-                Assert.Equal(on, Lines(items[2]).HasBranch);
+                Assert.Equal(on, Lines(items[2]).HasElbow);
                 using var frame = Frame.Capture(window);
                 // Style's column through the Colour row.
                 Assert.Equal(on ? 1 : 0, LinePixels(frame, Column(window, items[0]), RowY(window, items[2], 3), 1).Count);
@@ -658,7 +658,7 @@ public class TreeViewTests
             var items = Items(tree);
             TreeViewOptions.SetShowLines(items[1], false);
             Pump(window);
-            Assert.False(Lines(items[1]).HasBranch);
+            Assert.False(Lines(items[1]).HasElbow);
             Assert.False(Lines(items[1]).HasStub);
             using var frame = Frame.Capture(window);
             // Style's column inside Squircle's row (Shape's child), and below Shape's elbow.
@@ -762,9 +762,9 @@ public class TreeViewTests
             TreeViewOptions.SetShowLines(items[1], true);
             Pump(window);
             Assert.False(Lines(items[0]).HasStub);
-            Assert.False(Lines(items[1]).HasBranch);
+            Assert.False(Lines(items[1]).HasElbow);
             Assert.True(Lines(items[1]).HasStub);
-            Assert.True(Lines(items[3]).HasBranch);
+            Assert.True(Lines(items[3]).HasElbow);
         }
         finally
         {
@@ -957,6 +957,43 @@ public class TreeViewTests
     private static ToggleButton Caret(TreeViewItem item) => Part<ToggleButton>(item, TreeViewTheme.CaretPart);
 
     private static ContentPresenter Header(TreeViewItem item) => Part<ContentPresenter>(item, TreeViewTheme.HeaderContentPart);
+
+    [AvaloniaFact]
+    public void Lines_EndAtTheLastChildThatShowsThem()
+    {
+        var (window, tree) = ShowLines(1, true);
+        try
+        {
+            var items = Items(tree);
+            var (style, shape, colour, squircle, radii) = (items[0], items[1], items[2], items[3], items[4]);
+            // Shape's last child has lines off: its column ends at Squircle's elbow, with no stub below it.
+            TreeViewOptions.SetShowLines(radii, false);
+            Pump(window);
+            Assert.False(Lines(squircle).Continues);
+            using (var frame = Frame.Capture(window))
+            {
+                Assert.Single(LinePixels(frame, Column(window, shape), RowY(window, squircle, 3), 1));
+                Assert.Empty(LinePixels(frame, Column(window, shape), RowY(window, squircle, -3), 1));
+                Assert.Empty(LinePixels(frame, Column(window, shape), RowY(window, radii, 3), 1));
+                // Style's column still passes through Shape's rows: Shape is not Style's last child.
+                Assert.Single(LinePixels(frame, Column(window, style), RowY(window, radii, 3), 1));
+            }
+
+            // No child of Shape has lines on: its stub is gone.
+            TreeViewOptions.SetShowLines(squircle, false);
+            Pump(window);
+            Assert.False(Lines(shape).HasStub);
+            using (var frame = Frame.Capture(window))
+            {
+                Assert.Empty(LinePixels(frame, Column(window, shape), RowY(window, shape, -3), 1));
+                Assert.Single(LinePixels(frame, Column(window, style), RowY(window, colour, 3), 1));
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     private static ItemsPresenter Children(TreeViewItem item) => Part<ItemsPresenter>(item, TreeViewTheme.ItemsPart);
 

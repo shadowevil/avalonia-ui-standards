@@ -1,6 +1,6 @@
 # 0029 — NumericUpDown, ButtonSpinner and AutoCompleteBox
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - NumericUpDown and ButtonSpinner are TextInput fields ([0027](0027-text-input.md)): the `SquircleBorder` chrome `PART_BorderElement`, the density height and padding, a 1 px border, Fluent's TextControl colours, `DangerColor` on error, and the field buttons. Both get the library's own templates with Fluent's part names (`PART_Spinner`, `PART_TextBox`, `PART_SpinnerPanel`, `PART_IncreaseButton`, `PART_DecreaseButton`, `PART_ContentPresenter`).
     - **Why:** Every field lines up and looks the same; behaviour stays Fluent's ([0003](0003-restyle-fluent.md)).

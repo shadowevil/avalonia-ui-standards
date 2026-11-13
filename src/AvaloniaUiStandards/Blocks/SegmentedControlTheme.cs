@@ -47,20 +47,19 @@ internal static class SegmentedControlTheme
     /// </summary>
     internal static readonly Color PillDisabledLight = Color.Parse("#FFFFFF"), PillDisabledDark = Color.Parse("#525252");
 
-    /// <summary>The selected segment's text per theme: the palette's BaseHigh, as on the track.</summary>
-    internal static readonly Color SelectedTextLight = Color.Parse("#1A1A1A"), SelectedTextDark = Color.Parse("#F2F2F2");
+    /// <summary>
+    /// The text of a disabled selected segment per theme: the palette's BaseMediumLow (light, the
+    /// disabled text) and BaseMedium (dark), since the disabled text (#6B6B6B) is only 1.47:1 on the dark disabled pill.
+    /// </summary>
+    internal static readonly Color DisabledSelectedTextLight = Color.Parse("#A6A6A6"), DisabledSelectedTextDark = Color.Parse("#9E9E9E");
 
-    // Per-theme colours, density values and the text fade, under non-public keys.
+    // Per-theme colours and density values, under non-public keys.
     internal static readonly object PillKey = new();
     internal static readonly object PillDisabledKey = new();
+    internal static readonly object DisabledSelectedTextKey = new();
 
-    // The selected text has its own key so the pill can switch between the neutral and the accent
-    // variant (accent: white text); the variant not chosen, and this key if it is not needed, are
-    // removed once the pill is decided.
-    internal static readonly object SelectedTextKey = new();
     internal static readonly object ItemMinHeightKey = new();
     internal static readonly object ItemPaddingKey = new();
-    internal static readonly object TextTransitionsKey = new();
 
     /// <summary>The segment height (the control's density height less the inset) and side padding, at Normal and Compact.</summary>
     public static (double MinHeight, Thickness Padding) Item((double MinHeight, Thickness Padding) density) =>
@@ -125,10 +124,6 @@ internal static class SegmentedControlTheme
             },
         };
         theme.Children.Add(ChromeMotion());
-        theme.Children.Add(new Avalonia.Styling.Style(x => Content(x.Nesting()))
-        {
-            Setters = { new Setter(Animatable.TransitionsProperty, new DynamicResourceExtension(TextTransitionsKey)) },
-        });
         theme.Children.Add(State((string?)null, new Look(Brushes.Transparent, Brushes.Transparent, "ButtonForeground")));
         theme.Children.Add(State(":pointerover", new Look("ButtonBackgroundPointerOver", Brushes.Transparent, "ButtonForeground")));
         // A press selects the segment at once, so pressed keeps the hover fill; Button's pressed
@@ -137,9 +132,9 @@ internal static class SegmentedControlTheme
         theme.Children.Add(State(":disabled", new Look(Brushes.Transparent, Brushes.Transparent, "ButtonForegroundDisabled")));
 
         // Selected: the pill shows through; the segment adds no fill of its own.
-        var selected = new Look(Brushes.Transparent, Brushes.Transparent, new DynamicResourceExtension(SelectedTextKey));
+        var selected = new Look(Brushes.Transparent, Brushes.Transparent, "ButtonForeground");
         theme.Children.Add(Group(x => x.Nesting().Class(":selected"), selected, selected, selected,
-            new Look(Brushes.Transparent, Brushes.Transparent, "ButtonForegroundDisabled")));
+            new Look(Brushes.Transparent, Brushes.Transparent, new DynamicResourceExtension(DisabledSelectedTextKey))));
         return theme;
     }
 
@@ -150,25 +145,20 @@ internal static class SegmentedControlTheme
 
     public static void AddResources(IResourceDictionary resources)
     {
-        foreach (var (variant, pill, disabled, text) in new[]
+        foreach (var (variant, pill, disabled, disabledText) in new[]
                  {
-                     (ThemeVariant.Light, PillLight, PillDisabledLight, SelectedTextLight),
-                     (ThemeVariant.Dark, PillDark, PillDisabledDark, SelectedTextDark),
+                     (ThemeVariant.Light, PillLight, PillDisabledLight, DisabledSelectedTextLight),
+                     (ThemeVariant.Dark, PillDark, PillDisabledDark, DisabledSelectedTextDark),
                  })
         {
             var dictionary = (IResourceDictionary)resources.ThemeDictionaries[variant];
             dictionary[PillKey] = new SolidColorBrush(pill);
             dictionary[PillDisabledKey] = new SolidColorBrush(disabled);
-            dictionary[SelectedTextKey] = new SolidColorBrush(text);
+            dictionary[DisabledSelectedTextKey] = new SolidColorBrush(disabledText);
         }
     }
 
     private static Selector Pill(Selector state) => state.Template().OfType<SquircleBorder>().Name(PillPart);
-
-    /// <summary>The segments' text colour fade, with the pill's slide, or none when it is zero (reduce motion).</summary>
-    public static Transitions TextTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
-        ? []
-        : [new CrossFadeBrushTransition { Property = ContentPresenter.ForegroundProperty, Duration = duration, Easing = easing }];
 
     private static Control Build(SegmentedControl control, INameScope scope)
     {

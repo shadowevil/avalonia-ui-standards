@@ -473,6 +473,11 @@ public class SegmentedControlThemeTests
             control.IsEnabled = false;
             Pump(window);
             Assert.Equal(Effective(Resolve(window, disabledPillKey)), Effective(pill.Background));
+            // The disabled selected text is no harder to read on the pill than the disabled unselected text on the track.
+            var disabledTrack = Effective(Part(control, SegmentedControlTheme.TrackPart).Background);
+            var onPill = AccessibleColors.ContrastRatio(Text(Segment(control, 0)), Effective(pill.Background));
+            var onTrack = AccessibleColors.ContrastRatio(Text(Segment(control, 1)), disabledTrack);
+            Assert.True(onPill >= onTrack, $"disabled selected on the pill {onPill:F2}, unselected on the track {onTrack:F2}");
         }
         finally
         {
@@ -509,25 +514,6 @@ public class SegmentedControlThemeTests
             {
                 window.Close();
             }
-        }
-    }
-
-    // Selected text cross-fades with the slide; no frame overshoots its ends.
-    [AvaloniaFact]
-    public void Text_CrossFades()
-    {
-        var (window, control, _, _) = Show(Items("Day", "Week"));
-        try
-        {
-            var presenter = (ContentPresenter)Part<SquircleBorder>(Segment(control, 0), ButtonParts.ChromePart).Child!;
-            var fade = Assert.Single(presenter.Transitions!.OfType<TransitionBase>());
-            Assert.IsType<CrossFadeBrushTransition>(fade);
-            Assert.Equal(ContentPresenter.ForegroundProperty, fade.Property);
-            Assert.Equal(TimeSpan.FromMilliseconds(200), fade.Duration);
-        }
-        finally
-        {
-            window.Close();
         }
     }
 

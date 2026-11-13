@@ -1,6 +1,6 @@
 # 0036 — Menus and flyouts
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - Menu, MenuItem, ContextMenu, MenuFlyout and Flyout keep Fluent's behaviour (keyboard, access keys, submenu timing, light dismiss, placement) and get the library's own templates ([0003](0003-restyle-fluent.md)).
     - **Why:** The shape and material need new templates; the behaviour is Fluent's and stays.

@@ -5,7 +5,7 @@
   - Tiers: everything the library ships belongs to one of four.
     - **Style**: design values (colour, spacing, type, corner radius, motion) and the shape and material primitives that draw them (`SquircleBorder`, `GlassBorder`; [0014](0014-shape.md), [0015](0015-glass.md)). It is not Avalonia's `Style` class.
     - **Blocks**: single-purpose pieces, some interactive (Button, TextInput, CheckBox, ComboBox, ListBox, Icon). A Block may be composite inside when it serves one purpose (ComboBox, ListBox).
-    - **Modules**: composite controls that combine several purposes, either restyled from Fluent (DatePicker) or composed from Blocks (Dialog).
+    - **Modules**: composite controls that combine several purposes, such as the Sidebar ([0034](0034-sidebar.md)) or a Dialog composed from Blocks.
     - **Screens**: full arrangements of Modules (settings page, form layout, app shell).
   - Each control's Fluent override (Avalonia `Style` / `ControlTheme`) lives in the tier that control belongs to (Blocks or Modules).
   - `StandardsTheme` ([0017](0017-app-usage.md)) is the library's entry point, in the root namespace `AvaloniaUiStandards`. It assembles every tier and belongs to none.

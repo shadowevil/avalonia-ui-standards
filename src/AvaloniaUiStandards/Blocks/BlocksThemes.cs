@@ -102,7 +102,6 @@ internal static class BlocksThemes
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
         resources[SelectionIndicator.TransitionsKey] = SelectionIndicator.Slide(normal, easing);
-        resources[SegmentedControlTheme.TextTransitionsKey] = SegmentedControlTheme.TextTransitions(normal, easing);
         resources[Reveal.TransitionsKey] = Reveal.Opening(normal, easing);
         resources[ExpanderTheme.CaretTransitionsKey] = ExpanderTheme.CaretTransitions(normal, easing);
         resources[ToggleParts.PartTransitionsKey] = ToggleParts.PartTransitions(fast, normal, easing);

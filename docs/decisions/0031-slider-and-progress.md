@@ -1,6 +1,6 @@
 # 0031 — Slider, ProgressBar and ProgressRing
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - Slider and ProgressBar are restyled Fluent ([0003](0003-restyle-fluent.md)) with templates of their own. Fluent's behaviour and the named parts its code uses are kept (Slider: `PART_Track`, `PART_DecreaseButton`, `PART_IncreaseButton`; ProgressBar: `PART_Indicator`).
   - Avalonia 12 has no ProgressRing, so the library adds a `ProgressRing` Block (a `RangeBase` with `IsIndeterminate`, as ProgressBar has).

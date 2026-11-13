@@ -1,6 +1,6 @@
 # 0032 — Segmented control
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - `SegmentedControl` is a new Block ([0004](0004-tier-names.md)), since Fluent has none ([0003](0003-restyle-fluent.md)). It chooses one of a few options of a single setting. Its segments are `SegmentedControlItem`s.
     - **Why:** A row of exclusive options for one setting is a common pattern (macOS and iOS segmented controls) that a ListBox or a group of toggles does not express on its own.
@@ -28,13 +28,12 @@
     - **Why:** One sliding pill shows where the selection went, as on macOS and iOS; a per-segment fill would only blink from one place to the next. `MotionNormal` is the duration for toggles.
   - Colours:
     - The track is Button's Standard fill (`ButtonBackground`, `ButtonBackgroundDisabled`) and the text Button's (`ButtonForeground`, `ButtonForegroundDisabled`).
-    - The pill is neutral and raised from the track: the palette's AltHigh (`#FFFFFF`) in light and BaseMediumLow (`#6B6B6B`) in dark ([0011](0011-colour.md)). The selected text is the palette's BaseHigh, as on the track.
-    - A disabled control keeps the pill, in AltHigh (`#FFFFFF`) in light and ChromeHigh (`#525252`) in dark, so the disabled text stays visible on it.
+    - The pill is neutral and raised from the track: the palette's AltHigh (`#FFFFFF`) in light and BaseMediumLow (`#6B6B6B`) in dark ([0011](0011-colour.md)). The selected text is the same `ButtonForeground` as the other segments, so it does not change colour when the selection moves.
+    - A disabled control keeps the pill, in AltHigh (`#FFFFFF`) in light and ChromeHigh (`#525252`) in dark, so the disabled text stays visible on it. The disabled selected segment's text is BaseMediumLow (`#A6A6A6`) in light and BaseMedium (`#9E9E9E`) in dark, because Button's disabled text (`#6B6B6B`) is only 1.47:1 on the dark pill; it is no harder to read than a disabled unselected segment on the track, and this is tested.
     - Unselected segments take Button's hover fill (`ButtonBackgroundPointerOver`) on hover and while pressed, fading over `MotionFast`. A disabled segment shows Button's disabled text. Hovered and pressed segments stay at least 1.3:1 from the pill in both themes; this is tested.
       - **Why:** A press selects the segment at once, so the pressed look barely shows; Button's pressed fill (`#6B6B6B` in dark) would match the dark pill.
-    - The segments' text colour cross-fades (`CrossFadeBrushTransition`) over `MotionNormal`, with the pill.
     - Text meets WCAG AA on the track and on the pill in both themes; this is tested.
-    - **Why (neutral pill rather than the accent):** A segmented control always has a selection, so an accent pill puts an accent block on every one, and a toolbar holding several of them (theme, density, motion) would carry several accent blocks competing with the one accent action. The neutral raised pill is the platform convention on macOS and iOS and keeps accent for actions and for the user's current item in a list ([0024](0024-lists-and-scrolling.md)) or an on/off toggle ([0021](0021-button-siblings.md)). The track in Button's fill makes the control read as part of the button family.
+    - **Why (neutral pill):** A segmented control always has a selection, so an accent pill would put an accent block on every one, and a toolbar holding several of them (theme, density, motion) would carry several accent blocks competing with the one accent action. The neutral raised pill is the platform convention on macOS and iOS and keeps accent for actions and for the user's current item in a list ([0024](0024-lists-and-scrolling.md)) or an on/off toggle ([0021](0021-button-siblings.md)). The track in Button's fill makes the control read as part of the button family.
   - The focus ring ([0019](0019-focus-ring.md)) is drawn around the whole control while one of its segments has keyboard focus.
     - **Why:** The 2 px inset leaves no room for a ring with its 2 px gap around a single segment; with selection following focus the pill already shows which segment is focused.
   - Content: segments are text or icons, preferably not mixed in one control, with nouns or short phrases in title case, and about five to seven segments at most. Icon-only segments carry a `ToolTip` and an automation name (`AutomationProperties.Name`).

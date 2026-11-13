@@ -1,6 +1,6 @@
 # 0035 — TreeView
 
-- **Status:** Proposed, 2026-11-13 (click modes, lines and the content pill added)
+- **Status:** Agreed, 2026-11-13 (click modes, lines and the content pill added)
 - **Decision:**
   - TreeView and TreeViewItem are restyled Fluent Blocks ([0003](0003-restyle-fluent.md), [0004](0004-tier-names.md)). Selection and keyboard stay Fluent's: Up and Down move between visible rows; Right expands a collapsed item, then moves to its first child; Left collapses an expanded item, then moves to its parent; Enter toggles.
     - **Why:** Fluent's tree keyboard model is the Windows and macOS outline model; only the look changes.
@@ -28,7 +28,7 @@
   - The lines are solid 1 px hairlines in the border colour (`BaseLow`, the Separator's line, [0039](0039-separator-and-gridsplitter.md)):
     - Under each expanded parent with children, a vertical line runs down its caret's centre column, from the bottom of the caret's box through its children's rows.
     - Each child gets an elbow from that line into its row: a rounded corner of radius 4 (`SpacingXS`, a quarter circle), then a level line at the row's centre that ends `SpacingXS` before the child's caret glyph, or on a row without children `SpacingXS` before its pill.
-    - The column stops at the last child's elbow; it carries on past every other child, through that child's own expanded rows.
+    - The column stops at the elbow of the last child that has lines on; it carries on past every earlier child, through that child's own expanded rows. A parent none of whose children has lines on draws no column.
     - Collapsed children are hidden, so they have no lines; lines follow expand and collapse, and items added, removed, moved or replaced.
     - The lines sit on the caret columns, one indent (one caret width: 20 Normal, 16 Compact) per level, and are snapped to device pixels: whole device pixels thick (1 at scale 1, 2 at scale 2), so they stay crisp at any scale, and are redrawn when the window's scale changes.
     - **Why:** One line language with the separators and borders; the rounded elbow follows the library's continuous corners instead of the square elbows of older trees; ending short of the caret or pill keeps the line from touching content.

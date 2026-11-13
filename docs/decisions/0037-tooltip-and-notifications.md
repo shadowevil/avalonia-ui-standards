@@ -1,6 +1,6 @@
 # 0037 — ToolTip and notification cards
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - ToolTip keeps Fluent's behaviour and placement, and Avalonia's delays: it opens 400 ms after the pointer rests on a control, and 100 ms when moving between controls while one is shown.
     - **Why:** 400 ms sits with the platforms (Windows opens tooltips after the double-click time, 500 ms by default). Changing it for the whole app would take a style on every control, for a difference too small to matter.
