@@ -20,8 +20,10 @@ internal static class CatalogPages
         new("Glass", Icons.Drop, () => new GlassPage()),
         new("Motion", Icons.Play, () => new MotionPage()),
         new("Button", Icons.CursorClick, () => new ButtonPage()),
-        new("Button family", Icons.ToggleRight, () => new ButtonFamilyPage()),
+        new("Button family", Icons.CheckSquare, () => new ButtonFamilyPage()),
         new("Icon", Icons.Bell, () => new IconPage()),
+        new("Toggles", Icons.ToggleRight, () => new TogglesPage()),
+        new("Ranges", Icons.SlidersHorizontal, () => new RangesPage()),
         new("TreeView", Icons.TreeStructure, () => new TreeViewPage()),
     ];
 }
