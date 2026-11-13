@@ -142,18 +142,21 @@ internal sealed class SelectionIndicator : Panel
         return finalSize;
     }
 
+    // Offset and Size are set as local values: a current value set on a property with no other
+    // value is dropped when a transition on it ends, which would send the indicator back to the
+    // property's default (the panel's origin, or no size) at the end of every slide.
     private void MoveTo(Rect rect, bool slide)
     {
         if (slide)
         {
-            SetCurrentValue(OffsetProperty, rect.Position);
-            SetCurrentValue(SizeProperty, rect.Size);
+            Offset = rect.Position;
+            Size = rect.Size;
             return;
         }
         // A jump: the theme's transitions are lifted while the values change, then restored.
         SetValue(TransitionsProperty, null);
-        SetCurrentValue(OffsetProperty, rect.Position);
-        SetCurrentValue(SizeProperty, rect.Size);
+        Offset = rect.Position;
+        Size = rect.Size;
         ClearValue(TransitionsProperty);
     }
 }
