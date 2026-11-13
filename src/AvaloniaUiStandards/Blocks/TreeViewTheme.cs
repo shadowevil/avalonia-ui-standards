@@ -13,6 +13,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Style;
 using static AvaloniaUiStandards.Blocks.ButtonParts;
 
@@ -23,12 +24,15 @@ namespace AvaloniaUiStandards.Blocks;
 /// pill inset from the tree's edges, list-medium hover, base-medium-low press, accent selection
 /// with white text, density heights, the focus ring), full width at every level. The row holds
 /// the indent (one caret width per level), a caret that turns from right to down as the item
-/// expands, and the header. There are no connecting lines. Keyboard and selection are Fluent's.
+/// expands, and the header. There are no connecting lines. Keyboard and selection are Fluent's;
+/// clicks on the row expand and collapse it as <see cref="TreeViewOptions"/> sets (<see cref="RowClicks"/>).
 /// </summary>
 internal static class TreeViewTheme
 {
     public const string HeaderPart = "PART_Header";
-    public const string HeaderPresenterPart = "PART_HeaderPresenter";
+    // Not Fluent's PART_HeaderPresenter: Fluent toggles on a double tap there, and RowClicks owns
+    // the row's clicks instead.
+    public const string HeaderPresenterPart = "PART_HeaderContent";
     public const string CaretPart = "PART_ExpandCollapseChevron";
     public const string ItemsPart = "PART_ItemsPresenter";
 
@@ -187,6 +191,7 @@ internal static class TreeViewTheme
         chrome.Bind(Decorator.PaddingProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
         chrome.Bind(Layoutable.MinHeightProperty, new TemplateBinding(Layoutable.MinHeightProperty));
         TrackPress(chrome);
+        RowClicks.Attach(item, chrome, caret);
 
         var items = new ItemsPresenter { Name = ItemsPart };
         items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
@@ -209,6 +214,59 @@ internal static class TreeViewTheme
         chrome.AddHandler(InputElement.PointerReleasedEvent, (_, _) => Set(false), handledEventsToo: true);
         chrome.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Set(false), handledEventsToo: true);
         chrome.AddHandler(InputElement.PointerExitedEvent, (_, _) => Set(false), handledEventsToo: true);
+    }
+}
+
+/// <summary>
+/// Expands and collapses a row on the clicks <see cref="TreeViewOptions.ExpandOnProperty"/> and
+/// <see cref="TreeViewOptions.CollapseOnProperty"/> set. A click anywhere on the row counts except
+/// on the caret, which toggles on every click of its own. Rows without children, clicks with a
+/// modifier key (extending a selection) and clicks the row's content handles are ignored. One
+/// gesture toggles at most once: when the first click of a double click toggled the row, the
+/// double click does nothing.
+/// </summary>
+internal static class RowClicks
+{
+    private const KeyModifiers Selecting = KeyModifiers.Control | KeyModifiers.Shift | KeyModifiers.Meta;
+
+    public static void Attach(TreeViewItem item, Control row, Control caret)
+    {
+        // Whether the first click of the current click sequence toggled the row.
+        var toggledByClick = false;
+        row.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+        {
+            if (e.ClickCount % 2 == 1)
+                toggledByClick = false;
+        }, handledEventsToo: true);
+        row.AddHandler(InputElement.TappedEvent, (_, e) =>
+        {
+            if (Toggle(item, caret, e, TreeViewClickAction.SingleClick))
+                toggledByClick = true;
+        });
+        row.AddHandler(InputElement.DoubleTappedEvent, (_, e) =>
+        {
+            if (toggledByClick)
+            {
+                // The first click already toggled: the gesture is done.
+                toggledByClick = false;
+                e.Handled = true;
+                return;
+            }
+            Toggle(item, caret, e, TreeViewClickAction.DoubleClick);
+        });
+    }
+
+    private static bool Toggle(TreeViewItem item, Control caret, TappedEventArgs e, TreeViewClickAction click)
+    {
+        if (item.ItemCount == 0 || (e.KeyModifiers & Selecting) != 0
+            || (e.Source is Visual source && (source == caret || caret.IsVisualAncestorOf(source))))
+            return false;
+        var actions = item.GetValue(item.IsExpanded ? TreeViewOptions.CollapseOnProperty : TreeViewOptions.ExpandOnProperty);
+        if ((actions & click) == 0)
+            return false;
+        item.SetCurrentValue(TreeViewItem.IsExpandedProperty, !item.IsExpanded);
+        e.Handled = true;
+        return true;
     }
 }
 

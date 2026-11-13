@@ -1,9 +1,18 @@
 # 0035 — TreeView
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Proposed, 2026-11-13 (click modes added)
 - **Decision:**
-  - TreeView and TreeViewItem are restyled Fluent Blocks ([0003](0003-restyle-fluent.md), [0004](0004-tier-names.md)). Selection and keyboard stay Fluent's: Up and Down move between visible rows; Right expands a collapsed item, then moves to its first child; Left collapses an expanded item, then moves to its parent; Enter toggles; double-clicking a row toggles it.
+  - TreeView and TreeViewItem are restyled Fluent Blocks ([0003](0003-restyle-fluent.md), [0004](0004-tier-names.md)). Selection and keyboard stay Fluent's: Up and Down move between visible rows; Right expands a collapsed item, then moves to its first child; Left collapses an expanded item, then moves to its parent; Enter toggles.
     - **Why:** Fluent's tree keyboard model is the Windows and macOS outline model; only the look changes.
+  - Which clicks on a row expand and collapse it are two settings, the attached properties `TreeViewOptions.ExpandOn` and `TreeViewOptions.CollapseOn` ([0017](0017-app-usage.md)), each a `[Flags]` `TreeViewClickAction`: `None`, `SingleClick`, `DoubleClick`, or both. Both default to `DoubleClick`, so a single click only selects. They are set on the TreeView and inherited by its items; an item overrides them for itself and its descendants.
+    - **Why:** Double click to expand and collapse is the Fluent and Windows default. Apps whose trees are navigation (a single click opens a folder) need single click, and expand and collapse are separate because some trees expand on one click but collapse only deliberately.
+  - Row click rules:
+    - A click anywhere on the row counts (the indent, the header and the empty row beyond it), except on the caret. The caret toggles on each of its own clicks, whatever the settings; a double click on the caret is two clicks and toggles twice.
+    - One gesture toggles at most once: when the first click of a double click toggled the row (the setting includes `SingleClick`), the double click that follows does nothing, even if the other setting includes `DoubleClick`. So with both enabled for an action, a double click acts as one click.
+    - Rows without children ignore the settings, and their double clicks stay unhandled for the app (to open an item). A click that toggles is handled.
+    - Clicks with Ctrl, Shift or Cmd ignore the settings: they extend or change the selection.
+    - Clicks that the row's content handles itself (a button in a header) are ignored.
+    - **Why:** One click toggling and the double click undoing it would make "both" useless; treating the double click as already done makes every setting predictable. The whole row is the target so the setting does not depend on hitting the text (Fluent toggles only on a double click on the header's text).
   - The TreeView is transparent with padding 4 (`SpacingXS`) and no focus visual of its own, as the ListBox ([0024](0024-lists-and-scrolling.md)).
   - Each item's row is the list item design of [0024](0024-lists-and-scrolling.md): a squircle (`CornerRadiusControl`) inset 4 from the tree's edges, 32 high at Normal and 24 at Compact, list-medium hover, base-medium-low press, the accent fill with white text when selected, the focus ring ([0019](0019-focus-ring.md)). Rows are the tree's full width at every level; only their content is indented.
     - **Why:** One row design for lists, drop-downs, sidebars and trees, and a selection that reads as one aligned column of pills, as in macOS outline views and Fluent's TreeView.

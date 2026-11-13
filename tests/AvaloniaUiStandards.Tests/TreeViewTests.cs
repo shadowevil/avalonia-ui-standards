@@ -220,6 +220,213 @@ public class TreeViewTests
         }
     }
 
+    public static TheoryData<TreeViewClickAction, TreeViewClickAction> ClickModes()
+    {
+        TreeViewClickAction[] all = [TreeViewClickAction.None, TreeViewClickAction.SingleClick, TreeViewClickAction.DoubleClick, Both];
+        var data = new TheoryData<TreeViewClickAction, TreeViewClickAction>();
+        foreach (var expand in all)
+            foreach (var collapse in all)
+                data.Add(expand, collapse);
+        return data;
+    }
+
+    private const TreeViewClickAction Both = TreeViewClickAction.SingleClick | TreeViewClickAction.DoubleClick;
+
+    [AvaloniaFact]
+    public void ClickModes_DefaultToDoubleClick()
+    {
+        var tree = new TreeView();
+        Assert.Equal(TreeViewClickAction.DoubleClick, TreeViewOptions.GetExpandOn(tree));
+        Assert.Equal(TreeViewClickAction.DoubleClick, TreeViewOptions.GetCollapseOn(tree));
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(ClickModes))]
+    public void RowClicks_ExpandAndCollapse_AsSet_ToggleOncePerGesture(TreeViewClickAction expandOn, TreeViewClickAction collapseOn)
+    {
+        var (window, tree) = Show(configure: t =>
+        {
+            TreeViewOptions.SetExpandOn(t, expandOn);
+            TreeViewOptions.SetCollapseOn(t, collapseOn);
+        });
+        try
+        {
+            var shape = Items(tree)[1];
+            // Points on the header text and on the empty row beyond it, apart from each other, so a click
+            // never continues the click sequence of the one before.
+            var points = new[] { RowPoint(window, shape, 28), RowPoint(window, shape, 40), RowPoint(window, shape, 150), RowPoint(window, shape, 180) };
+            var next = 0;
+            Point Fresh() => points[next++ % points.Length];
+
+            foreach (var startExpanded in new[] { false, true, false, true })
+            {
+                var actions = startExpanded ? collapseOn : expandOn;
+
+                // A single click.
+                shape.IsExpanded = startExpanded;
+                Pump(window);
+                Click(window, Fresh(), 1);
+                Assert.Equal(startExpanded ^ actions.HasFlag(TreeViewClickAction.SingleClick), shape.IsExpanded);
+                Assert.Same(shape, tree.SelectedItem);
+
+                // A double click toggles once, whether its first click or the double click does it.
+                shape.IsExpanded = startExpanded;
+                Pump(window);
+                Click(window, Fresh(), 2);
+                Assert.Equal(startExpanded ^ (actions != TreeViewClickAction.None), shape.IsExpanded);
+                Assert.Same(shape, tree.SelectedItem);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RowClicks_SingleExpandDoubleCollapse_ADoubleClickOnACollapsedRowLeavesItExpanded()
+    {
+        var (window, tree) = Show(configure: t => TreeViewOptions.SetExpandOn(t, TreeViewClickAction.SingleClick));
+        try
+        {
+            var shape = Items(tree)[1];
+            Click(window, RowPoint(window, shape, 30), 2);
+            Assert.True(shape.IsExpanded);
+            Click(window, RowPoint(window, shape, 120), 2);
+            Assert.False(shape.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(TreeViewClickAction.None)]
+    [InlineData(TreeViewClickAction.DoubleClick)]
+    [InlineData(Both)]
+    public void Caret_TogglesOnEveryClick_WhateverTheSetting(TreeViewClickAction mode)
+    {
+        var (window, tree) = Show(configure: t =>
+        {
+            TreeViewOptions.SetExpandOn(t, mode);
+            TreeViewOptions.SetCollapseOn(t, mode);
+        });
+        try
+        {
+            var shape = Items(tree)[1];
+            var caret = Caret(shape);
+            var point = caret.TranslatePoint(new Point(caret.Bounds.Width / 2, caret.Bounds.Height / 2), window)!.Value;
+            Click(window, point, 1);
+            Assert.True(shape.IsExpanded);
+            // A click on another row ends the click sequence on the caret.
+            Click(window, RowPoint(window, Items(tree)[2], 30), 1);
+            // A double click on the caret is two clicks: it toggles twice and the row's double click does nothing.
+            Click(window, point, 2);
+            Assert.True(shape.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RowClicks_IgnoreLeaves_AndLeaveTheirDoubleClickToTheApp()
+    {
+        var (window, tree) = Show(configure: t =>
+        {
+            TreeViewOptions.SetExpandOn(t, Both);
+            TreeViewOptions.SetCollapseOn(t, Both);
+        });
+        try
+        {
+            var leaf = Items(tree)[2];
+            var seen = 0;
+            tree.DoubleTapped += (_, _) => seen++;
+            Click(window, RowPoint(window, leaf, 30), 2);
+            Assert.False(leaf.IsExpanded);
+            Assert.Same(leaf, tree.SelectedItem);
+            Assert.Equal(1, seen);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RowClicks_IgnoreClicksExtendingASelection()
+    {
+        var (window, tree) = Show(configure: t =>
+        {
+            t.SelectionMode = SelectionMode.Multiple;
+            TreeViewOptions.SetExpandOn(t, TreeViewClickAction.SingleClick);
+        });
+        try
+        {
+            var shape = Items(tree)[1];
+            var point = RowPoint(window, shape, 30);
+            window.MouseDown(point, MouseButton.Left, RawInputModifiers.Control);
+            window.MouseUp(point, MouseButton.Left, RawInputModifiers.Control);
+            Pump(window);
+            Assert.False(shape.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ClickModes_AreInherited_AndAnItemOverridesThemForItsSubtree()
+    {
+        var (window, tree) = Show(configure: t => TreeViewOptions.SetExpandOn(t, TreeViewClickAction.SingleClick));
+        try
+        {
+            var items = Items(tree);
+            var (shape, blocks) = (items[1], items[6]);
+            Assert.Equal(TreeViewClickAction.SingleClick, TreeViewOptions.GetExpandOn(shape));
+            TreeViewOptions.SetExpandOn(blocks, TreeViewClickAction.None);
+            Click(window, RowPoint(window, blocks, 30), 1);
+            Assert.False(blocks.IsExpanded);
+            Click(window, RowPoint(window, shape, 30), 1);
+            Assert.True(shape.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Keyboard_IsUnchanged_WithRowClicksOff()
+    {
+        var (window, tree) = Show(configure: t =>
+        {
+            TreeViewOptions.SetExpandOn(t, TreeViewClickAction.None);
+            TreeViewOptions.SetCollapseOn(t, TreeViewClickAction.None);
+        });
+        try
+        {
+            var shape = Items(tree)[1];
+            tree.SelectedItem = shape;
+            shape.Focus(NavigationMethod.Tab);
+            Pump(window);
+            Press(window, Key.Right);
+            Assert.True(shape.IsExpanded);
+            Press(window, Key.Left);
+            Assert.False(shape.IsExpanded);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            Pump(window);
+            Assert.True(shape.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void HoverAndPress_AreTheRowsOwn_NotTheParents()
     {
@@ -333,10 +540,11 @@ public class TreeViewTests
         },
     };
 
-    private static (Window Window, TreeView Tree) Show(DensityStyle density = DensityStyle.Normal, bool reduceMotion = true)
+    private static (Window Window, TreeView Tree) Show(DensityStyle density = DensityStyle.Normal, bool reduceMotion = true, Action<TreeView>? configure = null)
     {
         var tree = NewTree();
         tree.Width = 260;
+        configure?.Invoke(tree);
         var window = new Window { Width = 400, Height = 400, Content = tree };
         window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
         window.Show();
@@ -374,6 +582,22 @@ public class TreeViewTests
         item.GetVisualDescendants().OfType<T>().First(c => c.Name == name && c.TemplatedParent == item);
 
     private static Matrix Rounded(Matrix m) => new(Math.Round(m.M11, 6), Math.Round(m.M12, 6), Math.Round(m.M21, 6), Math.Round(m.M22, 6), 0, 0);
+
+    // A point on the row, x in from where its caret starts (past the caret from 20 on).
+    private static Point RowPoint(Window window, TreeViewItem item, double x) =>
+        Chrome(item).TranslatePoint(new Point(x + Chrome(item).Padding.Left + item.Level * TreeViewTheme.Normal.Indent, Chrome(item).Bounds.Height / 2), window)!.Value;
+
+    // Clicks count times at point.
+    private static void Click(Window window, Point point, int count)
+    {
+        window.MouseMove(point);
+        for (var i = 0; i < count; i++)
+        {
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+        }
+        Pump(window);
+    }
 
     private static void Press(Window window, Key key)
     {
