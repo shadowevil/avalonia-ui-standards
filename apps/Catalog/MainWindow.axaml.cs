@@ -1,4 +1,5 @@
 using System.Reflection;
+using Avalonia;
 using AvaloniaUiStandards;
 using AvaloniaUiStandards.Modules;
 
@@ -18,9 +19,12 @@ public partial class MainWindow : StandardsWindow
             if (PageList.SelectedIndex < 0)
                 return;
             var page = CatalogPages.All[PageList.SelectedIndex];
-            Scroller.Content = page.Create();
+            Content = page.Create();
             StatusPage.Text = page.Title;
         };
         PageList.SelectedIndex = 0;
+
+        // The ribbons tone themselves down outside the glass panel, where text sits on the backdrop.
+        Ribbons.Bind(RibbonBackdrop.PanelBoundsProperty, this.GetObservable(ContentPanelBoundsProperty));
     }
 }

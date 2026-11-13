@@ -4,11 +4,14 @@
                  x:Class="Catalog.MainWindow"
                  Title="Avalonia UI Standards catalog"
                  Width="1200" Height="800">
+  <StandardsWindow.Backdrop>
+    <c:RibbonBackdrop x:Name="Ribbons" />
+  </StandardsWindow.Backdrop>
   <StandardsWindow.Toolbar>
     <c:ThemeToolbar />
   </StandardsWindow.Toolbar>
   <StandardsWindow.Sidebar>
-    <ListBox x:Name="PageList" Width="180" Background="Transparent" />
+    <ListBox x:Name="PageList" Width="180" />
   </StandardsWindow.Sidebar>
   <StandardsWindow.StatusBar>
     <Grid ColumnDefinitions="*,Auto">
@@ -16,5 +19,4 @@
       <TextBlock x:Name="StatusVersion" Grid.Column="1" FontSize="{DynamicResource FontSizeCaption}" />
     </Grid>
   </StandardsWindow.StatusBar>
-  <c:PageHost x:Name="Scroller" />
 </StandardsWindow>

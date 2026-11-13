@@ -56,7 +56,7 @@ public class CatalogWindowTests
                 }
 
             // The intent: after all of it, the shown page's buttons are alive and still animate.
-            var chromes = window.Scroller.GetVisualDescendants().OfType<SquircleBorder>().Where(c => c.Name == ButtonParts.ChromePart).ToList();
+            var chromes = CatalogRenderTests.ContentScroller(window).GetVisualDescendants().OfType<SquircleBorder>().Where(c => c.Name == ButtonParts.ChromePart).ToList();
             Assert.NotEmpty(chromes);
             Assert.All(chromes, c => Assert.Equal(3, c.Transitions?.Count));
         }
