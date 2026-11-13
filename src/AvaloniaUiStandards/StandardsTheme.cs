@@ -54,6 +54,12 @@ public class StandardsTheme : Styles
     /// <summary>The danger colour, for destructive actions, with white text on it.</summary>
     private static readonly Color Danger = Color.FromRgb(0xE1, 0x33, 0x2A);
 
+    /// <summary>The success colour, between the Windows success green (#0F7B0F) and the macOS system green (#34C759).</summary>
+    internal static readonly Color Success = Color.FromRgb(0x22, 0xA1, 0x34);
+
+    /// <summary>The warning colour, between the Windows caution (#9D5D00) and the macOS system orange (#FF9500).</summary>
+    internal static readonly Color Warning = Color.FromRgb(0xCE, 0x79, 0x00);
+
     private static readonly TimeSpan MotionFast = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan MotionNormal = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan MotionSlow = TimeSpan.FromMilliseconds(300);
@@ -91,6 +97,8 @@ public class StandardsTheme : Styles
 
         AddResources(Resources);
         AddDanger(Resources, Danger);
+        Resources["SuccessColor"] = Success;
+        Resources["WarningColor"] = Warning;
         AddFills(Resources, "AccentFillColor", _accent);
         AddAccentText(_accent);
         UpdateMotion();
@@ -225,7 +233,7 @@ public class StandardsTheme : Styles
         Resources["MotionSlow"] = reduced ? TimeSpan.Zero : MotionSlow;
 
         // Control transitions are fixed objects (as Fluent declares them), replaced here when motion changes.
-        Blocks.BlocksThemes.ApplyMotion(Resources, reduced ? TimeSpan.Zero : MotionFast, MotionEasing);
+        Blocks.BlocksThemes.ApplyMotion(Resources, reduced ? TimeSpan.Zero : MotionFast, reduced ? TimeSpan.Zero : MotionSlow, MotionEasing);
     }
 
     private static void AddResources(IResourceDictionary r)
@@ -345,6 +353,11 @@ public class StandardsTheme : Styles
         };
         dictionary["AccentTextColor"] = text.Normal;
         dictionary["AccentTextColorPressed"] = text.Pressed;
+
+        // Status text and icon colours (notification cards): the same AA step on the same backgrounds.
+        dictionary["SuccessTextColor"] = AccessibleColors.ForText(Success, backgrounds, onDark).Normal;
+        dictionary["WarningTextColor"] = AccessibleColors.ForText(Warning, backgrounds, onDark).Normal;
+        dictionary["DangerTextColor"] = AccessibleColors.ForText(Danger, backgrounds, onDark).Normal;
     }
 
     /// <summary>Colour <paramref name="a"/> with <paramref name="amount"/> of <paramref name="b"/> mixed in.</summary>

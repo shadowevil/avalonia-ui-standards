@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -34,6 +35,9 @@ internal static class BlocksThemes
         resources[typeof(ContextMenu)] = MenuTheme.MenuOverlay(typeof(ContextMenu), fluentTheme(typeof(ContextMenu)));
         resources[typeof(MenuFlyoutPresenter)] = MenuTheme.MenuOverlay(typeof(MenuFlyoutPresenter), fluentTheme(typeof(MenuFlyoutPresenter)));
         resources[typeof(FlyoutPresenter)] = MenuTheme.FlyoutPresenter(fluentTheme(typeof(FlyoutPresenter)));
+        resources[typeof(ToolTip)] = ToolTipTheme.Create(fluentTheme(typeof(ToolTip)));
+        resources[typeof(WindowNotificationManager)] = NotificationTheme.Manager(fluentTheme(typeof(WindowNotificationManager)));
+        resources[typeof(NotificationCard)] = NotificationTheme.Card();
         resources[typeof(Separator)] = SeparatorTheme.Create();
         resources[typeof(GridSplitter)] = GridSplitterTheme.Create();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
@@ -46,11 +50,13 @@ internal static class BlocksThemes
 
     /// <summary>
     /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
-    /// is <c>MotionFast</c>, or zero under reduce motion (no transitions).
+    /// is <c>MotionFast</c> and <paramref name="slow"/> <c>MotionSlow</c>, both zero under reduce motion (no transitions).
     /// </summary>
-    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, Easing easing)
+    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, TimeSpan slow, Easing easing)
     {
         resources[OverlayParts.FadeInFastKey] = OverlayParts.FadeIn(fast, easing);
+        resources[OverlayParts.FadeInSlowKey] = OverlayParts.FadeIn(slow, easing);
+        resources[OverlayParts.FadeOutSlowKey] = OverlayParts.FadeOut(slow, easing);
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);

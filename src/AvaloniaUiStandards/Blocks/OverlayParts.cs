@@ -7,15 +7,17 @@ using Avalonia.Styling;
 namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
-/// The parts shared by the overlay Blocks (menus and flyouts): the
-/// name of their surface part and the fade played when an overlay appears.
+/// The parts shared by the overlay Blocks (menus, flyouts, tooltips, notification cards): the
+/// name of their surface part and the fades played when an overlay appears or closes itself.
 /// </summary>
 internal static class OverlayParts
 {
     public const string SurfacePart = "PART_Surface";
 
-    // The fade, set by BlocksThemes.ApplyMotion under this non-public key (null under reduce motion).
+    // The fades, set by BlocksThemes.ApplyMotion under these non-public keys (null under reduce motion).
     internal static readonly object FadeInFastKey = new();
+    internal static readonly object FadeInSlowKey = new();
+    internal static readonly object FadeOutSlowKey = new();
 
     /// <summary>
     /// An opacity fade from 0 to 1 over <paramref name="duration"/>, or null when it is zero
@@ -32,6 +34,24 @@ internal static class OverlayParts
             {
                 new KeyFrame { Cue = new Cue(0), Setters = { new Setter(Visual.OpacityProperty, 0d) } },
                 new KeyFrame { Cue = new Cue(1), Setters = { new Setter(Visual.OpacityProperty, 1d) } },
+            },
+        };
+
+    /// <summary>
+    /// An opacity fade from 1 to 0 over <paramref name="duration"/> that holds its end, or null when
+    /// it is zero (reduce motion). For overlays that close themselves (notification cards).
+    /// </summary>
+    public static Animation? FadeOut(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
+        ? null
+        : new Animation
+        {
+            Duration = duration,
+            Easing = easing,
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame { Cue = new Cue(0), Setters = { new Setter(Visual.OpacityProperty, 1d) } },
+                new KeyFrame { Cue = new Cue(1), Setters = { new Setter(Visual.OpacityProperty, 0d) } },
             },
         };
 

@@ -21,6 +21,7 @@ internal static class CatalogPages
         new("Button family", () => new ButtonFamilyPage()),
         new("Icon", () => new IconPage()),
         new("Menus and flyouts", () => new MenuPage()),
+        new("ToolTip and notifications", () => new ToolTipNotificationPage()),
         new("Separator and GridSplitter", () => new SeparatorPage()),
     ];
 }
