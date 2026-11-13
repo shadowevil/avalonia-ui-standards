@@ -39,12 +39,12 @@ public class TrafficLightButton : Button
         AvaloniaProperty.Register<TrafficLightButton, WindowButtonKind>(nameof(Kind));
 
     static TrafficLightButton() =>
-        KindProperty.Changed.AddClassHandler<TrafficLightButton>((b, _) => b.UpdateName());
+        KindProperty.Changed.AddClassHandler<TrafficLightButton>((b, _) => b.UpdateKind());
 
     public TrafficLightButton()
     {
         WindowButtonParts.MakeNonFocusable(this);
-        UpdateName();
+        UpdateKind();
     }
 
     public WindowButtonKind Kind
@@ -59,7 +59,7 @@ public class TrafficLightButton : Button
     /// <summary>Greys the light while its window is inactive; set by <see cref="WindowButtons"/>.</summary>
     internal void SetInactive(bool inactive) => PseudoClasses.Set(":inactive", inactive);
 
-    private void UpdateName()
+    private void UpdateKind()
     {
         WindowButtonParts.SetRole(this, Kind);
         AutomationProperties.SetName(this, Kind switch
@@ -249,7 +249,6 @@ public class WindowButtons : Decorator
 
 internal static class WindowButtonParts
 {
-    /// <summary>Window buttons are not focus or Tab stops, as native ones; the window has the keyboard shortcuts.</summary>
     /// <summary>
     /// Tags the button with its chrome role (close, minimise, maximise), so a window with an
     /// extended client area lets the OS treat it as that window button.
@@ -261,6 +260,7 @@ internal static class WindowButtonParts
         _ => WindowDecorationsElementRole.MaximizeButton,
     });
 
+    /// <summary>Window buttons are not focus or Tab stops, as native ones; the window has the keyboard shortcuts.</summary>
     public static void MakeNonFocusable(Button button)
     {
         button.Focusable = false;

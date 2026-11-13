@@ -106,21 +106,16 @@ internal static class StandardsWindowTheme
                 (SquircleBorder.CornerRadiusProperty, new CornerRadius(0))),
             Part<WindowShadow>(ShadowPart, ":opaque", (Visual.IsVisibleProperty, false)),
             Part<Panel>(ResizeGripsPart, ":opaque", (Layoutable.MarginProperty, new Thickness(0))),
-            new Avalonia.Styling.Style(x => x.Nesting().Class(":opaque"))
-            {
-                Setters =
-                {
-                    new Setter(Layoutable.MinWidthProperty, MinimumFrame.Width),
-                    new Setter(Layoutable.MinHeightProperty, MinimumFrame.Height),
-                },
-            },
 
             // Native macOS frame: the system draws the shadow and resizes the window, so the
             // window is exactly the frame, with no drawn shadow and no grips.
             Part<SquircleBorder>(FramePart, ":native-frame", (Layoutable.MarginProperty, new Thickness(0))),
             Part<WindowShadow>(ShadowPart, ":native-frame", (Visual.IsVisibleProperty, false)),
             Part<Panel>(ResizeGripsPart, ":native-frame", (Visual.IsVisibleProperty, false)),
-            new Avalonia.Styling.Style(x => x.Nesting().Class(":native-frame"))
+
+            // Without OS transparency, or on the native macOS frame, the window adds no margin
+            // around the frame, so the minimum size is the frame's.
+            new Avalonia.Styling.Style(x => Selectors.Or(x.Nesting().Class(":opaque"), x.Nesting().Class(":native-frame")))
             {
                 Setters =
                 {

@@ -20,7 +20,8 @@ namespace AvaloniaUiStandards.Modules;
 /// Drag the window by the title band (double-click maximises or restores; on macOS it follows the
 /// system's title bar double-click setting), resize it from the frame's edges and corners.
 /// Maximised, or where the OS gives no transparency, the frame fills the window with square
-/// corners and no shadow. On macOS the window is a native resizable window with its title bar
+/// corners and no shadow, except on macOS, where the system keeps its shadow and rounds the
+/// corners with its own mask. On macOS the window is a native resizable window with its title bar
 /// hidden: the system draws the shadow and handles resizing, and the window is exactly the frame.
 /// </remarks>
 public class StandardsWindow : Window
@@ -331,10 +332,9 @@ public class StandardsWindow : Window
         }
     }
 
-    // With the client area extended, the platform acts on the title band's chrome role itself.
     private void OnTitleBandPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || ExtendClientAreaToDecorationsHint)
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
         e.Handled = true;
         if (e.ClickCount == 2)

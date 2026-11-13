@@ -731,24 +731,13 @@ public class StandardsWindowTests
         }
     }
 
-    // With the client area extended, the platform acts on the title band's role, so the window
-    // does not also handle the double-click itself.
-    [AvaloniaFact]
-    public void ExtendedClientArea_LeavesTheTitleBandToThePlatform()
+    // The macOS title bar double-click setting reads without throwing (null when unset).
+    [Fact]
+    public void MacTitleBarDoubleClickSetting_ReadsWithoutThrowing()
     {
-        var window = SampleWindow(ThemeVariant.Light, slots: false, WindowButtonStyle.CaptionButtons);
-        window.ExtendClientAreaToDecorationsHint = true;
-        Show(window);
-        try
-        {
-            var band = Part<Control>(window, StandardsWindowTheme.TitleBandPart);
-            DoubleClick(window, band.TranslatePoint(new Point(band.Bounds.Width / 2, band.Bounds.Height / 2), window)!.Value);
-            Assert.Equal(WindowState.Normal, window.WindowState);
-        }
-        finally
-        {
-            window.Close();
-        }
+        Assert.SkipUnless(OperatingSystem.IsMacOS(), "macOS only");
+        var action = MacWindowSettings.TitleBarDoubleClickAction();
+        Assert.True(action is null || action.Length > 0);
     }
 
     // --- Contrast ------------------------------------------------------------------------
