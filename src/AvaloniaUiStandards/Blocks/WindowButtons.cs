@@ -194,7 +194,7 @@ public class WindowButtons : Decorator
         {
             Orientation = Orientation.Horizontal,
             Spacing = trafficLights ? WindowButtonThemes.TrafficLightGap : 0,
-            VerticalAlignment = trafficLights ? VerticalAlignment.Center : VerticalAlignment.Stretch,
+            VerticalAlignment = trafficLights ? VerticalAlignment.Center : VerticalAlignment.Top,
         };
         foreach (var kind in order)
         {

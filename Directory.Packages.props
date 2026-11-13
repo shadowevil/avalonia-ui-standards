@@ -9,6 +9,8 @@
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.6" />
+    <!-- Avalonia.Controls.DataGrid is versioned on its own line; 12.1.2 is the latest 12.1 release (it needs Avalonia 12.1.0 or later). -->
+    <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.6" />
     <!-- Avalonia.Headless.XUnit 12.1.6 needs xunit.v3 3.2.x; 4.x breaks test discovery. -->
     <PackageVersion Include="xunit.v3" Version="3.2.2" />

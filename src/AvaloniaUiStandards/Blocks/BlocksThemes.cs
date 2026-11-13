@@ -57,6 +57,13 @@ internal static class BlocksThemes
         resources[typeof(TabStripItem)] = TabThemes.Tab(typeof(TabStripItem));
         resources[typeof(Expander)] = ExpanderTheme.Create();
         resources[typeof(CheckBox)] = CheckBoxTheme.Create();
+        resources[typeof(DataGrid)] = DataGridTheme.Grid(fluentTheme(typeof(DataGrid)));
+        resources[typeof(DataGridRow)] = DataGridTheme.Row();
+        resources[typeof(DataGridCell)] = DataGridTheme.Cell();
+        resources[typeof(DataGridColumnHeader)] = DataGridTheme.ColumnHeader();
+        resources[typeof(DataGridRowHeader)] = DataGridTheme.RowHeader(fluentTheme(typeof(DataGridRowHeader)));
+        resources[DataGridTheme.CellTextBlockThemeKey] = DataGridTheme.CellTextBlock();
+        resources[DataGridTheme.CellTextBoxThemeKey] = DataGridTheme.CellTextBox((ControlTheme)resources[typeof(TextBox)]!);
         resources[typeof(RadioButton)] = RadioButtonTheme.Create();
         resources[typeof(ToggleSwitch)] = ToggleSwitchTheme.Create();
         resources[typeof(Slider)] = SliderTheme.Create();
@@ -85,7 +92,7 @@ internal static class BlocksThemes
     }
 
     /// <summary>Blocks styles that depend on where a control sits, added to the theme after the control themes.</summary>
-    public static IEnumerable<IStyle> Styles() => [SeparatorTheme.InMenuStyle()];
+    public static IEnumerable<IStyle> Styles() => [SeparatorTheme.InMenuStyle(), .. DataGridTheme.Styles(DataGridTheme.CellCheckBox())];
 
     /// <summary>
     /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
@@ -119,6 +126,7 @@ internal static class BlocksThemes
         resources[IconTheme.SizeKey] = iconSize;
         resources[NotificationTheme.CloseMarginKey] = NotificationTheme.CloseMargin(sizes.MinHeight, iconSize);
         FieldParts.ApplyDensity(resources, density);
+        WindowButtonThemes.ApplyDensity(resources, density == DensityStyle.Compact);
         resources[ComboBoxTheme.PaddingKey] = ComboBoxTheme.Padding(sizes.Padding);
         var segment = SegmentedControlTheme.Item(sizes);
         resources[SegmentedControlTheme.ItemMinHeightKey] = segment.MinHeight;
@@ -129,6 +137,7 @@ internal static class BlocksThemes
         ToggleParts.ApplyDensity(resources, density == DensityStyle.Compact ? ToggleParts.Compact : ToggleParts.Normal);
         RangeParts.ApplyDensity(resources, density == DensityStyle.Compact ? RangeParts.Compact : RangeParts.Normal);
         TreeViewTheme.ApplyDensity(resources, density == DensityStyle.Compact);
+        DataGridTheme.ApplyDensity(resources, density == DensityStyle.Compact);
         PickerThemes.ApplyDensity(resources, density);
         CalendarThemes.ApplyDensity(resources, density);
         ColorPartsThemes.ApplyDensity(resources, density);
