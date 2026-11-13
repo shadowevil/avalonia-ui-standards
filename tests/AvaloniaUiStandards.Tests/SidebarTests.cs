@@ -607,6 +607,52 @@ public class SidebarTests
         }
     }
 
+    [AvaloniaFact]
+    public void Overlay_WithNoSelection_FocusesTheFirstDataRow()
+    {
+        // Data items get generated SidebarItem containers.
+        var (window, sidebar) = Show(Narrow, beforeShow: w =>
+        {
+            var s = (Sidebar)w.Sidebar!;
+            s.Items.Clear();
+            s.ItemsSource = new[] { "A", "B" };
+        });
+        try
+        {
+            sidebar.Toggle();
+            var focused = Assert.IsType<SidebarItem>(Focused(window));
+            Assert.Same(sidebar.ContainerFromIndex(0), focused);
+            Assert.Equal("A", focused.Content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CrossingIntoHidden_WithTheOverlayOpen_GivesFocusBackToTheButton()
+    {
+        var (window, sidebar) = Show(Medium);
+        try
+        {
+            var toggle = Part<Button>(window, StandardsWindowTheme.SidebarTogglePart);
+            toggle.Focus(NavigationMethod.Tab);
+            sidebar.Toggle();
+            Pump(window);
+            Assert.IsType<SidebarItem>(Focused(window));
+            window.Width = Narrow;
+            Pump(window);
+            Assert.False(sidebar.IsOverlayOpen);
+            Assert.Equal(SidebarStage.Hidden, sidebar.Stage);
+            Assert.Same(toggle, Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     public static TheoryData<string> CloseWays() => new() { "Escape", "Outside click", "Button" };
 
     [AvaloniaTheory]

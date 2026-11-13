@@ -267,10 +267,11 @@ public class Sidebar : ListBox
         if (auto == _auto && _stage == (_userStage ?? auto))
             return;
 
-        // Crossing a threshold ends the user's choice and closes the overlay, at once.
+        // Crossing a threshold ends the user's choice and closes the overlay, at once. Into the
+        // hidden stage the rows go away, so focus in the overlay goes back to what had it before.
         _auto = auto;
         _userStage = null;
-        SetOverlay(false, animate: false);
+        SetOverlay(false, animate: false, restoreFocus: _auto == SidebarStage.Hidden);
         Apply(animate: false);
     }
 
@@ -318,7 +319,7 @@ public class Sidebar : ListBox
     // may never have been, while the sidebar was hidden).
     private void FocusFirstRow()
     {
-        var index = SelectedIndex >= 0 ? SelectedIndex : Items.IndexOf(Items.OfType<SidebarItem>().FirstOrDefault());
+        var index = SelectedIndex >= 0 ? SelectedIndex : Items.IndexOf(Items.FirstOrDefault(i => i is not SidebarHeader));
         if (index < 0)
             return;
         ScrollIntoView(index);
