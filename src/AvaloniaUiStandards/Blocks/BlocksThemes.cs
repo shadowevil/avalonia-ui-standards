@@ -33,6 +33,8 @@ internal static class BlocksThemes
         var innerTextBox = TextInputTheme.CreateInner(fieldButton);
         resources[typeof(CalendarDatePicker)] = TextInputTheme.KeepInnerTextBoxBare(typeof(CalendarDatePicker), fluentTheme(typeof(CalendarDatePicker)), innerTextBox);
         resources[typeof(ComboBox)] = ComboBoxTheme.Create(innerTextBox);
+        resources[typeof(ButtonSpinner)] = SpinnerThemes.ButtonSpinner(fieldButton);
+        resources[typeof(NumericUpDown)] = SpinnerThemes.NumericUpDown(SpinnerThemes.Template(fieldButton), innerTextBox);
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);

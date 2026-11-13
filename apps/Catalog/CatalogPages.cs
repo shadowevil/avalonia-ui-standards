@@ -22,5 +22,6 @@ internal static class CatalogPages
         new("Icon", () => new IconPage()),
         new("TextInput", () => new TextInputPage()),
         new("ComboBox", () => new ComboBoxPage()),
+        new("NumericUpDown", () => new NumericUpDownPage()),
     ];
 }
