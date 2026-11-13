@@ -73,6 +73,26 @@ public class AutoCompleteBoxTests
         }
     }
 
+    // Validation errors set on the AutoCompleteBox reach its TextBox, which shows the error border.
+    [AvaloniaFact]
+    public void ValidationErrors_ReachTheTextBoxsErrorLook()
+    {
+        var box = New();
+        var window = Show(new StackPanel { Children = { box } });
+        try
+        {
+            DataValidationErrors.SetErrors(box, ["Unknown city"]);
+            Pump(window);
+            var text = Text(box);
+            Assert.Contains(":error", text.Classes);
+            Assert.Equal(Colour(box, "DangerColor"), Effective(text.BorderBrush));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("Light")]
     [InlineData("Dark")]

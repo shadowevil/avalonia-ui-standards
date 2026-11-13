@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Catalog.Pages;
 
 namespace Catalog;
@@ -63,16 +64,36 @@ internal static class FieldGrid
     }
 
     /// <summary>
+    /// The part of a field that holds its states, and the part that draws its ring. An
+    /// AutoCompleteBox's TextBox holds both; a NumericUpDown holds its states and its ButtonSpinner
+    /// draws the ring (shown, as when focus is on the inner TextBox, through that part's
+    /// <c>:focus-visible</c>); other fields hold both themselves.
+    /// </summary>
+    private static (Control States, Control Ring) Targets(Control control) => control switch
+    {
+        AutoCompleteBox => Part<TextBox>(control, "PART_TextBox") is { } text ? (text, text) : (control, control),
+        NumericUpDown => (control, Part<ButtonSpinner>(control, "PART_Spinner") ?? (Control)control),
+        _ => (control, control),
+    };
+
+    private static T? Part<T>(Control control, string name) where T : Control =>
+        control.GetVisualDescendants().OfType<T>().FirstOrDefault(c => c.Name == name);
+
+    /// <summary>
     /// Wraps a field in a non-interactive host and forces it into <paramref name="state"/>. Focus
     /// is shown through the pseudo-classes alone, so the samples never take real focus.
     /// </summary>
     private static Control Sample(Control control, FieldSampleState state)
     {
         control.IsEnabled = state != FieldSampleState.Disabled;
-        // Forced once attached: a control resets some of its pseudo-classes when it joins the tree.
+        // Forced once attached (its template is built by then): a control resets some of its
+        // pseudo-classes when it joins the tree.
         control.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() =>
         {
-            var pseudo = (IPseudoClasses)control.Classes;
+            if (control is TemplatedControl templated)
+                templated.ApplyTemplate();
+            var (states, ring) = Targets(control);
+            var pseudo = (IPseudoClasses)states.Classes;
             switch (state)
             {
                 case FieldSampleState.Hover:
@@ -85,7 +106,7 @@ internal static class FieldGrid
                     pseudo.Set(":focus", true);
                     pseudo.Set(":focus-within", true);
                     if (state == FieldSampleState.KeyboardFocus)
-                        pseudo.Set(":focus-visible", true);
+                        ((IPseudoClasses)ring.Classes).Set(":focus-visible", true);
                     break;
             }
         });

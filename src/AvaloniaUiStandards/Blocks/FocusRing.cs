@@ -7,6 +7,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Style;
 
 namespace AvaloniaUiStandards.Blocks;
@@ -81,10 +82,13 @@ internal static class FocusRing
         lock (Tracked)
             if (!Tracked.Add(type))
                 return;
+        // Only the field's own parts count: focus on an item in its drop-down shows that item's ring.
         InputElement.GotFocusEvent.AddClassHandler(type, (sender, e) =>
         {
             if (sender is Control control)
-                control.SetValue(IsVisibleWithinProperty, e is FocusChangedEventArgs { NavigationMethod: NavigationMethod.Tab or NavigationMethod.Directional });
+                control.SetValue(IsVisibleWithinProperty,
+                    e is FocusChangedEventArgs { NavigationMethod: NavigationMethod.Tab or NavigationMethod.Directional, Source: Visual source }
+                    && (source == control || control.IsVisualAncestorOf(source)));
         }, handledEventsToo: true);
         InputElement.LostFocusEvent.AddClassHandler(type, (sender, _) => (sender as Control)?.SetValue(IsVisibleWithinProperty, false),
             handledEventsToo: true);

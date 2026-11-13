@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Xunit;
@@ -52,6 +54,22 @@ public class TextInputRenderTests
                 ("Library, text", states.Select(s => FieldCells.Render(sheet, theme, Avalonia.Themes.Fluent.DensityStyle.Normal, Kinds[1].Create(), s)).ToList()),
             ]);
         sheet.Save("m3-textinput-before-after.png");
+    }
+
+    // CalendarDatePicker keeps Fluent's chrome; its TextBox takes the inner theme, so it looks as in Fluent.
+    [AvaloniaFact]
+    public void CalendarDatePicker_RendersFluentNextToLibrary()
+    {
+        FieldState[] states = [FieldState.Rest, FieldState.Hover, FieldState.Focused];
+        static InputElement Inner(Control picker) => picker.GetVisualDescendants().OfType<TextBox>().Single();
+        using var sheet = new Sheet("CalendarDatePicker: Fluent (before) and the library (after); the picker's chrome stays Fluent");
+        foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
+            sheet.AddSection(themeLabel, states.Select(FieldCells.Label).ToList(),
+            [
+                ("Fluent", states.Select(s => FieldCells.RenderFluent(sheet, theme, new CalendarDatePicker { Width = 200 }, s, Inner)).ToList()),
+                ("Library", states.Select(s => FieldCells.Render(sheet, theme, Avalonia.Themes.Fluent.DensityStyle.Normal, new CalendarDatePicker { Width = 200 }, s, Inner)).ToList()),
+            ]);
+        sheet.Save("m3-calendardatepicker-textbox.png");
     }
 
     private static TextBox Classed(TextBox box, string cls)

@@ -231,8 +231,34 @@ public class ComboBoxThemeTests
         }
     }
 
+    // Keyboard focus on an item in the open drop-down shows the item's ring, not the field's.
     [AvaloniaFact]
-    public void CaretZone_TakesClicksOnlyWhenEditable()
+    public void KeyboardFocusInTheDropDown_ShowsNoFieldRing()
+    {
+        var box = New();
+        var window = Show(box);
+        try
+        {
+            box.Focus(NavigationMethod.Tab);
+            Pump(window);
+            Assert.True(Ring(box).IsVisible);
+            box.IsDropDownOpen = true;
+            Pump(window);
+            var item = box.GetLogicalDescendants().OfType<ComboBoxItem>().ElementAt(1);
+            item.Focus(NavigationMethod.Directional);
+            Pump(window);
+            Assert.True(item.IsFocused);
+            Assert.False(Ring(box).IsVisible);
+            Assert.True(Ring(item).IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CaretZone_TakesClicksAboveTheEditableTextBox()
     {
         var plain = New();
         var editable = New(editable: true);

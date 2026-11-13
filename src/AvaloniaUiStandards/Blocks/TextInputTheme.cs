@@ -24,7 +24,6 @@ namespace AvaloniaUiStandards.Blocks;
 /// </summary>
 internal static class TextInputTheme
 {
-    public const string BorderPart = FieldParts.ChromePart;
     public const string InnerDockPanelPart = "PART_InnerDockPanel";
     public const string FloatingPlaceholderPart = "PART_FloatingPlaceholder";
     public const string ScrollViewerPart = "PART_ScrollViewer";
@@ -41,7 +40,7 @@ internal static class TextInputTheme
         var theme = Base(fieldButton);
         FieldParts.AddSizing(theme, PaddingKey);
         FieldParts.AddColours(theme, FieldParts.TextControl, x => x.Nesting().Class(":focus"));
-        theme.Children.Add(FieldParts.ChromeMotion());
+        theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
         FocusRing.AddTo(theme);
         return theme;
     }
@@ -116,21 +115,21 @@ internal static class TextInputTheme
         });
 
         // Placeholder: shown while empty (TextBox also clears :empty while an input method composes).
-        theme.Children.Add(Part<TextBlock>(PlaceholderPart, null, Visual.IsVisibleProperty, false));
-        theme.Children.Add(Part<TextBlock>(PlaceholderPart, x => x.Class(":empty"), Visual.IsVisibleProperty, true));
-        theme.Children.Add(Part<TextBlock>(FloatingPlaceholderPart, null, Visual.IsVisibleProperty, false));
-        theme.Children.Add(Part<TextBlock>(FloatingPlaceholderPart,
+        theme.Children.Add(FieldParts.Part<TextBlock>(PlaceholderPart, null, Visual.IsVisibleProperty, false));
+        theme.Children.Add(FieldParts.Part<TextBlock>(PlaceholderPart, x => x.Class(":empty"), Visual.IsVisibleProperty, true));
+        theme.Children.Add(FieldParts.Part<TextBlock>(FloatingPlaceholderPart, null, Visual.IsVisibleProperty, false));
+        theme.Children.Add(FieldParts.Part<TextBlock>(FloatingPlaceholderPart,
             x => x.PropertyEquals(TextBox.UseFloatingPlaceholderProperty, true).Not(y => y.Class(":empty")), Visual.IsVisibleProperty, true));
 
         // The inner buttons take their place in the layout as soon as their class is set (so
         // the text never reflows when they appear), then fade in when they apply.
-        theme.Children.Add(Part<StackPanel>(ButtonsPart, null, Visual.IsVisibleProperty, false));
-        theme.Children.Add(Part<StackPanel>(ButtonsPart, x => x.Class("clearButton"), Visual.IsVisibleProperty, true));
-        theme.Children.Add(Part<StackPanel>(ButtonsPart, x => x.Class("revealPasswordButton"), Visual.IsVisibleProperty, true));
+        theme.Children.Add(FieldParts.Part<StackPanel>(ButtonsPart, null, Visual.IsVisibleProperty, false));
+        theme.Children.Add(FieldParts.Part<StackPanel>(ButtonsPart, x => x.Class("clearButton"), Visual.IsVisibleProperty, true));
+        theme.Children.Add(FieldParts.Part<StackPanel>(ButtonsPart, x => x.Class("revealPasswordButton"), Visual.IsVisibleProperty, true));
         AddInnerButton(theme, ClearButtonPart, "clearButton", x => x.Class(":focus").Not(y => y.Class(":empty")));
         AddInnerButton(theme, RevealButtonPart, "revealPasswordButton", x => x.Not(y => y.Class(":empty")));
-        theme.Children.Add(Part<Icon>(RevealIconPart, null, PathIcon.DataProperty, Icons.Eye));
-        theme.Children.Add(Part<Icon>(RevealIconPart, x => x.PropertyEquals(TextBox.RevealPasswordProperty, true), PathIcon.DataProperty, Icons.EyeSlash));
+        theme.Children.Add(FieldParts.Part<Icon>(RevealIconPart, null, PathIcon.DataProperty, Icons.Eye));
+        theme.Children.Add(FieldParts.Part<Icon>(RevealIconPart, x => x.PropertyEquals(TextBox.RevealPasswordProperty, true), PathIcon.DataProperty, Icons.EyeSlash));
         return theme;
     }
 
@@ -161,12 +160,6 @@ internal static class TextInputTheme
             Setters = { new Setter(Visual.OpacityProperty, 1d), new Setter(InputElement.IsHitTestVisibleProperty, true) },
         });
     }
-
-    private static Avalonia.Styling.Style Part<T>(string name, Func<Selector, Selector>? state, AvaloniaProperty property, object? value) where T : Control =>
-        new(x => (state is null ? x.Nesting() : state(x.Nesting())).Template().OfType<T>().Name(name))
-        {
-            Setters = { new Setter(property, value) },
-        };
 
     private static Control Build(TextBox box, INameScope scope, ControlTheme fieldButton)
     {

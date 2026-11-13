@@ -49,7 +49,7 @@ internal static class SpinnerThemes
         theme.Setters.Add(new Setter(ContentControl.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
         theme.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ButtonSpinner>((spinner, scope) => Build(scope, fieldButton))));
-        theme.Children.Add(FieldParts.ChromeMotion());
+        theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
         FocusRing.AddWithinTo(theme);
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Template().OfType<StackPanel>().Name(SpinnerPanelPart))
         {
@@ -82,6 +82,11 @@ internal static class SpinnerThemes
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty,
             new FuncControlTemplate<Avalonia.Controls.NumericUpDown>((box, scope) => BuildNumeric(scope, spinner, innerTextBox))));
         FieldParts.AddColours(theme, FieldParts.TextControl, x => x.Nesting().Class(":focus-within"));
+        // Raised while focus is inside, so neighbours do not paint over its ButtonSpinner's ring.
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":focus-within"))
+        {
+            Setters = { new Setter(Visual.ZIndexProperty, 1) },
+        });
         return theme;
     }
 

@@ -146,6 +146,31 @@ public class NumericThemeTests
         }
     }
 
+    // Clicking a spin button takes focus from the TextBox, so typed text is committed before it spins.
+    [AvaloniaFact]
+    public void TypedText_IsCommitted_BeforeASpin()
+    {
+        var box = new NumericUpDown { Width = 200, Value = 3 };
+        var window = Show(box);
+        try
+        {
+            var text = Text(box);
+            text.Focus(NavigationMethod.Pointer);
+            text.Text = "7";
+            Pump(window);
+            var increase = Part<RepeatButton>(box, SpinnerThemes.IncreaseButtonPart);
+            increase.Focus(NavigationMethod.Pointer);
+            Pump(window);
+            increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Pump(window);
+            Assert.Equal(8, box.Value);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void SpinButtons_ChangeTheValue_AndDisableAtTheLimits()
     {

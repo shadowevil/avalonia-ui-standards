@@ -17,7 +17,6 @@ namespace AvaloniaUiStandards.Blocks;
 internal static class AutoCompleteBoxTheme
 {
     public const string SuggestionsPart = "PART_SuggestionsContainer";
-    public const string ListPart = "PART_SelectingItemsControl";
 
     public static ControlTheme Create(ControlTheme? fluentTheme)
     {
@@ -25,6 +24,11 @@ internal static class AutoCompleteBoxTheme
         FieldParts.AddSizing(theme, PaddingKey);
         // The TextBox's focus ring lies outside the field; nothing around it may clip it.
         theme.Setters.Add(new Setter(Visual.ClipToBoundsProperty, false));
+        // Raised while focus is inside, so neighbours do not paint over the TextBox's ring.
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":focus-within"))
+        {
+            Setters = { new Setter(Visual.ZIndexProperty, 1) },
+        });
         theme.Setters.Add(new Setter(AutoCompleteBox.PlaceholderForegroundProperty, Resource("TextControlPlaceholderForeground")));
         if (FluentTemplates.Extend(fluentTheme, Extend) is { } template)
             theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, template));

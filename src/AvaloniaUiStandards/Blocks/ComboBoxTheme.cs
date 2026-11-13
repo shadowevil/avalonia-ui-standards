@@ -64,21 +64,22 @@ internal static class ComboBoxTheme
             // hover look (the list opening is the feedback): Fluent's pressed fill would drop the
             // placeholder below 4.5:1.
             focus: x => x.Nesting().PropertyEquals(ComboBox.IsEditableProperty, true).Class(":focus-within"));
-        theme.Children.Add(FieldParts.ChromeMotion());
+        theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
         FocusRing.AddWithinTo(theme);
 
-        theme.Children.Add(Part<Icon>(GlyphPart, null, TemplatedControl.ForegroundProperty, Resource("ComboBoxDropDownGlyphForeground")));
-        theme.Children.Add(Part<Icon>(GlyphPart, x => x.Class(":disabled"), TemplatedControl.ForegroundProperty, Resource("ComboBoxDropDownGlyphForegroundDisabled")));
-        theme.Children.Add(Part<TextBlock>(PlaceholderPart, x => x.Class(":disabled"), TextBlock.ForegroundProperty, Resource("TextControlForegroundDisabled")));
+        theme.Children.Add(FieldParts.Part<Icon>(GlyphPart, null, TemplatedControl.ForegroundProperty, Resource("ComboBoxDropDownGlyphForeground")));
+        theme.Children.Add(FieldParts.Part<Icon>(GlyphPart, x => x.Class(":disabled"), TemplatedControl.ForegroundProperty, Resource("ComboBoxDropDownGlyphForegroundDisabled")));
+        theme.Children.Add(FieldParts.Part<TextBlock>(PlaceholderPart, x => x.Class(":disabled"), TextBlock.ForegroundProperty, Resource("TextControlForegroundDisabled")));
 
         // The placeholder shows while nothing is selected and the ComboBox is not editable (the
         // editable TextBox shows its own); the selection shows unless editable.
-        theme.Children.Add(Part<TextBlock>(PlaceholderPart, null, Visual.IsVisibleProperty, false));
-        theme.Children.Add(Part<TextBlock>(PlaceholderPart,
+        theme.Children.Add(FieldParts.Part<TextBlock>(PlaceholderPart, null, Visual.IsVisibleProperty, false));
+        theme.Children.Add(FieldParts.Part<TextBlock>(PlaceholderPart,
             x => x.PropertyEquals(ComboBox.SelectionBoxItemProperty, null).PropertyEquals(ComboBox.IsEditableProperty, false),
             Visual.IsVisibleProperty, true));
 
-        // Editable: not a tab stop itself (the TextBox is), and the caret zone takes clicks to open the list.
+        // Editable: not a tab stop itself (the TextBox is). Local tab navigation is Fluent's, kept
+        // so Tab moves through the ComboBox's parts as in Fluent.
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().PropertyEquals(ComboBox.IsEditableProperty, true))
         {
             Setters =
@@ -89,12 +90,6 @@ internal static class ComboBoxTheme
         });
         return theme;
     }
-
-    private static Avalonia.Styling.Style Part<T>(string name, Func<Selector, Selector>? state, AvaloniaProperty property, object? value) where T : Control =>
-        new(x => (state is null ? x.Nesting() : state(x.Nesting())).Template().OfType<T>().Name(name))
-        {
-            Setters = { new Setter(property, value) },
-        };
 
     private static Control Build(ComboBox box, INameScope scope, ControlTheme innerTextBox)
     {
@@ -172,7 +167,7 @@ internal static class ComboBoxTheme
                 InheritsTransform = true,
             };
             result.Bind(Popup.IsOpenProperty, new TemplateBinding(ComboBox.IsDropDownOpenProperty) { Mode = BindingMode.TwoWay });
-            result.Bind(Layoutable.MinWidthProperty, owner.GetObservable(Visual.BoundsProperty, b => b.Width).ToBinding());
+            result.Bind(Layoutable.MinWidthProperty, new Binding("Bounds.Width") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
             result.Bind(Layoutable.MaxHeightProperty, new TemplateBinding(ComboBox.MaxDropDownHeightProperty));
             foreach (var part in new Control[] { result, popupChrome, items })
                 part.RegisterInNameScope(scope);

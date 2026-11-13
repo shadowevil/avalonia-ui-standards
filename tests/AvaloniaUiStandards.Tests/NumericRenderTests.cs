@@ -7,7 +7,7 @@ using Xunit;
 
 namespace AvaloniaUiStandards.Tests;
 
-/// <summary>Renders the NumericUpDown, ButtonSpinner and AutoCompleteBox sheets (2x, labelled).</summary>
+/// <summary>Renders the NumericUpDown and ButtonSpinner sheets (2x, labelled): kinds × states, light and dark, Normal and Compact, and Fluent before/after.</summary>
 public class NumericRenderTests
 {
     private static readonly FieldState[] States =

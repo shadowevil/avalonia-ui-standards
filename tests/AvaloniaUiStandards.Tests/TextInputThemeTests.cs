@@ -407,10 +407,10 @@ public class TextInputThemeTests
         }
     }
 
-    // A TextBox inside a Fluent control that sets local transparent values on it (CalendarDatePicker)
-    // shows no fill or border of its own in any state.
+    // CalendarDatePicker's TextBox takes the inner theme: no fill, border, state or ring of its own;
+    // the picker's own chrome stays Fluent.
     [AvaloniaFact]
-    public void LocalValues_FromAnOuterTemplate_OverrideEveryState()
+    public void CalendarDatePickerTextBox_ShowsNoChromeStateOrRing()
     {
         var picker = new CalendarDatePicker { Width = 200 };
         var window = Show(picker);
@@ -425,6 +425,10 @@ public class TextInputThemeTests
                 Assert.Equal(0, Effective(Chrome(inner).BorderBrush).A);
                 SetState(inner, state, on: false);
             }
+            inner.Focus(NavigationMethod.Tab);
+            Pump(window);
+            Assert.True(inner.IsFocused);
+            Assert.False(Ring(inner).IsVisible);
         }
         finally
         {
