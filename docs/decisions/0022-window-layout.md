@@ -1,16 +1,25 @@
 # 0022 — Window layout
 
-- **Status:** Agreed, 2026-11-12
+- **Status:** Agreed, 2026-11-12. macOS native behaviour revised 2026-11-13: `BorderOnly` instead of a borderless window with `hasShadow`, because a borderless window gets only a tight shadow and `BeginResizeDrag` does nothing on macOS, so a borderless window cannot be resized.
 - **Decision:**
   - Window frame:
-    - The library draws its own window frame: a borderless transparent window shaped as a squircle (radius 16, `CornerRadiusOverlay`; [0014](0014-shape.md)), except on Windows (see Native behaviour), with a soft shadow and a 1 px border (shadow per OS: see Native behaviour).
+    - The library draws its own window frame: a transparent window shaped as a squircle (radius 16, `CornerRadiusOverlay`; [0014](0014-shape.md)), except on Windows, with a soft shadow and a 1 px border. The window is borderless except on Windows and macOS; the shadow differs per OS (see Native behaviour per OS).
     - Window buttons are drawn by the library, styled per OS: traffic lights on the left on macOS, caption buttons on the right on Windows and Linux.
-    - Drag, resize, minimise, maximise and close are handled by the OS through the chrome roles (see Native behaviour).
-  - Native behaviour per OS (macOS planned as M3 step 6; Windows and Linux in a later step):
-    - macOS: the native window shadow (a borderless, non-opaque window with `hasShadow`; macOS derives the shadow from the content's alpha, so it follows the squircle). No drawn shadow and no margin: the window is exactly the visible frame, so tiling and positions use it.
+    - Drag, resize, minimise, maximise and close are handled natively where each OS allows it (see Native behaviour per OS).
+  - Native behaviour per OS (macOS done in M3 step 6; Windows and Linux in a later step):
+    - macOS (done): a titled, resizable, non-opaque window with its title bar and system buttons hidden (`WindowDecorations.BorderOnly`), used when running in a native macOS window (headless renders keep the drawn frame).
+      - The system window shadow, the same as other apps' titled windows, derived from the content's alpha, so it follows the squircle. No drawn shadow and no margin: the window is exactly the visible frame, so tiling and positions use it.
+      - The system's window corner mask (smaller than the 16 px squircle) does not clip the squircle, and the system adds no hairline of its own; the 1 px border stays the library's.
+      - Native resizing from the edges and corners, with the system cursors; the library's resize grips are hidden.
+      - Dragging the title band calls Avalonia's move drag, the same native window drag the `TitleBar` role starts. Double-clicking it follows the system setting "Double-click a window's title bar to" (`AppleActionOnDoubleClick`): minimise, do nothing, or otherwise maximise and restore.
+      - The client area is not extended (`ExtendClientAreaToDecorationsHint` stays false), so the chrome roles are tagged but not acted on.
+      - When maximised, the system keeps its shadow and rounds the window's corners with its own mask.
+      - The library's traffic lights and Cmd+W and Cmd+M stay.
+      - Why not a borderless window with `hasShadow`: macOS gives a borderless window only a small, tight shadow, unlike other windows, and no native resizing. Avalonia 12.1.6 has no resize drag on macOS (`BeginResizeDrag` does nothing there), so only a resizable window can be resized.
+      - Why the client area is not extended: in Avalonia 12.1.6 on macOS the only role acted on is `TitleBar`, which starts the same native drag the library already starts, but its double-click always maximises, ignoring the system setting. The resize and button roles do nothing on macOS.
     - Windows: a native resizable border with the system shadow, and no margin. Snap and snap layouts work natively (the maximise button is tagged as the maximise button). Window corners follow Windows 11 (8 px rounded, not the squircle), on Windows only. The content panel and controls keep their squircles.
     - Linux: the drawn shadow and margin stay. The window's input shape is set to the frame (X shape extension), so the margin is click-through, and `_GTK_FRAME_EXTENTS` tells the window manager the margin, so snapping, tiling and positions use the visible frame. The opaque fallback stays for no compositor.
-    - All OSes: the title band, resize grips and window buttons are tagged with Avalonia's chrome roles (`WindowDecorationProperties.ElementRole`), so each OS handles move, resize and buttons natively.
+    - All OSes: the title band, resize grips and window buttons are tagged with Avalonia's chrome roles (`WindowDecorationProperties.ElementRole`), so each OS can handle move, resize and buttons natively where the client area is extended.
   - Adoption:
     - App windows subclass `StandardsWindow` and fill `Title`, `Toolbar`, `Sidebar`, `Content` (shown in the glass panel) and `StatusBar`.
     - `Backdrop` is a public content slot, drawn between the frame's wash and the window content (behind the title band, sidebar, status bar and glass panel). It is empty by default, and glass blurs and refracts it. Continuous animation in it runs at 30 fps unless `HighRefreshRate` is set ([0016](0016-motion.md)).
@@ -28,7 +37,7 @@
     - Resize grips 8 px on the edges and 12 px at the corners; the window buttons take precedence over grips.
     - Shadow and margin differ per OS: see Native behaviour.
     - Minimum size 480×320, applied to the frame (on Linux the window adds the shadow margin).
-    - When maximised: square corners, no shadow, no grips.
+    - When maximised: square corners, no shadow, no grips (on macOS the system keeps its shadow and corner mask: see Native behaviour).
     - Without OS transparency the frame fills the window square, with no shadow.
   - Window buttons:
     - Traffic lights: 12 px dots 8 px apart, 16 px from the left. Close `#FF5F57`, minimise `#FEBC2E`, zoom `#28C840`. Glyphs show on group hover. They are grey with no glyphs when the window is inactive.
