@@ -342,6 +342,30 @@ public class SegmentedControlThemeTests
         }
     }
 
+    // A click (press and release) on a segment, with motion on: once the slide ends, the
+    // selection and the pill stay on the clicked segment, also for a second slide that starts
+    // where the first one ended.
+    [AvaloniaFact]
+    public void Pill_StaysOnTheClickedSegment_AfterTheSlide()
+    {
+        var (window, control, _, _) = Show(Items("Day", "Week", "Month", "Year"));
+        try
+        {
+            foreach (var index in new[] { 2, 1 })
+            {
+                Click(window, control, index, RawInputModifiers.None);
+                Settle(window);
+                Assert.Equal(index, control.SelectedIndex);
+                AssertPillOn(control, index);
+                Assert.Equal(Rect(control, index).Position, Indicator(control).Offset);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void Pill_LandsOnTheSelection_UnderReduceMotion()
     {
@@ -588,5 +612,18 @@ public class SegmentedControlThemeTests
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
+    }
+
+    // Runs the animation clock in real time for 600 ms, three times the slide's MotionNormal, so any slide has ended.
+    private static void Settle(Window window)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        while (stopwatch.Elapsed < TimeSpan.FromMilliseconds(600))
+        {
+            using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(16));
+            Dispatcher.UIThread.MainLoop(stop.Token);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+        Pump(window);
     }
 }

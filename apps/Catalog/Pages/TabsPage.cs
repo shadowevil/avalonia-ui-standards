@@ -22,7 +22,8 @@ internal sealed class TabsPage : UserControl
 
     private static TabControl Tabs(bool icons)
     {
-        var tabs = new TabControl { Width = 300 };
+        // At least 300 wide, and wider when the headers need it, so they stay on one row.
+        var tabs = new TabControl { MinWidth = 300 };
         foreach (var (header, icon) in new[] { ("General", Icons.Gear), ("Activity", Icons.Bell), ("Sharing", Icons.ChatText) })
             tabs.Items.Add(new TabItem
             {

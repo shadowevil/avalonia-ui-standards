@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
@@ -158,6 +159,35 @@ public class CatalogRenderTests
         }
 
         Assert.True(checkedCells > 0, "no focus cells found");
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>Every tab strip in the catalog, live or forced into a state, shows all its headers on one row.</summary>
+    [AvaloniaFact]
+    public void Pages_TabHeadersStayOnOneRow()
+    {
+        var problems = new List<string>();
+        var checkedStrips = 0;
+        foreach (var page in CatalogPages.All)
+        {
+            var window = NewHost(ThemeVariant.Light, 1000 + ShadowAndPanelMargins, reduceMotion: true);
+            window.Content = page.Create();
+            window.Show();
+            Settle(window);
+
+            foreach (var tabs in ((Control)window.Content!).GetVisualDescendants().OfType<SelectingItemsControl>()
+                         .Where(c => c is TabControl or TabStrip))
+            {
+                checkedStrips++;
+                var rows = Enumerable.Range(0, tabs.ItemCount).Select(tabs.ContainerFromIndex).OfType<Control>()
+                    .Select(h => Math.Round(h.TranslatePoint(default, tabs)!.Value.Y)).Distinct().Count();
+                if (rows != 1)
+                    problems.Add($"{page.Title}: a {tabs.GetType().Name} {tabs.Bounds.Width:0} wide puts its headers on {rows} rows");
+            }
+            window.Close();
+        }
+
+        Assert.True(checkedStrips > 0, "no tab strips found");
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
