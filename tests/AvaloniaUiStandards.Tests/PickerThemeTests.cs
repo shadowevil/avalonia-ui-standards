@@ -541,6 +541,12 @@ public class PickerThemeTests
         try
         {
             var opener = (Button)PickerRenderTests.FocusTarget(picker);
+            // The accept button must never take focus on the way (no extra focus events). The
+            // presenter exists before the flyout opens, and focus events inside it bubble to it.
+            var acceptFocused = false;
+            var flyout = (Control)picker.GetVisualDescendants().OfType<Popup>().Single().Child!;
+            flyout.AddHandler(InputElement.GotFocusEvent, (_, e) => acceptFocused |= e.Source is Button { Name: "PART_AcceptButton" },
+                Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             if (how == "Pointer")
             {
                 var centre = opener.TranslatePoint(new Point(opener.Bounds.Width / 2, opener.Bounds.Height / 2), window)!.Value;
@@ -566,6 +572,10 @@ public class PickerThemeTests
             var ring = ((Panel)first.FindAncestorOfType<ScrollViewer>()!.Parent!)
                 .Children.OfType<SquircleBorder>().Single(b => b.Name == PickerThemes.ColumnFocusRingPart);
             Assert.Equal(how != "Pointer", ring.IsVisible);
+            Assert.False(acceptFocused);
+            // The check sees the accept button's focus when it does happen.
+            presenter.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_AcceptButton").Focus();
+            Assert.True(acceptFocused);
         }
         finally
         {

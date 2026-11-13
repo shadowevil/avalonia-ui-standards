@@ -135,8 +135,8 @@ internal static class PickerThemes
     /// <summary>
     /// Fluent focuses the first selector when the flyout opens, without marking it as keyboard
     /// focus. When the flyout was opened from the keyboard (Enter or Space on the field), that
-    /// focus is given again as keyboard focus, so the column shows its ring; opened by pointer,
-    /// it stays unmarked and shows none.
+    /// focus is marked as keyboard focus, so the column shows its ring; opened by pointer, it
+    /// stays unmarked and shows none.
     /// </summary>
     private static void FocusOnOpenFromKeyboard(Button opener, Popup popup)
     {
@@ -154,12 +154,11 @@ internal static class PickerThemes
                 .Where(p => p.IsEffectivelyVisible).OrderBy(p => p.TranslatePoint(default, popup.Child as Visual ?? p)?.X ?? 0).FirstOrDefault();
             if (first is null)
                 return;
-            // Focusing the element that already has focus changes nothing, so focus passes to the
-            // accept button first and comes back as keyboard focus.
-            if (first.IsFocused && (popup.Child as Visual)?.GetVisualDescendants().OfType<Button>()
-                    .FirstOrDefault(b => b.Name == "PART_AcceptButton") is { } accept)
-                accept.Focus();
-            first.Focus(NavigationMethod.Tab);
+            // Focus stays where Fluent put it (no extra focus events); it is only marked as
+            // keyboard focus, which Avalonia clears when the selector loses focus.
+            if (!first.IsFocused)
+                first.Focus(NavigationMethod.Tab);
+            ((IPseudoClasses)first.Classes).Set(":focus-visible", true);
         };
     }
 
