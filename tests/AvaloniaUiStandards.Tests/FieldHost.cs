@@ -40,7 +40,8 @@ internal static class FieldHost
 
     public static SquircleBorder Chrome(Visual control) => Part<SquircleBorder>(control, FieldParts.ChromePart);
 
-    public static SquircleBorder Ring(Visual control) => Part<SquircleBorder>(control, FocusRing.Part);
+    public static SquircleBorder Ring(Visual control) =>
+        control.GetVisualDescendants().OfType<SquircleBorder>().First(c => c.Name == FocusRing.Part && c.TemplatedParent == control);
 
     public static object Resolve(Control control, string key)
     {

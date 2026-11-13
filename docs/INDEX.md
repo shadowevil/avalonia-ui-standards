@@ -28,6 +28,7 @@
 - [0025 — Overlay scrollbar](decisions/0025-overlay-scrollbar.md) — the overlay ScrollBar Block: reveal, sizes, colours and motion
 - [0026 — Icon](decisions/0026-icon.md) — the icon set and licence, the Icon Block's design box, sizes and colour, and how icons are added
 - [0027 — TextInput](decisions/0027-text-input.md) — the TextBox chrome, sizes, state colours, placeholder, selection, and the clear and reveal buttons shared by field Blocks
+- [0028 — ComboBox](decisions/0028-combobox.md) — the closed ComboBox field, its caret zone, editable mode and how focus shows on composite fields
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

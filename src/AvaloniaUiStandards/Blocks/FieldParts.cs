@@ -89,17 +89,15 @@ internal static class FieldParts
 
     /// <summary>
     /// The field state colours on the control's own properties, in rising precedence: rest,
-    /// hover, pressed (when given), focused (under <paramref name="focus"/>, null for none),
-    /// error (the border only), disabled.
+    /// hover, focused (under <paramref name="focus"/>, null for none), error (the border only),
+    /// disabled. Fields have no pressed look of their own.
     /// </summary>
-    public static void AddColours(ControlTheme theme, Colours colours, Func<Selector?, Selector>? focus, Look? pressed = null)
+    public static void AddColours(ControlTheme theme, Colours colours, Func<Selector?, Selector>? focus)
     {
         theme.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Value(colours.Rest.Background)));
         theme.Setters.Add(new Setter(TemplatedControl.BorderBrushProperty, Value(colours.Rest.BorderBrush)));
         theme.Setters.Add(new Setter(TemplatedControl.ForegroundProperty, Value(colours.Rest.Foreground)));
         theme.Children.Add(Colour(x => x.Nesting().Class(":pointerover"), colours.Hover));
-        if (pressed is { } look)
-            theme.Children.Add(Colour(x => x.Nesting().Class(":pressed"), look));
         if (focus is not null)
             theme.Children.Add(Colour(focus, colours.Focused));
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":error"))
