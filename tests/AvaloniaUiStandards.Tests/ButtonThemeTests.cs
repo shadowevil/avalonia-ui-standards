@@ -302,7 +302,9 @@ public class ButtonThemeTests
 
     // Fluent controls whose templates hold button-family controls keep Fluent's look for them
     // (0007): their plain Buttons set an explicit theme, and the subclasses they use either set
-    // one too or have theme keys of their own.
+    // one too or have theme keys of their own. The ListBox, ListBoxItem, ComboBoxItem and
+    // ScrollViewer restyles apply to every instance, inside Fluent templates as well; the picker
+    // presenters' item containers have theme keys of their own and keep Fluent's look.
     public static TheoryData<string> FluentControlsWithButtons => new()
     {
         nameof(CalendarDatePicker), nameof(Calendar), nameof(DatePicker), nameof(TimePicker),
@@ -349,6 +351,84 @@ public class ButtonThemeTests
         return (Effective(Chrome(button).GetBaseValue(SquircleBorder.BackgroundProperty).Value as IBrush),
                 Effective(Content(button).GetBaseValue(ContentPresenter.ForegroundProperty).Value as IBrush));
     }
+
+    // Every frame of a background or border fade, composited over the surface, stays between the
+    // two states' composited colours in every channel: no frame is lighter or darker than both ends.
+    public static TheoryData<string, string, string, string, string> ChromeFades()
+    {
+        var data = new TheoryData<string, string, string, string, string>();
+        foreach (var theme in new[] { "Light", "Dark" })
+            foreach (var surfaceKey in new[] { "SystemRegionColor", "SystemChromeMediumLowColor" })
+            {
+                foreach (var variant in new[] { "standard", "accent", "subtle", "destructive" })
+                    foreach (var (from, to) in new[] { ("rest", ":pointerover"), (":pointerover", "rest"), (":pointerover", ":pressed") })
+                        data.Add(theme, surfaceKey, variant, from, to);
+                data.Add(theme, surfaceKey, "toggle", "rest", ":checked");
+                data.Add(theme, surfaceKey, "toggle", ":checked", "rest");
+            }
+        return data;
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(ChromeFades))]
+    public void ChromeFades_NeverOvershootTheirEnds(string theme, string surfaceKey, string variant, string from, string to)
+    {
+        Button button = variant == "toggle" ? new ToggleButton { Content = "Toggle" } : new Button { Content = "Button" };
+        if (variant is not ("standard" or "toggle"))
+            button.Classes.Add(variant);
+        var themeVariant = theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        var window = new Window { Width = 200, Height = 100, RequestedThemeVariant = themeVariant, Content = button };
+        window.Show();
+        try
+        {
+            var surface = Effective(Resolve(window, surfaceKey, themeVariant));
+            var chrome = Chrome(button);
+            var fades = chrome.Transitions!.OfType<TransitionBase>()
+                .Where(t => t.Property == SquircleBorder.BackgroundProperty || t.Property == SquircleBorder.BorderBrushProperty).ToList();
+            Assert.Equal(2, fades.Count);
+            Assert.All(fades, t => Assert.IsType<CrossFadeBrushTransition>(t));
+
+            void Set(string state, bool on)
+            {
+                if (state != "rest")
+                    ((IPseudoClasses)button.Classes).Set(state, on);
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+            }
+
+            Set(from, true);
+            var fromBrushes = (Target(chrome, SquircleBorder.BackgroundProperty), Target(chrome, SquircleBorder.BorderBrushProperty));
+            Set(from, false);
+            Set(to, true);
+            var toBrushes = (Target(chrome, SquircleBorder.BackgroundProperty), Target(chrome, SquircleBorder.BorderBrushProperty));
+
+            // Backgrounds are solid; a gradient border (none today) would switch at the midpoint instead.
+            Assert.True(fromBrushes.Item1 is null or ISolidColorBrush && toBrushes.Item1 is null or ISolidColorBrush);
+            foreach (var (part, a, b) in new[] { ("background", fromBrushes.Item1, toBrushes.Item1), ("border", fromBrushes.Item2, toBrushes.Item2) })
+            {
+                if (a is not (null or ISolidColorBrush) || b is not (null or ISolidColorBrush))
+                    continue;
+                var start = Over(Fill(a), surface);
+                var end = Over(Fill(b), surface);
+                for (var step = 0; step <= 50; step++)
+                {
+                    var frame = Over(Fill(CrossFadeBrushTransition.At(step / 50.0, a, b)), surface);
+                    foreach (var (f, s, e, channel) in new[] { (frame.R, start.R, end.R, "R"), (frame.G, start.G, end.G, "G"), (frame.B, start.B, end.B, "B") })
+                        Assert.True(f >= Math.Min(s, e) - 1 && f <= Math.Max(s, e) + 1,
+                            $"{variant} {part} {from} -> {to}: frame {step}/50 is {frame}, outside {start}..{end} in {channel}");
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The brush the chrome's state sets, which its transition runs towards.
+    private static IBrush? Target(SquircleBorder chrome, AvaloniaProperty<IBrush?> property) => (IBrush?)chrome.GetBaseValue(property).Value;
+
+    private static Color Fill(IBrush? brush) => brush is null ? Colors.Transparent : Effective(brush);
 
     private static T Resource<T>(StandardsTheme theme, string key)
     {

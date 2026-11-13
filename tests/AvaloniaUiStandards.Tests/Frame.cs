@@ -29,6 +29,9 @@ internal sealed class Frame : IDisposable
     public int Width { get; }
     public int Height { get; }
 
+    /// <summary>Wraps an already captured frame (for example a popup's own top level).</summary>
+    public static Frame Of(WriteableBitmap bitmap) => new(bitmap);
+
     public static Frame Capture(Window window)
     {
         // Shown only if it is not yet: showing a visible window activates it again.

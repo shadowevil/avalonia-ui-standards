@@ -4,6 +4,13 @@
 - **Decision:**
   - The library's own `GlassBorder` in the Style tier ([0004](0004-tier-names.md)): a Skia backdrop blur of what is behind it in the window, plus a tint and a 1 px light border. Its content is clipped to the shape.
   - It refracts the backdrop like a thick glass slab. Content behind is displaced (lensed) near the rim within an edge band and only blurred in the flat centre. The order is refract, then blur, then tint, then border.
+  - The blur and refraction run on a half-resolution copy of the backdrop (relative to the screen scaling), then scale back up, so they are cheaper (about half the cost). A pixel test checks the look against full resolution. Reusing the result while nothing behind the glass changes is not possible in Avalonia 12, which already redraws only changed regions.
+  - Rim (planned, M3 step 5c):
+    - Every glass surface gets a hairline rim, about 1 px, right on the edge, with no inner band.
+    - It takes a light tint of what is directly below each point of the edge (the lightened local backdrop colour, hue kept), and its intensity follows the local brightness, so it is faint over dark areas and never uniform.
+    - Corners and the top edge catch slightly more light.
+    - The rim replaces the fixed 1 px border on glass. The fixed border colours (see Values) stay only for the solid fallback (reduce transparency or no Skia), which is otherwise unchanged.
+    - Exact values come from renders at that step.
   - Values:
     - Blur sigma 6 ("light frost").
     - Refraction strength 28 px over a 28 px edge band.

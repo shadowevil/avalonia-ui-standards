@@ -85,13 +85,14 @@ public class StandardsTheme : Styles
         UpdateMotion();
 
         // The Blocks tier control themes (Fluent overrides, 0004).
-        Blocks.BlocksThemes.AddTo(Resources);
+        Blocks.BlocksThemes.AddTo(Resources, type => _fluent.TryGetResource(type, null, out var fluentTheme) ? fluentTheme as ControlTheme : null);
         Blocks.BlocksThemes.ApplyDensity(Resources, _fluent.DensityStyle);
 
         // The Modules tier control themes; StandardsWindow builds on Fluent's Window theme.
         _fluent.TryGetResource(typeof(Window), null, out var windowTheme);
         Modules.ModulesThemes.AddTo(Resources, windowTheme as ControlTheme);
         Modules.ModulesThemes.ApplyDensity(Resources, _fluent.DensityStyle);
+        Add(Modules.StandardsWindowTheme.StatusBarTextStyle());
 
         Add(new Avalonia.Styling.Style(x => x.OfType<SquircleBorder>())
         {
@@ -109,6 +110,8 @@ public class StandardsTheme : Styles
                 new Setter(GlassBorder.RefractionStrengthProperty, new DynamicResourceExtension("GlassRefractionStrength")),
                 new Setter(GlassBorder.RefractionEdgeProperty, new DynamicResourceExtension("GlassRefractionEdge")),
                 new Setter(GlassBorder.ChromaticDispersionProperty, new DynamicResourceExtension("GlassChromaticDispersion")),
+                new Setter(GlassBorder.RimAbsorptionProperty, new DynamicResourceExtension(GlassBorder.RimAbsorptionKey)),
+                new Setter(GlassBorder.RimColorProperty, new DynamicResourceExtension(GlassBorder.RimColorKey)),
                 new Setter(GlassBorder.SmoothingProperty, new DynamicResourceExtension("CornerSmoothing")),
                 new Setter(GlassBorder.ReduceTransparencyProperty, this.GetObservable(IsTransparencyReducedProperty).ToBinding()),
             },
@@ -230,17 +233,20 @@ public class StandardsTheme : Styles
         r["GlassRefractionStrength"] = GlassBorder.DefaultRefractionStrength;
         r["GlassRefractionEdge"] = GlassBorder.DefaultRefractionEdge;
         r["GlassChromaticDispersion"] = GlassBorder.DefaultChromaticDispersion;
+        r[GlassBorder.RimAbsorptionKey] = GlassBorder.DefaultRimAbsorption;
         r.ThemeDictionaries[ThemeVariant.Light] = new ResourceDictionary
         {
             ["GlassTintColor"] = GlassBorder.DefaultTintLight,
             ["GlassTintOpacity"] = GlassBorder.DefaultTintOpacity,
             ["GlassBorderBrush"] = new SolidColorBrush(GlassBorder.DefaultBorderLight),
+            [GlassBorder.RimColorKey] = GlassBorder.DefaultRimLight,
         };
         r.ThemeDictionaries[ThemeVariant.Dark] = new ResourceDictionary
         {
             ["GlassTintColor"] = GlassBorder.DefaultTintDark,
             ["GlassTintOpacity"] = GlassBorder.DefaultTintOpacity,
             ["GlassBorderBrush"] = new SolidColorBrush(GlassBorder.DefaultBorderDark),
+            [GlassBorder.RimColorKey] = GlassBorder.DefaultRimDark,
         };
     }
 

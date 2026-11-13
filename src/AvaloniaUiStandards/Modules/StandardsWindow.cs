@@ -12,7 +12,8 @@ namespace AvaloniaUiStandards.Modules;
 /// border, soft shadow) whose background is the backdrop wash. A title band holds the window
 /// buttons, the <see cref="Window.Title"/> and the <see cref="Toolbar"/>; below it are the optional
 /// <see cref="Sidebar"/> on the window background, the glass content panel holding
-/// <see cref="ContentControl.Content"/>, and the optional <see cref="StatusBar"/>.
+/// <see cref="ContentControl.Content"/> (scrolled by the panel, see <see cref="IsContentScrollable"/>),
+/// and the optional <see cref="StatusBar"/>. An optional <see cref="Backdrop"/> sits behind them all.
 /// </summary>
 /// <remarks>
 /// Drag the window by the title band (double-click maximises or restores), resize it from the
@@ -30,11 +31,22 @@ public class StandardsWindow : Window
     public static readonly StyledProperty<object?> StatusBarProperty =
         AvaloniaProperty.Register<StandardsWindow, object?>(nameof(StatusBar));
 
+    public static readonly StyledProperty<object?> BackdropProperty =
+        AvaloniaProperty.Register<StandardsWindow, object?>(nameof(Backdrop));
+
+    public static readonly StyledProperty<bool> IsContentScrollableProperty =
+        AvaloniaProperty.Register<StandardsWindow, bool>(nameof(IsContentScrollable), defaultValue: true);
+
     public static readonly StyledProperty<WindowButtonStyle> WindowButtonStyleProperty =
         AvaloniaProperty.Register<StandardsWindow, WindowButtonStyle>(nameof(WindowButtonStyle));
 
+    public static readonly DirectProperty<StandardsWindow, Rect> ContentPanelBoundsProperty =
+        AvaloniaProperty.RegisterDirect<StandardsWindow, Rect>(nameof(ContentPanelBounds), w => w.ContentPanelBounds);
+
     private WindowButtons? _buttons;
     private SquircleBorder? _frame;
+    private Control? _panel;
+    private Rect _contentPanelBounds;
 
     public StandardsWindow()
     {
@@ -67,6 +79,41 @@ public class StandardsWindow : Window
         set => SetValue(StatusBarProperty, value);
     }
 
+    /// <summary>
+    /// Optional content drawn over the frame's wash and behind everything else in the frame (the
+    /// title band, sidebar, status bar and glass panel), inside the frame's shape. The glass
+    /// panel blurs and refracts it. Empty by default.
+    /// </summary>
+    public object? Backdrop
+    {
+        get => GetValue(BackdropProperty);
+        set => SetValue(BackdropProperty, value);
+    }
+
+    /// <summary>
+    /// Whether the glass content panel scrolls its content vertically (default true): the content
+    /// scrolls edge to edge under the panel's shape, with the panel's 12 px padding inside the
+    /// scrolled content and the scroll bar and scroll shadows at the panel's edge. Set false for
+    /// content that scrolls itself; the content then gets the panel's size, inside the padding.
+    /// </summary>
+    public bool IsContentScrollable
+    {
+        get => GetValue(IsContentScrollableProperty);
+        set => SetValue(IsContentScrollableProperty, value);
+    }
+
+    /// <summary>
+    /// Where the glass content panel is, in the coordinates of the <see cref="Backdrop"/> (the
+    /// frame's interior), so a backdrop can place things relative to the panel. Updated, with a
+    /// property change, whenever layout moves or resizes the panel (window size, density,
+    /// maximising).
+    /// </summary>
+    public Rect ContentPanelBounds
+    {
+        get => _contentPanelBounds;
+        private set => SetAndRaise(ContentPanelBoundsProperty, ref _contentPanelBounds, value);
+    }
+
     /// <summary>Traffic lights or caption buttons; by OS when <see cref="WindowButtonStyle.Auto"/>.</summary>
     public WindowButtonStyle WindowButtonStyle
     {
@@ -84,6 +131,13 @@ public class StandardsWindow : Window
         if (_buttons is not null)
             _buttons.Clicked += OnWindowButton;
         _frame = e.NameScope.Find<SquircleBorder>(StandardsWindowTheme.FramePart);
+
+        // The panel moves within the frame on resize, density and maximise: each changes its bounds.
+        if (_panel is not null)
+            _panel.PropertyChanged -= OnPanelPropertyChanged;
+        _panel = e.NameScope.Find<Control>(StandardsWindowTheme.ContentPanelPart);
+        if (_panel is not null)
+            _panel.PropertyChanged += OnPanelPropertyChanged;
 
         if (e.NameScope.Find<Control>(StandardsWindowTheme.TitleBandPart) is { } band)
             band.PointerPressed += OnTitleBandPressed;
@@ -128,6 +182,20 @@ public class StandardsWindow : Window
         else
             return false;
         return true;
+    }
+
+    private void OnPanelPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == BoundsProperty)
+            UpdateContentPanelBounds();
+    }
+
+    // The backdrop fills the frame's layer panel from its origin, so the panel's position in
+    // that layer is its position in the backdrop's coordinates.
+    private void UpdateContentPanelBounds()
+    {
+        if (_panel is not null && _frame?.Child is Visual layers && _panel.TranslatePoint(default, layers) is { } origin)
+            ContentPanelBounds = new Rect(origin, _panel.Bounds.Size);
     }
 
     // The window buttons win over the resize grips where they overlap and are visible: inside the

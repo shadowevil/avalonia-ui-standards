@@ -308,6 +308,67 @@ public class StandardsWindowTests
         }
     }
 
+    // The status bar mirrors the title band: its text is vertically centred in the band.
+    [AvaloniaTheory]
+    [InlineData("Normal")]
+    [InlineData("Compact")]
+    public void StatusText_IsVerticallyCentredInTheBand(string density)
+    {
+        var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        {
+            Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
+        });
+        Show(window);
+        try
+        {
+            var band = Part<Control>(window, StandardsWindowTheme.StatusBarPart);
+            var text = Assert.IsType<TextBlock>(window.StatusBar);
+            var bandCentre = band.TranslatePoint(new Point(0, band.Bounds.Height / 2), window)!.Value.Y;
+            var textCentre = text.TranslatePoint(new Point(0, text.Bounds.Height / 2), window)!.Value.Y;
+            Assert.True(Math.Abs(textCentre - bandCentre) <= 0.5, $"text centre {textCentre:F2} vs band centre {bandCentre:F2}");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Any status content is centred: in a grid, a smaller text next to a taller one is centred too.
+    [AvaloniaTheory]
+    [InlineData("Normal")]
+    [InlineData("Compact")]
+    public void StatusContent_WithSeveralElements_IsVerticallyCentred(string density)
+    {
+        var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
+        var small = new TextBlock { Text = "Ready", FontSize = 11 };
+        var large = new TextBlock { Text = "12 items", FontSize = 15 };
+        Grid.SetColumn(large, 1);
+        window.StatusBar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { small, large } };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        {
+            Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
+        });
+        Show(window);
+        try
+        {
+            var band = Part<Control>(window, StandardsWindowTheme.StatusBarPart);
+            var bandCentre = band.TranslatePoint(new Point(0, band.Bounds.Height / 2), window)!.Value.Y;
+            foreach (var text in new[] { small, large })
+            {
+                // The box hugs its line (a stretched TextBlock would draw its text at the top of a
+                // taller box), so the box centre is the text's centre, as in the single-text test.
+                Assert.True(text.Bounds.Height <= Math.Ceiling(text.TextLayout.Height), $"{text.Text} is stretched: {text.Bounds.Height:F2} for a {text.TextLayout.Height:F2} line");
+                var textCentre = text.TranslatePoint(new Point(0, text.Bounds.Height / 2), window)!.Value.Y;
+                Assert.True(Math.Abs(textCentre - bandCentre) <= 0.5, $"{text.Text}: text centre {textCentre:F2} vs band centre {bandCentre:F2}");
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void TitleBandAndStatusBar_FollowDensity()
     {

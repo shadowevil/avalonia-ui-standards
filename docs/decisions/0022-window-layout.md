@@ -13,11 +13,14 @@
     - All OSes: the title band, resize grips and window buttons are tagged with Avalonia's chrome roles (`WindowDecorationProperties.ElementRole`), so each OS handles move, resize and buttons natively.
   - Adoption:
     - App windows subclass `StandardsWindow` and fill `Title`, `Toolbar`, `Sidebar`, `Content` (shown in the glass panel) and `StatusBar`.
+    - `Backdrop` is a public content slot, drawn between the frame's wash and the window content (behind the title band, sidebar, status bar and glass panel). It is empty by default, and glass blurs and refracts it. Planned, M3 step 5b: the window renders at 30 fps unless `HighRefreshRate` is set ([0016](0016-motion.md)).
+    - `ContentPanelBounds` is read-only: the glass panel's rectangle in the `Backdrop` slot's coordinates, updated on layout changes, so backdrops can treat the area behind the panel differently.
+    - `IsContentScrollable` (default true): the glass panel scrolls its content vertically, with the 12 px padding inside the scrolled content and the scrollbar and shadows at the panel edge. Accepted consequence: content that scrolls itself (a ListBox, a data grid) gets unlimited height and stops virtualising, so apps set `IsContentScrollable="False"` for such content.
     - `WindowButtonStyle` is `Auto`, `TrafficLights` or `CaptionButtons`.
     - The window buttons (`WindowButtons`, `TrafficLightButton`, `CaptionButton`) are public Blocks, so other layouts can use them.
   - Values:
     - Title band 48 high (40 Compact), with the title in Body strong ([0012](0012-type.md)).
-    - Status bar 32 high (24 Compact) with 16 px side padding.
+    - Status bar 32 high (24 Compact) with 16 px side padding. The library centres any status bar content vertically in the band, not only single text.
     - Sidebar 8 px from the left.
     - Glass panel 8 px from the sides and bottom, with 12 px padding inside.
     - Frame radius 16 with a 1 px border in Fluent's border colour.
@@ -44,7 +47,7 @@
     - It fills the remaining space with `SpacingS` and `SpacingM` gaps ([0013](0013-spacing-and-density.md)), and shrinks to fit beside the sidebar.
     - Layouts: sidebar + content, and sidebar + content + inspector.
   - Backdrop wash (keys `BackdropWash`, `BackdropWashStartColor`, `BackdropWashEndColor`): the window background carries a gentle wash across the whole window, with no visible lines or shapes, so the glass panel reads as glass and text outside it stays calm. It runs from the page colour with the accent mixed in at the top-left (10% light, 14% dark) to the page colour at the bottom-right, and is recomputed for app accents.
-  - Contrast: text on the backdrop wash and inside the glass panel meets WCAG AA. The backgrounds that the AA text colours ([0011](0011-colour.md)) are checked against include both the wash's extreme colours and the glass panel's tint laid over those extremes. Both are proven by tests.
+  - Contrast: text on the backdrop wash and inside the glass panel meets WCAG AA. The backgrounds that the AA text colours ([0011](0011-colour.md)) are checked against include both the wash's extreme colours and the glass panel's tint laid over those extremes. Both are proven by tests. The guarantee covers the library's own wash and glass. Apps that fill the `Backdrop` slot must keep text over it at AA themselves (as [0020](0020-catalog-app.md) does for the catalog's ribbons).
   - Narrow windows collapse in stages: the inspector hides first, then the sidebar collapses to icons, then to a button that opens it as an overlay. The minimum window size is in Values.
 - **Accepted consequence:** Windows and Linux behaviour is verified only on those machines, not from macOS.
 - **Why:** One recognisable window on every OS, with the squircle (except on Windows, see Native behaviour) and glass carried through to the window itself, and a clear focus on the content.

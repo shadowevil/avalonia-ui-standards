@@ -9,7 +9,8 @@ namespace AvaloniaUiStandards.Style;
 /// <summary>
 /// A decorator drawn as frosted glass: what is already rendered behind it is refracted
 /// near the rim, blurred, tinted, and outlined with a 1 px light border, all in a
-/// continuous-corner (squircle) shape. Its child is clipped to the same shape.
+/// continuous-corner (squircle) shape, with an optional rim (off by default). Its child is
+/// clipped to the same shape.
 /// </summary>
 /// <remarks>
 /// Falls back to a solid fill in <see cref="TintColor"/> with the same border when
@@ -33,6 +34,9 @@ public class GlassBorder : Decorator
     internal const double DefaultRefractionStrength = 28;
     internal const double DefaultRefractionEdge = 28;
     internal const double DefaultChromaticDispersion = 0.35;
+    internal const double DefaultRimAbsorption = 0;
+    internal static readonly Color DefaultRimLight = Colors.White;
+    internal static readonly Color DefaultRimDark = Color.FromRgb(0xC8, 0xC8, 0xC8);
 
     public static readonly StyledProperty<Color> TintColorProperty =
         AvaloniaProperty.Register<GlassBorder, Color>(nameof(TintColor), DefaultTintLight);
@@ -58,6 +62,24 @@ public class GlassBorder : Decorator
     public static readonly StyledProperty<double> ChromaticDispersionProperty =
         AvaloniaProperty.Register<GlassBorder, double>(nameof(ChromaticDispersion), DefaultChromaticDispersion);
 
+    // The optional rim, off by default and not public: its absorption and colour, fed by
+    // StandardsTheme from the resources under these non-public keys.
+    internal static readonly object RimAbsorptionKey = new();
+    internal static readonly object RimColorKey = new();
+
+    internal static readonly StyledProperty<double> RimAbsorptionProperty =
+        AvaloniaProperty.Register<GlassBorder, double>(nameof(RimAbsorption), DefaultRimAbsorption);
+
+    /// <summary>The fraction of the device resolution at which refraction and blur run (1 = full).</summary>
+    internal const double DefaultBackdropScale = 0.5;
+
+    // The scale refraction and blur run at; tests set 1 to render the full-resolution reference.
+    internal static readonly StyledProperty<double> BackdropScaleProperty =
+        AvaloniaProperty.Register<GlassBorder, double>("BackdropScale", DefaultBackdropScale);
+
+    internal static readonly StyledProperty<Color> RimColorProperty =
+        AvaloniaProperty.Register<GlassBorder, Color>("RimColor", DefaultRimLight);
+
     // Theme-wide only: StandardsTheme feeds Smoothing from the CornerSmoothing resource and
     // ReduceTransparency from its own effective setting.
     internal static readonly StyledProperty<double> SmoothingProperty =
@@ -76,7 +98,7 @@ public class GlassBorder : Decorator
         AffectsRender<GlassBorder>(
             TintColorProperty, TintOpacityProperty, BlurSigmaProperty, CornerRadiusProperty, BorderBrushProperty,
             RefractionStrengthProperty, RefractionEdgeProperty, ChromaticDispersionProperty,
-            SmoothingProperty, ReduceTransparencyProperty);
+            RimAbsorptionProperty, RimColorProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty);
         AffectsArrange<GlassBorder>(CornerRadiusProperty, SmoothingProperty);
         ChildProperty.Changed.AddClassHandler<GlassBorder>((b, _) => b._borderOverlay.MoveToTop(b.VisualChildren));
     }
@@ -145,6 +167,16 @@ public class GlassBorder : Decorator
         set => SetValue(ChromaticDispersionProperty, value);
     }
 
+    /// <summary>
+    /// How much of the surrounding brightness the rim takes in, from 0 (no rim) to 1: the rim
+    /// colour's opacity where the backdrop is white. It scales with the backdrop's luminance.
+    /// </summary>
+    internal double RimAbsorption
+    {
+        get => GetValue(RimAbsorptionProperty);
+        set => SetValue(RimAbsorptionProperty, value);
+    }
+
     protected override Size MeasureOverride(Size availableSize)
     {
         _borderOverlay.Measure(availableSize);
@@ -183,7 +215,7 @@ public class GlassBorder : Decorator
         {
             context.Custom(new GlassDrawOperation(new GlassDrawOperation.Parameters(
                 new Rect(size), CornerRadius, GetValue(SmoothingProperty), TintColor, TintOpacity, BlurSigma,
-                RefractionStrength, RefractionEdge, ChromaticDispersion)));
+                RefractionStrength, RefractionEdge, ChromaticDispersion, GetValue(RimColorProperty), RimAbsorption, GetValue(BackdropScaleProperty))));
         }
     }
 

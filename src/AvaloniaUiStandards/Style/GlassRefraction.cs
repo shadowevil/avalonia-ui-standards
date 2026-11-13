@@ -53,11 +53,12 @@ internal static class GlassRefraction
     public static SKRuntimeEffect? Effect => LazyEffect.Value;
 
     /// <summary>
-    /// Creates a filter that refracts its input (the backdrop when used as the backdrop filter).
+    /// Creates a filter that refracts <paramref name="input"/> (null: the filter's source, the
+    /// backdrop when used as the backdrop filter).
     /// With dispersion, red, green and blue are displaced by (1 − dispersion), 1 and
     /// (1 + dispersion) times the strength and added back together.
     /// </summary>
-    public static SKImageFilter? CreateFilter(Rect rect, CornerRadius radius, double strength, double edge, double dispersion)
+    public static SKImageFilter? CreateFilter(Rect rect, CornerRadius radius, double strength, double edge, double dispersion, SKImageFilter? input = null)
     {
         var effect = Effect;
         if (effect is null)
@@ -80,18 +81,19 @@ internal static class GlassRefraction
 
         var scale = (float)(2 * strength);
         if (dispersion <= 0)
-            return Displace(map, scale);
+            return Displace(map, scale, input);
 
         var k = (float)dispersion;
-        using var red = Channel(Displace(map, scale * (1 - k)), 0);
-        using var green = Channel(Displace(map, scale), 1);
-        using var blue = Channel(Displace(map, scale * (1 + k)), 2);
+        using var red = Channel(Displace(map, scale * (1 - k), input), 0);
+        using var green = Channel(Displace(map, scale, input), 1);
+        using var blue = Channel(Displace(map, scale * (1 + k), input), 2);
         using var redGreen = SKImageFilter.CreateBlendMode(SKBlendMode.Plus, red, green);
         return SKImageFilter.CreateBlendMode(SKBlendMode.Plus, redGreen, blue);
     }
 
-    private static SKImageFilter Displace(SKImageFilter map, float scale) =>
-        SKImageFilter.CreateDisplacementMapEffect(SKColorChannel.R, SKColorChannel.G, scale, map, null);
+    // A null input is the filter's source (the backdrop).
+    private static SKImageFilter Displace(SKImageFilter map, float scale, SKImageFilter? input) =>
+        SKImageFilter.CreateDisplacementMapEffect(SKColorChannel.R, SKColorChannel.G, scale, map, input);
 
     // Keeps one colour channel and alpha. Summing the three channels is exact over an opaque backdrop.
     private static SKImageFilter Channel(SKImageFilter input, int channel)

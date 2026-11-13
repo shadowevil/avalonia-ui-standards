@@ -9,6 +9,7 @@ using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
 using AvaloniaUiStandards.Style;
@@ -30,9 +31,9 @@ internal static class ButtonParts
     internal static readonly object PaddingKey = new();
     internal static readonly object GlyphMarginKey = new();
 
-    // The chrome and glyph transitions, set by BlocksThemes.ApplyMotion under these non-public keys.
+    // The chrome and fade transitions, set by BlocksThemes.ApplyMotion under these non-public keys.
     internal static readonly object ChromeTransitionsKey = new();
-    internal static readonly object GlyphTransitionsKey = new();
+    internal static readonly object FadeTransitionsKey = new();
 
     /// <summary>Normal density: height 32, SpacingM at the sides and SpacingXS top and bottom (replaces Fluent's 8,5,8,6).</summary>
     public static readonly (double MinHeight, Thickness Padding) Normal = (32, new Thickness(Spacing.M, Spacing.XS));
@@ -106,20 +107,21 @@ internal static class ButtonParts
     };
 
     /// <summary>
-    /// The chrome transitions for the given motion: background and border fades and the pressed
-    /// scale over <paramref name="duration"/>, or none when it is zero (reduce motion).
+    /// The chrome transitions for the given motion: background and border fades (as
+    /// <see cref="CrossFadeBrushTransition"/>) and the pressed scale over <paramref name="duration"/>,
+    /// or none when it is zero (reduce motion).
     /// </summary>
     public static Transitions ChromeTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
         ? []
         :
         [
-            new BrushTransition { Property = SquircleBorder.BackgroundProperty, Duration = duration, Easing = easing },
-            new BrushTransition { Property = SquircleBorder.BorderBrushProperty, Duration = duration, Easing = easing },
+            new CrossFadeBrushTransition { Property = SquircleBorder.BackgroundProperty, Duration = duration, Easing = easing },
+            new CrossFadeBrushTransition { Property = SquircleBorder.BorderBrushProperty, Duration = duration, Easing = easing },
             new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = duration, Easing = easing },
         ];
 
-    /// <summary>A glyph's opacity fade over <paramref name="duration"/>, or none when it is zero (reduce motion).</summary>
-    public static Transitions GlyphTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
+    /// <summary>An opacity fade (glyphs, scroll shadows) over <paramref name="duration"/>, or none when it is zero (reduce motion).</summary>
+    public static Transitions FadeTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
         ? []
         : [new DoubleTransition { Property = Visual.OpacityProperty, Duration = duration, Easing = easing }];
 
@@ -216,4 +218,62 @@ internal static class ButtonParts
     public static DynamicResourceExtension Resource(string key) => new(key);
 
     private static Selector Activate(Selector? x, string? pseudoClass) => pseudoClass is null ? x.Nesting() : x.Nesting().Class(pseudoClass);
+}
+
+/// <summary>
+/// A brush transition whose every frame, drawn over any backdrop, is the cross-fade of the two
+/// brushes drawn over it, so no frame is lighter or darker than both ends. Solid brushes are
+/// interpolated as premultiplied colours with the brush opacity folded into alpha. Avalonia's
+/// <see cref="BrushTransition"/> interpolates straight colours and the brush opacity separately: a
+/// fade from <c>Transparent</c> (#00FFFFFF) passes through translucent white, and a fade to a
+/// translucent brush (Fluent's 10 % hover fills) passes through a near-opaque mix, both of which
+/// flash bright on a dark backdrop. A null brush is transparent; any other pair of brushes switches
+/// at the midpoint.
+/// </summary>
+internal sealed class CrossFadeBrushTransition : InterpolatingTransitionBase<IBrush?>
+{
+    protected override IBrush? Interpolate(double progress, IBrush? from, IBrush? to) => At(progress, from, to);
+
+    /// <summary>The brush at <paramref name="progress"/> (eased, 0..1) from <paramref name="from"/> to <paramref name="to"/>.</summary>
+    internal static IBrush? At(double progress, IBrush? from, IBrush? to)
+    {
+        if (progress <= 0)
+            return from;
+        if (progress >= 1)
+            return to;
+        if (!TryPremultiplied(from, out var a) || !TryPremultiplied(to, out var b))
+            return progress < 0.5 ? from : to;
+        return new ImmutableSolidColorBrush(Mix(progress, a, b));
+    }
+
+    /// <summary>The colour at <paramref name="progress"/> between two premultiplied colours (alpha, red, green, blue in 0..1).</summary>
+    private static Color Mix(double progress, (double A, double R, double G, double B) from, (double A, double R, double G, double B) to)
+    {
+        double Lerp(double x, double y) => x + (y - x) * progress;
+        var alpha = Math.Clamp(Lerp(from.A, to.A), 0, 1);
+        if (alpha <= 0)
+            return Colors.Transparent;
+        byte Channel(double premultiplied) => (byte)Math.Round(Math.Clamp(premultiplied / alpha, 0, 1) * 255);
+        return Color.FromArgb((byte)Math.Round(alpha * 255),
+            Channel(Lerp(from.R, to.R)), Channel(Lerp(from.G, to.G)), Channel(Lerp(from.B, to.B)));
+    }
+
+    /// <summary>A null or solid brush as a premultiplied colour, its opacity folded into alpha.</summary>
+    private static bool TryPremultiplied(IBrush? brush, out (double A, double R, double G, double B) colour)
+    {
+        switch (brush)
+        {
+            case null:
+                colour = default;
+                return true;
+            case ISolidColorBrush solid:
+                var c = solid.Color;
+                var alpha = c.A / 255.0 * Math.Clamp(solid.Opacity, 0, 1);
+                colour = (alpha, c.R / 255.0 * alpha, c.G / 255.0 * alpha, c.B / 255.0 * alpha);
+                return true;
+            default:
+                colour = default;
+                return false;
+        }
+    }
 }

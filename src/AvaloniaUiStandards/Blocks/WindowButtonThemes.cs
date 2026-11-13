@@ -91,7 +91,7 @@ internal static class WindowButtonThemes
                     Setters =
                     {
                         new Setter(Visual.OpacityProperty, 0d),
-                        new Setter(Animatable.TransitionsProperty, new DynamicResourceExtension(GlyphTransitionsKey)),
+                        new Setter(Animatable.TransitionsProperty, new DynamicResourceExtension(FadeTransitionsKey)),
                     },
                 },
                 new Avalonia.Styling.Style(x => Glyph(x.Nesting().Class(":glyph"))) { Setters = { new Setter(Visual.OpacityProperty, 1d) } },

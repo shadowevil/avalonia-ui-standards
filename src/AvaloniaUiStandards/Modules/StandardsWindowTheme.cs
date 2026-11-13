@@ -17,7 +17,8 @@ namespace AvaloniaUiStandards.Modules;
 
 /// <summary>
 /// The StandardsWindow theme and the shell's values: the frame (wash, border, shadow), the
-/// title band, the sidebar slot, the glass content panel, the status bar and the resize grips.
+/// title band, the sidebar slot, the glass content panel (a scroll area), the status bar, the
+/// backdrop slot and the resize grips.
 /// </summary>
 internal static class StandardsWindowTheme
 {
@@ -29,6 +30,8 @@ internal static class StandardsWindowTheme
     public const string WindowButtonsPart = "PART_WindowButtons";
     public const string SidebarPart = "PART_Sidebar";
     public const string ContentPanelPart = "PART_ContentPanel";
+    public const string ContentScrollViewerPart = "PART_ContentScrollViewer";
+    public const string BackdropPart = "PART_Backdrop";
     public const string StatusBarPart = "PART_StatusBar";
     public const string ResizeGripsPart = "PART_ResizeGrips";
 
@@ -120,6 +123,18 @@ internal static class StandardsWindowTheme
         },
     };
 
+    /// <summary>
+    /// The status bar slot centres its content in the band; this style vertically centres every
+    /// TextBlock below the status bar slot, including the ones inside controls placed there, so
+    /// text in a taller panel row does not sit at its top. A theme-wide style: a control theme
+    /// reaches only its template, not the content placed in a slot.
+    /// </summary>
+    public static IStyle StatusBarTextStyle() =>
+        new Avalonia.Styling.Style(x => x.Is<StandardsWindow>().Template().OfType<ContentPresenter>().Name(StatusBarPart).Descendant().OfType<TextBlock>())
+        {
+            Setters = { new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Center) },
+        };
+
     private static Control BuildTemplate(StandardsWindow window, INameScope scope)
     {
         var parts = new List<Control>();
@@ -161,20 +176,32 @@ internal static class StandardsWindowTheme
         sidebar.Margin = new Thickness(Spacing.S, 0, 0, Spacing.S);
         DockPanel.SetDock(sidebar, Dock.Left);
 
-        var content = Named(new ContentPresenter(), "PART_ContentPresenter");
+        // The panel is the scroll area: the content scrolls edge to edge under its shape, the
+        // padding is inside the scrolled content, the scroll bar and shadows sit at its edge.
+        // Not scrollable, the scroller is disabled: the content gets the panel's size inside the padding.
+        var content = Named(new ContentPresenter { Padding = new Thickness(Spacing.M) }, "PART_ContentPresenter");
         content.Bind(ContentPresenter.ContentProperty, new TemplateBinding(ContentControl.ContentProperty));
         content.Bind(ContentPresenter.ContentTemplateProperty, new TemplateBinding(ContentControl.ContentTemplateProperty));
+        var scroller = Named(new ScrollViewer
+        {
+            Content = content,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        }, ContentScrollViewerPart);
+        scroller.Bind(ScrollViewer.VerticalScrollBarVisibilityProperty, new TemplateBinding(StandardsWindow.IsContentScrollableProperty)
+        {
+            Converter = new FuncValueConverter<bool, ScrollBarVisibility>(on => on ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled),
+        });
         var panel = Named(new GlassBorder
         {
             Margin = new Thickness(Spacing.S, 0, Spacing.S, Spacing.S),
-            Padding = new Thickness(Spacing.M),
-            Child = content,
+            Child = scroller,
         }, ContentPanelPart);
 
-        // Frame, shadow and resize grips.
+        // Frame (the backdrop behind everything in it), shadow and resize grips.
+        var backdrop = Named(Slot(StandardsWindow.BackdropProperty), BackdropPart);
         var frame = Named(new SquircleBorder
         {
-            Child = new DockPanel { Children = { titleBand, statusBar, sidebar, panel } },
+            Child = new Panel { Children = { backdrop, new DockPanel { Children = { titleBand, statusBar, sidebar, panel } } } },
         }, FramePart);
         frame.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
         frame.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlForegroundBaseLowBrush"));
