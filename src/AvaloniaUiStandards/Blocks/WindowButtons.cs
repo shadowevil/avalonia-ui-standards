@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -58,12 +59,16 @@ public class TrafficLightButton : Button
     /// <summary>Greys the light while its window is inactive; set by <see cref="WindowButtons"/>.</summary>
     internal void SetInactive(bool inactive) => PseudoClasses.Set(":inactive", inactive);
 
-    private void UpdateName() => AutomationProperties.SetName(this, Kind switch
+    private void UpdateName()
     {
-        WindowButtonKind.Close => "Close",
-        WindowButtonKind.Minimize => "Minimize",
-        _ => "Zoom",
-    });
+        WindowButtonParts.SetRole(this, Kind);
+        AutomationProperties.SetName(this, Kind switch
+        {
+            WindowButtonKind.Close => "Close",
+            WindowButtonKind.Minimize => "Minimize",
+            _ => "Zoom",
+        });
+    }
 }
 
 /// <summary>A Windows or Linux caption button. Close turns to the danger fill on hover.</summary>
@@ -113,6 +118,7 @@ public class CaptionButton : Button
     private void Update()
     {
         SetAndRaise(GlyphProperty, ref _glyph, WindowButtonGlyphs.Caption(Kind, IsMaximized));
+        WindowButtonParts.SetRole(this, Kind);
         PseudoClasses.Set(":close", Kind == WindowButtonKind.Close);
         AutomationProperties.SetName(this, Kind switch
         {
@@ -244,6 +250,17 @@ public class WindowButtons : Decorator
 internal static class WindowButtonParts
 {
     /// <summary>Window buttons are not focus or Tab stops, as native ones; the window has the keyboard shortcuts.</summary>
+    /// <summary>
+    /// Tags the button with its chrome role (close, minimise, maximise), so a window with an
+    /// extended client area lets the OS treat it as that window button.
+    /// </summary>
+    public static void SetRole(Button button, WindowButtonKind kind) => WindowDecorationProperties.SetElementRole(button, kind switch
+    {
+        WindowButtonKind.Close => WindowDecorationsElementRole.CloseButton,
+        WindowButtonKind.Minimize => WindowDecorationsElementRole.MinimizeButton,
+        _ => WindowDecorationsElementRole.MaximizeButton,
+    });
+
     public static void MakeNonFocusable(Button button)
     {
         button.Focusable = false;

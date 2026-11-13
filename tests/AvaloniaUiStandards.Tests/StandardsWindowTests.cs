@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -576,6 +577,180 @@ public class StandardsWindowTests
         Assert.Equal(Color.Parse("#6B6B6B"), Resource<Color>(theme, "SystemBaseMediumLowColor", ThemeVariant.Dark));
     }
 
+    // --- Native behaviour per OS ---------------------------------------------------------
+
+    // The native macOS frame is used only on macOS in a native macOS window; headless and other
+    // platforms keep the drawn frame.
+    [Theory]
+    [InlineData(true, "NSWindow", true)]
+    [InlineData(true, null, false)]
+    [InlineData(true, "HWND", false)]
+    [InlineData(false, "NSWindow", false)]
+    [InlineData(false, "HWND", false)]
+    [InlineData(false, null, false)]
+    public void NativeFrame_IsChosenOnlyForANativeMacOSWindow(bool macOS, string? handle, bool expected) =>
+        Assert.Equal(expected, StandardsWindow.UsesNativeFrame(macOS, handle));
+
+    [Fact]
+    public void NativeFrame_IsATitledResizableWindow_TheDrawnFrameIsBorderless()
+    {
+        Assert.Equal(WindowDecorations.BorderOnly, StandardsWindow.DecorationsFor(nativeFrame: true));
+        Assert.Equal(WindowDecorations.None, StandardsWindow.DecorationsFor(nativeFrame: false));
+    }
+
+    [AvaloniaFact]
+    public void HeadlessWindow_KeepsTheDrawnFrame()
+    {
+        var window = new StandardsWindow();
+        Assert.False(window.HasNativeFrame);
+        Assert.Equal(WindowDecorations.None, window.WindowDecorations);
+        Assert.False(window.ExtendClientAreaToDecorationsHint);
+    }
+
+    // On the native macOS frame the window is exactly the frame: no drawn shadow, no margin, no
+    // grips (the system draws the shadow and resizes), and the minimum size is the frame's.
+    [AvaloniaFact]
+    public void NativeFrame_DropsTheDrawnShadowMarginAndGrips()
+    {
+        var window = Show(SampleWindow(ThemeVariant.Light, slots: false, WindowButtonStyle.TrafficLights, nativeFrame: true));
+        try
+        {
+            Assert.True(window.HasNativeFrame);
+            Assert.Contains(":native-frame", window.Classes);
+            Assert.Equal(WindowDecorations.BorderOnly, window.WindowDecorations);
+            Assert.True(window.TransparencyLevelHint.SequenceEqual([WindowTransparencyLevel.Transparent]));
+
+            var frame = Part<SquircleBorder>(window, StandardsWindowTheme.FramePart);
+            Assert.Equal(new Thickness(0), frame.Margin);
+            Assert.Equal(new Rect(window.ClientSize), frame.Bounds);
+            Assert.Equal(new CornerRadius(16), frame.CornerRadius);
+            Assert.Equal(new Thickness(1), frame.BorderThickness);
+            Assert.False(Part<Control>(window, StandardsWindowTheme.ShadowPart).IsVisible);
+            Assert.False(Part<Control>(window, StandardsWindowTheme.ResizeGripsPart).IsVisible);
+            Assert.Equal(480, window.MinWidth);
+            Assert.Equal(320, window.MinHeight);
+
+            window.WindowState = WindowState.Maximized;
+            Pump(window);
+            Assert.Equal(new CornerRadius(0), frame.CornerRadius);
+            Assert.Equal(new Thickness(0), frame.Margin);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The drawn frame keeps its shadow, margin and grips (as before the native frame existed).
+    [AvaloniaFact]
+    public void DrawnFrame_KeepsTheShadowMarginAndGrips()
+    {
+        var window = Show(SampleWindow(ThemeVariant.Light, slots: false, WindowButtonStyle.CaptionButtons));
+        try
+        {
+            Assert.DoesNotContain(":native-frame", window.Classes);
+            Assert.Equal(StandardsWindowTheme.ShadowMargin, Part<Control>(window, StandardsWindowTheme.FramePart).Margin);
+            Assert.True(Part<Control>(window, StandardsWindowTheme.ShadowPart).IsVisible);
+            Assert.True(Part<Control>(window, StandardsWindowTheme.ResizeGripsPart).IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The title band, the resize grips and the window buttons carry Avalonia's chrome roles.
+    [AvaloniaTheory]
+    [InlineData(WindowButtonStyle.TrafficLights, false)]
+    [InlineData(WindowButtonStyle.TrafficLights, true)]
+    [InlineData(WindowButtonStyle.CaptionButtons, false)]
+    public void ChromeRoles_AreSetOnTheTitleBandGripsAndButtons(WindowButtonStyle style, bool nativeFrame)
+    {
+        var window = Show(SampleWindow(ThemeVariant.Light, slots: false, style, nativeFrame));
+        try
+        {
+            Assert.Equal(WindowDecorationsElementRole.TitleBar, WindowDecorationProperties.GetElementRole(Part<Control>(window, StandardsWindowTheme.TitleBandPart)));
+            (WindowEdge Edge, WindowDecorationsElementRole Role)[] grips =
+            [
+                (WindowEdge.NorthWest, WindowDecorationsElementRole.ResizeNW),
+                (WindowEdge.North, WindowDecorationsElementRole.ResizeN),
+                (WindowEdge.NorthEast, WindowDecorationsElementRole.ResizeNE),
+                (WindowEdge.West, WindowDecorationsElementRole.ResizeW),
+                (WindowEdge.East, WindowDecorationsElementRole.ResizeE),
+                (WindowEdge.SouthWest, WindowDecorationsElementRole.ResizeSW),
+                (WindowEdge.South, WindowDecorationsElementRole.ResizeS),
+                (WindowEdge.SouthEast, WindowDecorationsElementRole.ResizeSE),
+            ];
+            foreach (var (edge, role) in grips)
+                Assert.Equal(role, WindowDecorationProperties.GetElementRole(Part<Control>(window, StandardsWindowTheme.ResizePart(edge))));
+
+            var buttons = window.GetVisualDescendants().OfType<Button>().Where(b => b is TrafficLightButton or CaptionButton).ToList();
+            Assert.Equal(3, buttons.Count);
+            foreach (var button in buttons)
+            {
+                var kind = button is TrafficLightButton light ? light.Kind : ((CaptionButton)button).Kind;
+                var expected = kind switch
+                {
+                    WindowButtonKind.Close => WindowDecorationsElementRole.CloseButton,
+                    WindowButtonKind.Minimize => WindowDecorationsElementRole.MinimizeButton,
+                    _ => WindowDecorationsElementRole.MaximizeButton,
+                };
+                Assert.Equal(expected, WindowDecorationProperties.GetElementRole(button));
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // macOS's title bar double-click setting: Minimize minimises, None does nothing, anything
+    // else (zoom, fill, unset) maximises and restores.
+    [AvaloniaTheory]
+    [InlineData(null, WindowState.Maximized)]
+    [InlineData("Maximize", WindowState.Maximized)]
+    [InlineData("Fill", WindowState.Maximized)]
+    [InlineData("Minimize", WindowState.Minimized)]
+    [InlineData("None", WindowState.Normal)]
+    public void TitleBandDoubleClick_FollowsTheMacOSSetting(string? action, WindowState expected)
+    {
+        var window = Show(SampleWindow(ThemeVariant.Light, slots: false, WindowButtonStyle.TrafficLights, nativeFrame: true));
+        try
+        {
+            window.OnTitleBandDoubleClick(action);
+            Assert.Equal(expected, window.WindowState);
+            if (expected == WindowState.Maximized)
+            {
+                window.OnTitleBandDoubleClick(action);
+                Assert.Equal(WindowState.Normal, window.WindowState);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // With the client area extended, the platform acts on the title band's role, so the window
+    // does not also handle the double-click itself.
+    [AvaloniaFact]
+    public void ExtendedClientArea_LeavesTheTitleBandToThePlatform()
+    {
+        var window = SampleWindow(ThemeVariant.Light, slots: false, WindowButtonStyle.CaptionButtons);
+        window.ExtendClientAreaToDecorationsHint = true;
+        Show(window);
+        try
+        {
+            var band = Part<Control>(window, StandardsWindowTheme.TitleBandPart);
+            DoubleClick(window, band.TranslatePoint(new Point(band.Bounds.Width / 2, band.Bounds.Height / 2), window)!.Value);
+            Assert.Equal(WindowState.Normal, window.WindowState);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Contrast ------------------------------------------------------------------------
 
     // Primary text and AccentTextColor meet 4.5:1 on the wash's extremes and on the glass panel
@@ -618,9 +793,10 @@ public class StandardsWindowTests
 
     // --- Helpers -------------------------------------------------------------------------
 
-    internal static StandardsWindow SampleWindow(ThemeVariant variant, bool slots, WindowButtonStyle buttons)
+    // The drawn frame unless nativeFrame is set, so tests do not depend on the OS they run on.
+    internal static StandardsWindow SampleWindow(ThemeVariant variant, bool slots, WindowButtonStyle buttons, bool nativeFrame = false)
     {
-        var window = new StandardsWindow
+        var window = new StandardsWindow(nativeFrame)
         {
             Title = "Documents",
             Width = 880,

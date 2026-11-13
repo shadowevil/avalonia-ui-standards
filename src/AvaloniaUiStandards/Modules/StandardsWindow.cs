@@ -17,9 +17,11 @@ namespace AvaloniaUiStandards.Modules;
 /// and the optional <see cref="StatusBar"/>. An optional <see cref="Backdrop"/> sits behind them all.
 /// </summary>
 /// <remarks>
-/// Drag the window by the title band (double-click maximises or restores), resize it from the
-/// frame's edges and corners. Maximised, or where the OS gives no transparency, the frame fills
-/// the window with square corners and no shadow.
+/// Drag the window by the title band (double-click maximises or restores; on macOS it follows the
+/// system's title bar double-click setting), resize it from the frame's edges and corners.
+/// Maximised, or where the OS gives no transparency, the frame fills the window with square
+/// corners and no shadow. On macOS the window is a native resizable window with its title bar
+/// hidden: the system draws the shadow and handles resizing, and the window is exactly the frame.
 /// </remarks>
 public class StandardsWindow : Window
 {
@@ -59,12 +61,39 @@ public class StandardsWindow : Window
     private EventHandler<FrameTickEventArgs>? _frameTick;
 
     public StandardsWindow()
+        : this(nativeFrame: null)
+    {
+    }
+
+    /// <param name="nativeFrame">Whether to use the native macOS frame; by OS and platform when null.</param>
+    internal StandardsWindow(bool? nativeFrame)
     {
         _ticker = new FrameTicker(new Scheduler(this), (time, elapsed) => _frameTick?.Invoke(this, new FrameTickEventArgs(time, elapsed)));
-        WindowDecorations = Avalonia.Controls.WindowDecorations.None;
+        HasNativeFrame = nativeFrame ?? UsesNativeFrame(OperatingSystem.IsMacOS(), TryGetPlatformHandle()?.HandleDescriptor);
+        WindowDecorations = DecorationsFor(HasNativeFrame);
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
+        PseudoClasses.Set(":native-frame", HasNativeFrame);
         UpdateStates();
     }
+
+    /// <summary>
+    /// Whether the window uses the native macOS frame: on macOS, in a native macOS window (not,
+    /// for example, a headless one). The system then draws the shadow and resizes the window, and
+    /// the library draws no shadow, margin or resize grips. Elsewhere the library draws them.
+    /// </summary>
+    internal static bool UsesNativeFrame(bool macOS, string? platformHandle) => macOS && platformHandle == "NSWindow";
+
+    /// <summary>
+    /// The native frame is a titled, resizable macOS window whose title bar and buttons Avalonia
+    /// hides (<see cref="WindowDecorations.BorderOnly"/>): the system window shadow, derived from
+    /// the frame's shape, and native resizing from the edges and corners. Elsewhere the window is
+    /// borderless (<see cref="WindowDecorations.None"/>).
+    /// </summary>
+    internal static WindowDecorations DecorationsFor(bool nativeFrame) =>
+        nativeFrame ? Avalonia.Controls.WindowDecorations.BorderOnly : Avalonia.Controls.WindowDecorations.None;
+
+    /// <summary>Whether this window uses the native macOS frame (see <see cref="UsesNativeFrame"/>).</summary>
+    internal bool HasNativeFrame { get; }
 
     // Window reports typeof(Window) as its style key; this window (and app subclasses of it) uses its own theme.
     protected override Type StyleKeyOverride => typeof(StandardsWindow);
@@ -302,15 +331,30 @@ public class StandardsWindow : Window
         }
     }
 
+    // With the client area extended, the platform acts on the title band's chrome role itself.
     private void OnTitleBandPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || ExtendClientAreaToDecorationsHint)
             return;
         e.Handled = true;
         if (e.ClickCount == 2)
-            ToggleMaximized();
+            OnTitleBandDoubleClick(HasNativeFrame ? MacWindowSettings.TitleBarDoubleClickAction() : null);
         else
             BeginMoveDrag(e);
+    }
+
+    /// <summary>
+    /// A double-click on the title band. <paramref name="macOSAction"/> is macOS's "double-click a
+    /// window's title bar to" setting (<c>AppleActionOnDoubleClick</c>): <c>Minimize</c> minimises,
+    /// <c>None</c> does nothing, and anything else (zoom, fill, unset, or not macOS) maximises or
+    /// restores.
+    /// </summary>
+    internal void OnTitleBandDoubleClick(string? macOSAction)
+    {
+        if (macOSAction == "Minimize")
+            WindowState = WindowState.Minimized;
+        else if (macOSAction != "None")
+            ToggleMaximized();
     }
 
     private void OnGripPressed(WindowEdge edge, PointerPressedEventArgs e)
