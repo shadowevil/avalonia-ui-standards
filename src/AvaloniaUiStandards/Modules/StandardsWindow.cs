@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Threading;
 using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
 
@@ -40,6 +41,13 @@ public class StandardsWindow : Window
     public static readonly StyledProperty<WindowButtonStyle> WindowButtonStyleProperty =
         AvaloniaProperty.Register<StandardsWindow, WindowButtonStyle>(nameof(WindowButtonStyle));
 
+    public static readonly StyledProperty<bool> HighRefreshRateProperty =
+        AvaloniaProperty.Register<StandardsWindow, bool>(nameof(HighRefreshRate));
+
+    // The theme's effective reduce-motion setting, fed by StandardsTheme.
+    internal static readonly StyledProperty<bool> ReduceMotionProperty =
+        AvaloniaProperty.Register<StandardsWindow, bool>("ReduceMotion");
+
     public static readonly DirectProperty<StandardsWindow, Rect> ContentPanelBoundsProperty =
         AvaloniaProperty.RegisterDirect<StandardsWindow, Rect>(nameof(ContentPanelBounds), w => w.ContentPanelBounds);
 
@@ -47,9 +55,12 @@ public class StandardsWindow : Window
     private SquircleBorder? _frame;
     private Control? _panel;
     private Rect _contentPanelBounds;
+    private readonly FrameTicker _ticker;
+    private EventHandler<FrameTickEventArgs>? _frameTick;
 
     public StandardsWindow()
     {
+        _ticker = new FrameTicker(new Scheduler(this), (time, elapsed) => _frameTick?.Invoke(this, new FrameTickEventArgs(time, elapsed)));
         WindowDecorations = Avalonia.Controls.WindowDecorations.None;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         UpdateStates();
@@ -114,6 +125,41 @@ public class StandardsWindow : Window
         private set => SetAndRaise(ContentPanelBoundsProperty, ref _contentPanelBounds, value);
     }
 
+    /// <summary>
+    /// Whether <see cref="FrameTick"/> runs at the display rate (true) or at 30 ticks per second
+    /// (false, the default). Set it in code, per window, or app-wide through
+    /// <c>StandardsTheme.HighRefreshRate</c>; a value set on the window wins. Only continuous
+    /// animation driven by <see cref="FrameTick"/> is paced; interactive rendering (scrolling,
+    /// hover and press fades, typing) always runs at the display rate.
+    /// </summary>
+    public bool HighRefreshRate
+    {
+        get => GetValue(HighRefreshRateProperty);
+        set => SetValue(HighRefreshRateProperty, value);
+    }
+
+    /// <summary>
+    /// Frame ticks for continuous animation (looping or ambient, for example a
+    /// <see cref="Backdrop"/>'s): 30 per second, or the display rate with
+    /// <see cref="HighRefreshRate"/>. Update the animation in the handler; it renders on that frame.
+    /// Ticks run while there are handlers, stop while motion is reduced
+    /// (<c>StandardsTheme.ReduceMotion</c>) and pause while the window is inactive or minimised;
+    /// the first tick after a pause has a zero <see cref="FrameTickEventArgs.Elapsed"/>.
+    /// </summary>
+    public event EventHandler<FrameTickEventArgs>? FrameTick
+    {
+        add
+        {
+            _frameTick += value;
+            UpdateTicker();
+        }
+        remove
+        {
+            _frameTick -= value;
+            UpdateTicker();
+        }
+    }
+
     /// <summary>Traffic lights or caption buttons; by OS when <see cref="WindowButtonStyle.Auto"/>.</summary>
     public WindowButtonStyle WindowButtonStyle
     {
@@ -157,6 +203,36 @@ public class StandardsWindow : Window
         if (change.Property == WindowStateProperty || change.Property == WindowButtonStyleProperty
             || change.Property == ActualTransparencyLevelProperty || change.Property == IsActiveProperty)
             UpdateStates();
+        if (change.Property == IsActiveProperty || change.Property == WindowStateProperty
+            || change.Property == ReduceMotionProperty || change.Property == HighRefreshRateProperty)
+            UpdateTicker();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _ticker.Stop();
+        base.OnClosed(e);
+    }
+
+    // Whether frame ticks are running now (for tests).
+    internal bool IsFrameTickRunning => _ticker.IsRunning;
+
+    // Ticks run while someone listens, motion is not reduced, and the window is active and not minimised.
+    private void UpdateTicker()
+    {
+        _ticker.HighRate = HighRefreshRate;
+        if (_frameTick is not null && !GetValue(ReduceMotionProperty) && IsActive && WindowState != WindowState.Minimized)
+            _ticker.Start();
+        else
+            _ticker.Stop();
+    }
+
+    // The window's frames (TopLevel.RequestAnimationFrame) and the dispatcher's timers.
+    private sealed class Scheduler(TopLevel topLevel) : IFrameScheduler
+    {
+        public void RequestFrame(Action<TimeSpan> callback) => topLevel.RequestAnimationFrame(callback);
+
+        public void Delay(TimeSpan delay, Action callback) => DispatcherTimer.RunOnce(callback, delay);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

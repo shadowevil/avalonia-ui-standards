@@ -6,14 +6,14 @@
     - The library draws its own window frame: a borderless transparent window shaped as a squircle (radius 16, `CornerRadiusOverlay`; [0014](0014-shape.md)), except on Windows (see Native behaviour), with a soft shadow and a 1 px border (shadow per OS: see Native behaviour).
     - Window buttons are drawn by the library, styled per OS: traffic lights on the left on macOS, caption buttons on the right on Windows and Linux.
     - Drag, resize, minimise, maximise and close are handled by the OS through the chrome roles (see Native behaviour).
-  - Native behaviour per OS (planned as M3 step 6):
+  - Native behaviour per OS (macOS planned as M3 step 6; Windows and Linux in a later step):
     - macOS: the native window shadow (a borderless, non-opaque window with `hasShadow`; macOS derives the shadow from the content's alpha, so it follows the squircle). No drawn shadow and no margin: the window is exactly the visible frame, so tiling and positions use it.
     - Windows: a native resizable border with the system shadow, and no margin. Snap and snap layouts work natively (the maximise button is tagged as the maximise button). Window corners follow Windows 11 (8 px rounded, not the squircle), on Windows only. The content panel and controls keep their squircles.
     - Linux: the drawn shadow and margin stay. The window's input shape is set to the frame (X shape extension), so the margin is click-through, and `_GTK_FRAME_EXTENTS` tells the window manager the margin, so snapping, tiling and positions use the visible frame. The opaque fallback stays for no compositor.
     - All OSes: the title band, resize grips and window buttons are tagged with Avalonia's chrome roles (`WindowDecorationProperties.ElementRole`), so each OS handles move, resize and buttons natively.
   - Adoption:
     - App windows subclass `StandardsWindow` and fill `Title`, `Toolbar`, `Sidebar`, `Content` (shown in the glass panel) and `StatusBar`.
-    - `Backdrop` is a public content slot, drawn between the frame's wash and the window content (behind the title band, sidebar, status bar and glass panel). It is empty by default, and glass blurs and refracts it. Planned, M3 step 5b: the window renders at 30 fps unless `HighRefreshRate` is set ([0016](0016-motion.md)).
+    - `Backdrop` is a public content slot, drawn between the frame's wash and the window content (behind the title band, sidebar, status bar and glass panel). It is empty by default, and glass blurs and refracts it. Continuous animation in it runs at 30 fps unless `HighRefreshRate` is set ([0016](0016-motion.md)).
     - `ContentPanelBounds` is read-only: the glass panel's rectangle in the `Backdrop` slot's coordinates, updated on layout changes, so backdrops can treat the area behind the panel differently.
     - `IsContentScrollable` (default true): the glass panel scrolls its content vertically, with the 12 px padding inside the scrolled content and the scrollbar and shadows at the panel edge. Accepted consequence: content that scrolls itself (a ListBox, a data grid) gets unlimited height and stops virtualising, so apps set `IsContentScrollable="False"` for such content.
     - `WindowButtonStyle` is `Auto`, `TrafficLights` or `CaptionButtons`.

@@ -37,6 +37,15 @@ public class StandardsTheme : Styles
         AvaloniaProperty.RegisterDirect<StandardsTheme, bool?>(
             nameof(ReduceTransparency), o => o.ReduceTransparency, (o, v) => o.ReduceTransparency = v);
 
+    public static readonly DirectProperty<StandardsTheme, bool> HighRefreshRateProperty =
+        AvaloniaProperty.RegisterDirect<StandardsTheme, bool>(
+            nameof(HighRefreshRate), o => o.HighRefreshRate, (o, v) => o.HighRefreshRate = v);
+
+    // The effective reduce-motion setting (app override, else OS), bound into StandardsWindow.
+    internal static readonly DirectProperty<StandardsTheme, bool> IsMotionReducedProperty =
+        AvaloniaProperty.RegisterDirect<StandardsTheme, bool>(
+            nameof(IsMotionReduced), o => o.IsMotionReduced);
+
     // The effective setting (app override, else OS), bound into GlassBorder by the theme style.
     internal static readonly DirectProperty<StandardsTheme, bool> IsTransparencyReducedProperty =
         AvaloniaProperty.RegisterDirect<StandardsTheme, bool>(
@@ -58,6 +67,8 @@ public class StandardsTheme : Styles
     private bool? _reduceMotion;
     private bool? _reduceTransparency;
     private bool _isTransparencyReduced;
+    private bool _highRefreshRate;
+    private bool _isMotionReduced;
 
     /// <summary>Creates the theme, reading the OS reduce-motion and reduce-transparency settings.</summary>
     public StandardsTheme() : this(OsAccessibility.Read())
@@ -93,6 +104,15 @@ public class StandardsTheme : Styles
         Modules.ModulesThemes.AddTo(Resources, windowTheme as ControlTheme);
         Modules.ModulesThemes.ApplyDensity(Resources, _fluent.DensityStyle);
         Add(Modules.StandardsWindowTheme.StatusBarTextStyle());
+        // Frame ticks for continuous animation: the app-wide rate default and reduce motion.
+        Add(new Avalonia.Styling.Style(x => x.Is<Modules.StandardsWindow>())
+        {
+            Setters =
+            {
+                new Setter(Modules.StandardsWindow.HighRefreshRateProperty, this.GetObservable(HighRefreshRateProperty).ToBinding()),
+                new Setter(Modules.StandardsWindow.ReduceMotionProperty, this.GetObservable(IsMotionReducedProperty).ToBinding()),
+            },
+        });
 
         Add(new Avalonia.Styling.Style(x => x.OfType<SquircleBorder>())
         {
@@ -181,9 +201,23 @@ public class StandardsTheme : Styles
 
     internal bool IsTransparencyReduced => _isTransparencyReduced;
 
+    /// <summary>
+    /// The app-wide default for <see cref="Modules.StandardsWindow.HighRefreshRate"/>: whether
+    /// windows' continuous animation (<see cref="Modules.StandardsWindow.FrameTick"/>) runs at the
+    /// display rate (true) or at 30 ticks per second (false, the default). A value set on a window wins.
+    /// </summary>
+    public bool HighRefreshRate
+    {
+        get => _highRefreshRate;
+        set => SetAndRaise(HighRefreshRateProperty, ref _highRefreshRate, value);
+    }
+
+    internal bool IsMotionReduced => _isMotionReduced;
+
     private void UpdateMotion()
     {
         var reduced = _reduceMotion ?? _os.ReduceMotion;
+        SetAndRaise(IsMotionReducedProperty, ref _isMotionReduced, reduced);
         Resources["MotionFast"] = reduced ? TimeSpan.Zero : MotionFast;
         Resources["MotionNormal"] = reduced ? TimeSpan.Zero : MotionNormal;
         Resources["MotionSlow"] = reduced ? TimeSpan.Zero : MotionSlow;
