@@ -377,37 +377,47 @@ public class StandardsWindowTests
     [InlineData("Compact")]
     public void CaptionButtons_AreWindows11SizedAtTheTopOfTheBand(string density)
     {
-        var compact = density == "Compact";
-        var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced)
         {
-            Density = compact ? DensityStyle.Compact : DensityStyle.Normal,
-        });
+            Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
+        };
+        var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
+        window.Styles.Add(theme);
         Show(window);
         try
         {
-            var band = Part<Control>(window, StandardsWindowTheme.TitleBandPart);
-            var bandRect = new Rect(band.TranslatePoint(default, window)!.Value, band.Bounds.Size);
-            Assert.Equal(compact ? 40 : 48, bandRect.Height);
-            var buttons = window.GetVisualDescendants().OfType<CaptionButton>().ToList();
-            Assert.Equal(3, buttons.Count);
-            foreach (var button in buttons)
-            {
-                var rect = new Rect(button.TranslatePoint(default, window)!.Value, button.Bounds.Size);
-                Assert.Equal(compact ? 40 : 46, rect.Width);
-                Assert.Equal(compact ? 28 : 32, rect.Height);
-                Assert.Equal(bandRect.Top, rect.Top, 0.01);
-            }
-            var close = buttons.Single(b => b.Kind == WindowButtonKind.Close);
-            Assert.Equal(bandRect.Right, close.TranslatePoint(new Point(close.Bounds.Width, 0), window)!.Value.X, 0.01);
+            AssertCaptionGeometry(window, compact: density == "Compact");
 
-            var panel = Part<Control>(window, StandardsWindowTheme.ContentPanelPart);
-            Assert.Equal(new Thickness(8, 0, 8, 8), panel.Margin);
+            // Switching density after the window is shown resizes the buttons too.
+            theme.Density = density == "Compact" ? DensityStyle.Normal : DensityStyle.Compact;
+            Pump(window);
+            AssertCaptionGeometry(window, compact: density != "Compact");
         }
         finally
         {
             window.Close();
         }
+    }
+
+    private static void AssertCaptionGeometry(Window window, bool compact)
+    {
+        var band = Part<Control>(window, StandardsWindowTheme.TitleBandPart);
+        var bandRect = new Rect(band.TranslatePoint(default, window)!.Value, band.Bounds.Size);
+        Assert.Equal(compact ? 40 : 48, bandRect.Height);
+        var buttons = window.GetVisualDescendants().OfType<CaptionButton>().ToList();
+        Assert.Equal(3, buttons.Count);
+        foreach (var button in buttons)
+        {
+            var rect = new Rect(button.TranslatePoint(default, window)!.Value, button.Bounds.Size);
+            Assert.Equal(compact ? 40 : 46, rect.Width);
+            Assert.Equal(compact ? 28 : 32, rect.Height);
+            Assert.Equal(bandRect.Top, rect.Top, 0.01);
+        }
+        var close = buttons.Single(b => b.Kind == WindowButtonKind.Close);
+        Assert.Equal(bandRect.Right, close.TranslatePoint(new Point(close.Bounds.Width, 0), window)!.Value.X, 0.01);
+
+        var panel = Part<Control>(window, StandardsWindowTheme.ContentPanelPart);
+        Assert.Equal(new Thickness(8, 0, 8, 8), panel.Margin);
     }
 
     // Renders the title band's right end with a hovered close and a pressed maximise button.

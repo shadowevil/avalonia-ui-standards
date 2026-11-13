@@ -18,8 +18,8 @@ namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
 /// The themes and values of the window buttons. Traffic lights are 12 px dots in the macOS
-/// colours, 8 px apart, with a dark glyph; caption buttons are 46 × 32 (Compact 40 × 28), at the top of
-/// the title band, with a 10 px glyph, and close turns to the danger fill on hover.
+/// colours, 8 px apart, with a dark glyph; caption buttons are 46 × 32 (Compact 40 × 28), at the
+/// top of the title band, with a 10 px glyph, and close turns to the danger fill on hover.
 /// </summary>
 internal static class WindowButtonThemes
 {
