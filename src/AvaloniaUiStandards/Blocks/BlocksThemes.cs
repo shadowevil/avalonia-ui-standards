@@ -32,6 +32,9 @@ internal static class BlocksThemes
         resources[typeof(CheckBox)] = CheckBoxTheme.Create();
         resources[typeof(RadioButton)] = RadioButtonTheme.Create();
         resources[typeof(ToggleSwitch)] = ToggleSwitchTheme.Create();
+        resources[typeof(Slider)] = SliderTheme.Create();
+        resources[typeof(ProgressBar)] = ProgressBarTheme.Create();
+        resources[typeof(ProgressRing)] = ProgressRingTheme.Create();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -60,5 +63,6 @@ internal static class BlocksThemes
         resources[ButtonParts.GlyphMarginKey] = new Thickness(0, 0, sizes.Padding.Right, 0);
         resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
         ToggleParts.ApplyDensity(resources, density == DensityStyle.Compact ? ToggleParts.Compact : ToggleParts.Normal);
+        RangeParts.ApplyDensity(resources, density == DensityStyle.Compact ? RangeParts.Compact : RangeParts.Normal);
     }
 }

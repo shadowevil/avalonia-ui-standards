@@ -21,5 +21,6 @@ internal static class CatalogPages
         new("Button family", () => new ButtonFamilyPage()),
         new("Icon", () => new IconPage()),
         new("Toggles", () => new TogglesPage()),
+        new("Ranges", () => new RangesPage()),
     ];
 }

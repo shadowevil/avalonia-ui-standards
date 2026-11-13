@@ -21,7 +21,7 @@ namespace AvaloniaUiStandards.Modules;
 /// frame's edges and corners. Maximised, or where the OS gives no transparency, the frame fills
 /// the window with square corners and no shadow.
 /// </remarks>
-public class StandardsWindow : Window
+public class StandardsWindow : Window, IFrameTickSource
 {
     public static readonly StyledProperty<object?> ToolbarProperty =
         AvaloniaProperty.Register<StandardsWindow, object?>(nameof(Toolbar));
@@ -216,6 +216,14 @@ public class StandardsWindow : Window
 
     // Whether frame ticks are running now (for tests).
     internal bool IsFrameTickRunning => _ticker.IsRunning;
+
+    // Frame ticks for Blocks that animate continuously (an indeterminate ProgressBar or ProgressRing).
+    IDisposable IFrameTickSource.SubscribeFrameTicks(Action<TimeSpan> tick)
+    {
+        EventHandler<FrameTickEventArgs> handler = (_, e) => tick(e.Elapsed);
+        FrameTick += handler;
+        return FrameTicks.Subscription(() => FrameTick -= handler);
+    }
 
     // Ticks run while someone listens, motion is not reduced, and the window is active and not minimised.
     private void UpdateTicker()
