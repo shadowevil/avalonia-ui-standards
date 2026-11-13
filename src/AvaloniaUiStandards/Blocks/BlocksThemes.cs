@@ -35,6 +35,10 @@ internal static class BlocksThemes
         resources[typeof(TimePicker)] = PickerThemes.TimePicker(fluentTheme(typeof(TimePicker)));
         resources[typeof(DatePickerPresenter)] = PickerThemes.Presenter(typeof(DatePickerPresenter), fluentTheme(typeof(DatePickerPresenter)), pickerItem, pickerStep);
         resources[typeof(TimePickerPresenter)] = PickerThemes.Presenter(typeof(TimePickerPresenter), fluentTheme(typeof(TimePickerPresenter)), pickerItem, pickerStep);
+        resources[typeof(Calendar)] = CalendarThemes.Calendar(fluentTheme(typeof(Calendar)));
+        resources[typeof(CalendarItem)] = CalendarThemes.Item(fluentTheme(typeof(CalendarItem)));
+        resources[typeof(CalendarDayButton)] = CalendarThemes.DayButton();
+        resources[typeof(CalendarButton)] = CalendarThemes.MonthButton();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -61,5 +65,6 @@ internal static class BlocksThemes
         resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
         FieldParts.ApplyDensity(resources, density);
         PickerThemes.ApplyDensity(resources, density);
+        CalendarThemes.ApplyDensity(resources, density);
     }
 }

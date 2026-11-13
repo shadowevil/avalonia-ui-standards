@@ -16,7 +16,7 @@ using Xunit;
 
 namespace AvaloniaUiStandards.Tests;
 
-/// <summary>Renders the DatePicker and TimePicker sheets (2x, labelled), closed and open.</summary>
+/// <summary>Renders the DatePicker, TimePicker and Calendar sheets (2x, labelled), closed and open.</summary>
 public class PickerRenderTests
 {
     private enum FieldState { Rest, Hover, Focused, Disabled }
@@ -73,6 +73,36 @@ public class PickerRenderTests
         sheet.Save("m3-timepicker.png");
     }
 
+    [AvaloniaFact]
+    public void Calendar_Renders()
+    {
+        string[] columns = ["Month (today, selected, hover)", "Keyboard cursor", "Year view", "Compact", "Disabled"];
+        using var sheet = new Sheet("Calendar: squircle day pills, accent selection, accent text for today, secondary text outside the month");
+        foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
+            sheet.AddSection(themeLabel, columns,
+            [
+                ("On the glass panel", [
+                    CalendarCell(sheet, theme, hoverDay: true),
+                    CalendarCell(sheet, theme, keyboard: true),
+                    CalendarCell(sheet, theme, mode: CalendarMode.Year),
+                    CalendarCell(sheet, theme, compact: true),
+                    CalendarCell(sheet, theme, disabled: true),
+                ]),
+            ]);
+        sheet.Save("m3-calendar.png");
+    }
+
+    /// <summary>A day of the current month (so today is shown), clamped to its length.</summary>
+    internal static DateTime Today(int day)
+    {
+        var today = DateTime.Today;
+        var pick = Math.Min(day, DateTime.DaysInMonth(today.Year, today.Month));
+        // Keep the selected day apart from today, so both looks show.
+        if (pick == today.Day)
+            pick = pick > 1 ? pick - 1 : pick + 1;
+        return new DateTime(today.Year, today.Month, pick);
+    }
+
     // --- Cells ---------------------------------------------------------------------------
 
     internal static StandardsTheme Compact() => new(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact };
@@ -104,6 +134,32 @@ public class PickerRenderTests
 
     internal static void OpenFlyout(Control picker) =>
         picker.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_FlyoutButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+    private static Control CalendarCell(Sheet sheet, ThemeVariant theme, bool hoverDay = false, bool keyboard = false,
+        CalendarMode mode = CalendarMode.Month, bool compact = false, bool disabled = false)
+    {
+        var calendar = new Calendar { SelectedDate = Today(14), DisplayDate = Today(14), DisplayMode = mode, IsEnabled = !disabled };
+        return sheet.Cell(ListBoxRenderTests.OnSurface(calendar, ListBoxRenderTests.Surface.GlassPanel), theme,
+            beforeShow: w =>
+            {
+                if (compact)
+                    w.Styles.Add(Compact());
+            },
+            afterShow: w =>
+            {
+                w.UpdateLayout();
+                StripTransitions(calendar);
+                var days = calendar.GetVisualDescendants().OfType<CalendarDayButton>().ToList();
+                if (hoverDay)
+                    ((IPseudoClasses)days.First(d => d.Content?.ToString() == "20").Classes).Set(":pointerover", true);
+                if (keyboard)
+                {
+                    days.First(d => d.Classes.Contains(":selected")).Focus(NavigationMethod.Tab);
+                    w.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+                    w.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+                }
+            });
+    }
 
     private static Control OpenCell(Sheet sheet, ThemeVariant theme, Control picker, Action<Control> open, Size size, bool compact = false, bool hover = false)
     {
