@@ -286,7 +286,7 @@ public class DataGridTests
             var chrome = box.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == FieldParts.ChromePart);
             Assert.Equal(new Thickness(1), chrome.BorderThickness);
             Assert.Equal(new CornerRadius(8), chrome.CornerRadius);
-            Assert.Equal(Effective(window.FindResource(ThemeVariant.Light, "SystemAccentColor")), Effective(box.BorderBrush));
+            Assert.Equal(Effective(window.FindResource(ThemeVariant.Light, "AccentButtonForeground")), Effective(box.BorderBrush));
             // No ring in edit mode: neither the field's nor the cell's.
             Assert.False(box.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part).IsVisible);
             Assert.False(Ring(cell).IsVisible);
@@ -480,7 +480,10 @@ public class DataGridTests
             if (state == RowsState.Scrolled)
             {
                 grid.FrozenColumnCount = 1;
-                grid.Width = 300;
+                // Notes fixed at 150: scrolled to the end, Category and Notes (270) fill the viewport beside the frozen Name (120), so
+                // the hidden Count and In stock (190) end exactly at the frozen edge.
+                grid.Columns[^1].Width = new DataGridLength(150);
+                grid.Width = 390;
             }
         }, (window, grid) =>
         {

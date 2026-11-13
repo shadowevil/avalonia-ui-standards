@@ -58,9 +58,9 @@ internal static class DataGridTheme
 
     // Density-dependent values, set by ApplyDensity under these non-public keys.
     internal static readonly object RowHeightKey = new();
-    internal static readonly object CellPaddingKey = new();
+    // The density side padding of cell text and header text, so the two line up.
+    internal static readonly object SidePaddingKey = new();
     internal static readonly object EditPaddingKey = new();
-    internal static readonly object HeaderPaddingKey = new();
     internal static readonly object GripLengthKey = new();
 
     /// <summary>
@@ -103,10 +103,9 @@ internal static class DataGridTheme
         var sizes = compact ? ButtonParts.Compact : ButtonParts.Normal;
         var side = sizes.Padding.Left;
         resources[RowHeightKey] = sizes.MinHeight;
-        resources[CellPaddingKey] = new Thickness(side, 0);
+        resources[SidePaddingKey] = new Thickness(side, 0);
         // The field's 1 px border plus this padding puts the text where the cell's text was.
         resources[EditPaddingKey] = new Thickness(side - 1, sizes.Padding.Top);
-        resources[HeaderPaddingKey] = new Thickness(side, 0);
         resources[GripLengthKey] = sizes.MinHeight - 2 * Spacing.XS;
     }
 
@@ -242,7 +241,7 @@ internal static class DataGridTheme
         Avalonia.Controls.Grid.SetColumnSpan(invalid, 2);
 
         var header = new DataGridRowHeader { Name = "PART_RowHeader" };
-        Avalonia.Controls.Grid.SetRowSpan(header, 3);
+        Avalonia.Controls.Grid.SetRowSpan(header, 2);
         DataGridFrozenGrid.SetIsFrozen(header, true);
 
         var cells = new DataGridCellsPresenter { Name = "PART_CellsPresenter" };
@@ -262,7 +261,7 @@ internal static class DataGridTheme
         {
             Name = "PART_Root",
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-            RowDefinitions = new RowDefinitions("*,Auto,Auto"),
+            RowDefinitions = new RowDefinitions("*,Auto"),
             Children = { chrome, invalid, line, header, cells, details },
         };
         foreach (var part in new Control[] { chrome, root, header, cells, details, line })
@@ -368,7 +367,7 @@ internal static class DataGridTheme
     {
         Setters =
         {
-            new Setter(Layoutable.MarginProperty, new DynamicResourceExtension(CellPaddingKey)),
+            new Setter(Layoutable.MarginProperty, new DynamicResourceExtension(SidePaddingKey)),
             new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Center),
             new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis),
         },
@@ -377,7 +376,8 @@ internal static class DataGridTheme
     /// <summary>
     /// A text column's edit field: TextInput filling the cell (the row height is the field
     /// height), its text where the cell's text was, with no ring of its own; validation errors
-    /// show as Fluent's tooltip.
+    /// show as Fluent's tooltip. On a selected row its border takes the selected text colour, so
+    /// the edited cell stays outlined on the accent band; an error border stays the danger colour.
     /// </summary>
     public static ControlTheme CellTextBox(ControlTheme textInput) => new(typeof(TextBox))
     {
@@ -398,6 +398,10 @@ internal static class DataGridTheme
             new Avalonia.Styling.Style(x => x.Nesting().Template().OfType<DataValidationErrors>())
             {
                 Setters = { new Setter(StyledElement.ThemeProperty, Resource("TooltipDataValidationErrors")) },
+            },
+            new Avalonia.Styling.Style(x => x.Nesting().PropertyEquals(OnAccentProperty, true).Not(y => y.Class(":error")))
+            {
+                Setters = { new Setter(TemplatedControl.BorderBrushProperty, Resource("AccentButtonForeground")) },
             },
         },
     };
@@ -435,12 +439,14 @@ internal static class DataGridTheme
         AvaloniaProperty.RegisterAttached<Control, bool>("OnAccent", typeof(DataGridTheme), inherits: true);
 
     /// <summary>
-    /// Styles for controls inside cells: check boxes take the cell check theme (the check column
-    /// centres them); combo boxes in an editing template fill the cell, as the text field does.
+    /// Styles for controls inside cells: a check box that is the cell's own content (a check
+    /// column's, which the column centres) takes the cell check theme, while check boxes nested
+    /// deeper in an app's cell template keep the CheckBox theme; combo boxes in an editing template
+    /// fill the cell, as the text field does.
     /// </summary>
     public static IEnumerable<IStyle> Styles(ControlTheme cellCheckBox) =>
     [
-        new Avalonia.Styling.Style(x => x.OfType<DataGridCell>().Descendant().OfType<CheckBox>())
+        new Avalonia.Styling.Style(x => x.OfType<DataGridCell>().Child().OfType<CheckBox>())
         {
             Setters = { new Setter(StyledElement.ThemeProperty, cellCheckBox) },
         },
@@ -458,8 +464,8 @@ internal static class DataGridTheme
 
     /// <summary>
     /// The column header: transparent, Body strong text in the secondary colour, the list item's
-    /// hover and press fills, the sort caret after the text, the resize grips, and the focus ring
-    /// inset inside it.
+    /// hover and press fills, the sort caret after the text and the resize grips. Headers are not
+    /// focusable, so they have no ring.
     /// </summary>
     public static ControlTheme ColumnHeader()
     {
@@ -471,7 +477,7 @@ internal static class DataGridTheme
         theme.Setters.Add(new Setter(ContentControl.HorizontalContentAlignmentProperty, HorizontalAlignment.Left));
         theme.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
         theme.Setters.Add(new Setter(DataGridColumnHeader.SeparatorBrushProperty, Resource(LineBrush)));
-        theme.Setters.Add(new Setter(TemplatedControl.PaddingProperty, new DynamicResourceExtension(HeaderPaddingKey)));
+        theme.Setters.Add(new Setter(TemplatedControl.PaddingProperty, new DynamicResourceExtension(SidePaddingKey)));
         theme.Setters.Add(new Setter(Layoutable.MinHeightProperty, new DynamicResourceExtension(RowHeightKey)));
         theme.Setters.Add(new Setter(Control.FocusAdornerProperty, null));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<DataGridColumnHeader>(BuildHeader)));
@@ -515,10 +521,6 @@ internal static class DataGridTheme
             theme.Children.Add(GripState(x => Grip(x.Nesting().Class(zone).Class(Resizing)), 1, ScrollBarTheme.ThumbDragKey));
             theme.Children.Add(GripState(x => Grip(x.Nesting().Class(":disabled")), 0, ScrollBarTheme.ThumbHoverKey));
         }
-
-        Selector HeaderRing(Selector state) => state.Template().OfType<SquircleBorder>().Name(RingPart);
-        theme.Children.Add(new Avalonia.Styling.Style(x => HeaderRing(x.Nesting())) { Setters = { new Setter(Visual.IsVisibleProperty, false) } });
-        theme.Children.Add(new Avalonia.Styling.Style(x => HeaderRing(x.Nesting().Class(":focus-visible"))) { Setters = { new Setter(Visual.IsVisibleProperty, true) } });
         return theme;
     }
 
@@ -557,19 +559,9 @@ internal static class DataGridTheme
         var left = Grip(GripLeftPart, HorizontalAlignment.Left);
         var right = Grip(GripRightPart, HorizontalAlignment.Right);
 
-        var ring = new SquircleBorder
-        {
-            Name = RingPart,
-            BorderThickness = new Thickness(FocusRing.Width),
-            Margin = new Thickness(RingInset),
-            IsHitTestVisible = false,
-        };
-        ring.Bind(SquircleBorder.BorderBrushProperty, Resource("SystemControlHighlightAccentBrush"));
-        ring.Bind(SquircleBorder.CornerRadiusProperty, Resource("CornerRadiusControl"));
-
-        foreach (var part in new Control[] { chrome, presenter, sort, separator, left, right, ring })
+        foreach (var part in new Control[] { chrome, presenter, sort, separator, left, right })
             part.RegisterInNameScope(scope);
-        return new Panel { Children = { chrome, row, left, right, ring } };
+        return new Panel { Children = { chrome, row, left, right } };
     }
 
     private static PillBorder Grip(string name, HorizontalAlignment side)
@@ -599,9 +591,10 @@ internal static class DataGridTheme
         {
             InputElement.PointerMovedEvent.AddClassHandler<DataGridColumnHeader>((h, e) => Update(h, e), handledEventsToo: true);
             InputElement.PointerExitedEvent.AddClassHandler<DataGridColumnHeader>((h, _) => Clear(h), handledEventsToo: true);
-            InputElement.PointerPressedEvent.AddClassHandler<DataGridColumnHeader>((h, _) =>
+            InputElement.PointerPressedEvent.AddClassHandler<DataGridColumnHeader>((h, e) =>
             {
-                if (h.Classes.Contains(ResizeLeft) || h.Classes.Contains(ResizeRight))
+                // The package resizes on a left press only.
+                if (e.GetCurrentPoint(h).Properties.IsLeftButtonPressed && (h.Classes.Contains(ResizeLeft) || h.Classes.Contains(ResizeRight)))
                     Set(h, Resizing, true);
             }, handledEventsToo: true);
             InputElement.PointerReleasedEvent.AddClassHandler<DataGridColumnHeader>((h, e) =>
