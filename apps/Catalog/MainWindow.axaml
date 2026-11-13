@@ -11,7 +11,7 @@
     <c:ThemeToolbar />
   </StandardsWindow.Toolbar>
   <StandardsWindow.Sidebar>
-    <ListBox x:Name="PageList" Width="180" />
+    <Sidebar x:Name="PageList" />
   </StandardsWindow.Sidebar>
   <StandardsWindow.StatusBar>
     <Grid ColumnDefinitions="*,Auto">

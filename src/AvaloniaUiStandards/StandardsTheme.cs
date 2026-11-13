@@ -224,6 +224,7 @@ public class StandardsTheme : Styles
 
         // Control transitions are fixed objects (as Fluent declares them), replaced here when motion changes.
         Blocks.BlocksThemes.ApplyMotion(Resources, reduced ? TimeSpan.Zero : MotionFast, MotionEasing);
+        Modules.ModulesThemes.ApplyMotion(Resources, reduced ? TimeSpan.Zero : MotionNormal, MotionEasing);
     }
 
     private static void AddResources(IResourceDictionary r)

@@ -27,6 +27,7 @@
 - [0024 — ListBox, ScrollViewer and ComboBox drop-down](decisions/0024-lists-and-scrolling.md) — the shared list item design, the drop-down popup and the scroll-edge shadow
 - [0025 — Overlay scrollbar](decisions/0025-overlay-scrollbar.md) — the overlay ScrollBar Block: reveal, sizes, colours and motion
 - [0026 — Icon](decisions/0026-icon.md) — the icon set and licence, the Icon Block's design box, sizes and colour, and how icons are added
+- [0034 — Sidebar](decisions/0034-sidebar.md) — the Sidebar Module: rows, headers, the collapse stages and thresholds, the title band button, the overlay and motion
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

@@ -22,8 +22,10 @@ namespace AvaloniaUiStandards.Tests;
 /// </summary>
 public class CatalogRenderTests
 {
-    // The window at its default size and at its minimum (the 480 x 320 frame plus the shadow margin).
-    private static readonly (Size Size, string Suffix)[] WindowSizes = [(new Size(1200, 800), ""), (new Size(528, 368), "-min")];
+    // The window at its default size (sidebar expanded), at a medium width (the sidebar's icon rail) and at its minimum
+    // (the 480 x 320 frame plus the shadow margin; the sidebar hidden).
+    private static readonly (Size Size, string Suffix)[] WindowSizes =
+        [(new Size(1200, 800), ""), (new Size(848, 600), "-medium"), (new Size(528, 368), "-min")];
 
     [AvaloniaFact]
     public void Window_RendersEveryPageInLightAndDark()
