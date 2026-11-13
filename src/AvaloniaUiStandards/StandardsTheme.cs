@@ -98,6 +98,8 @@ public class StandardsTheme : Styles
         // The Blocks tier control themes (Fluent overrides, 0004).
         Blocks.BlocksThemes.AddTo(Resources, type => _fluent.TryGetResource(type, null, out var fluentTheme) ? fluentTheme as ControlTheme : null);
         Blocks.BlocksThemes.ApplyDensity(Resources, _fluent.DensityStyle);
+        foreach (var style in Blocks.BlocksThemes.Styles())
+            Add(style);
 
         // The Modules tier control themes; StandardsWindow builds on Fluent's Window theme.
         _fluent.TryGetResource(typeof(Window), null, out var windowTheme);

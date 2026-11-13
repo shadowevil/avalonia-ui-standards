@@ -49,6 +49,7 @@ internal static class Ui
         // No margin: the window's content panel already pads its content.
         var stack = new StackPanel { Spacing = 24 };
         var heading = Sized(title, "FontSizeTitle");
+        heading.TextWrapping = TextWrapping.Wrap;
         heading.Bind(TextBlock.FontWeightProperty, new DynamicResourceExtension("FontWeightTitle"));
         stack.Children.Add(heading);
         foreach (var section in sections)

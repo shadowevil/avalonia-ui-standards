@@ -29,10 +29,15 @@ internal static class BlocksThemes
         resources[typeof(DropDownButton)] = DropDownButtonTheme.Create();
         resources[typeof(SplitButton)] = SplitButtonTheme.Create();
         resources[typeof(Icon)] = IconTheme.Create();
+        resources[typeof(Separator)] = SeparatorTheme.Create();
+        resources[typeof(GridSplitter)] = GridSplitterTheme.Create();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
     }
+
+    /// <summary>Blocks styles that depend on where a control sits, added to the theme after the control themes.</summary>
+    public static IEnumerable<IStyle> Styles() => [SeparatorTheme.InMenuStyle()];
 
     /// <summary>
     /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
