@@ -325,10 +325,11 @@ public class PickerThemeTests
         var window = new Window
         {
             Width = 340, Height = 460, Background = Brushes.White, RequestedThemeVariant = ThemeVariant.Light,
-            Content = new Border { Padding = new Thickness(20), Child = presenter, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top },
         };
-        if (fluent)
-            window.Styles.Add(new FluentTheme());
+        // Fluent, or the library under reduce motion, so the glass shows at full opacity at once.
+        // The styles come before the content: a control picks its theme when it joins the tree.
+        window.Styles.Add(fluent ? new FluentTheme() : new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Content = new Border { Padding = new Thickness(20), Child = presenter, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
         window.SetRenderScaling(1);
         window.Show();
         try
@@ -430,12 +431,15 @@ public class PickerThemeTests
         var reduced = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
         foreach (var (theme, expectEmpty) in new[] { ((StandardsTheme?)null, false), (reduced, true) })
         {
-            // The field chrome, a selector row in the open flyout and a calendar cell.
+            // The field chrome, a selector row in the open flyout, a calendar cell, and the fade-in
+            // of the flyout and the CalendarDatePicker drop-down.
             var picker = new DatePicker { SelectedDate = PickerRenderTests.Date };
             var calendar = new Calendar { DisplayDate = PickerRenderTests.Date };
-            var window = new Window { Width = 400, Height = 800, Content = new StackPanel { Children = { picker, calendar } } };
+            var dropDown = new CalendarDatePicker { Width = 200, SelectedDate = PickerRenderTests.Date };
+            var window = new Window { Width = 400, Height = 900 };
             if (theme is not null)
                 window.Styles.Add(theme);
+            window.Content = new StackPanel { Children = { picker, calendar, dropDown } };
             window.Show();
             Pump(window);
             try
@@ -455,6 +459,26 @@ public class PickerThemeTests
                 {
                     Assert.Same(shared, chrome.Transitions);
                     Assert.Equal(expectEmpty, chrome.Transitions!.Count == 0);
+                }
+
+                // The overlays fade in with the shared MotionFast fade, and appear at once under reduce motion.
+                var flyoutGlass = presenter.GetVisualDescendants().OfType<GlassBorder>().Single();
+                dropDown.IsDropDownOpen = true;
+                Pump(window);
+                var dropDownGlass = (GlassBorder)dropDown.GetVisualDescendants().OfType<Popup>().Single().Child!;
+                foreach (var glass in new[] { flyoutGlass, dropDownGlass })
+                {
+                    var fade = glass.FindResource(OverlayParts.FadeInFastKey);
+                    if (expectEmpty)
+                    {
+                        Assert.Null(fade);
+                        Assert.Equal(1, glass.Opacity);
+                    }
+                    else
+                    {
+                        var animation = Assert.IsType<Avalonia.Animation.Animation>(fade);
+                        Assert.Equal(TimeSpan.FromMilliseconds(100), animation.Duration);
+                    }
                 }
             }
             finally
@@ -543,6 +567,9 @@ public class PickerThemeTests
             var opener = (Button)PickerRenderTests.FocusTarget(picker);
             // The accept button must never take focus on the way (no extra focus events). The
             // presenter exists before the flyout opens, and focus events inside it bubble to it.
+            // Headless, the first selector is not yet focused when the flyout opens, so the theme
+            // always takes its "focus it" path; the desktop path, where Fluent has already focused
+            // it and the theme only marks it, is not exercised here.
             var acceptFocused = false;
             var flyout = (Control)picker.GetVisualDescendants().OfType<Popup>().Single().Child!;
             flyout.AddHandler(InputElement.GotFocusEvent, (_, e) => acceptFocused |= e.Source is Button { Name: "PART_AcceptButton" },

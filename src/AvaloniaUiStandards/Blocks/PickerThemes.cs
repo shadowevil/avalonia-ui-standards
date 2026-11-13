@@ -242,7 +242,8 @@ internal static class PickerThemes
 
         // Fluent's border is replaced by glass, inset by SpacingXS like the drop-down ([0024]).
         fluentChrome.Child = null;
-        var glass = new GlassBorder { Name = GlassPart, Padding = new Thickness(Spacing.XS), Child = content };
+        // It fades in over MotionFast when it opens, at once under reduce motion ([0036]).
+        var glass = new GlassBorder { Name = GlassPart, Padding = new Thickness(Spacing.XS), Child = content }.FadesIn(OverlayParts.FadeInFastKey);
 
         // The selectors scroll inside a squircle concentric with the glass (its radius less the
         // inset), so a row crossing the top or bottom edge is cut by that curve, never by the

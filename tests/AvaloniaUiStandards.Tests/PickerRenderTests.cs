@@ -201,8 +201,12 @@ public class PickerRenderTests
         FlyoutState state = FlyoutState.Rest)
     {
         var window = new Window { Width = size.Width, Height = size.Height, RequestedThemeVariant = theme };
-        if (compact)
-            window.Styles.Add(Compact());
+        // The sheets show end states: under reduce motion the overlay appears at once instead of fading in.
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        {
+            ReduceMotion = true,
+            Density = compact ? DensityStyle.Compact : DensityStyle.Normal,
+        });
         var surface = ListBoxRenderTests.OnSurface(picker, ListBoxRenderTests.Surface.GlassPanel);
         surface.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
         surface.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;

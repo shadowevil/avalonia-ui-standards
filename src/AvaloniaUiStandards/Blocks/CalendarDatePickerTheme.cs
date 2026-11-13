@@ -62,7 +62,8 @@ internal static class CalendarDatePickerTheme
             popup.VerticalOffset = Spacing.XS;
             calendar.Background = Avalonia.Media.Brushes.Transparent;
             calendar.BorderThickness = default;
-            popup.Child = new GlassBorder { Name = PopupChromePart, Child = calendar };
+            // It fades in over MotionFast when it opens, at once under reduce motion ([0036]).
+            popup.Child = new GlassBorder { Name = PopupChromePart, Child = calendar }.FadesIn(OverlayParts.FadeInFastKey);
         }
         return FocusRing.Wrap(root, new NameScope());
     }
