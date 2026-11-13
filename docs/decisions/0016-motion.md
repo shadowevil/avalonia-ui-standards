@@ -3,6 +3,7 @@
 - **Status:** Agreed, 2026-11-12
 - **Decision:**
   - Durations: Fast 100 ms (hover, press), Normal 200 ms (toggles, checks), Slow 300 ms (flyouts, dialogs). All use ease-out cubic.
+    - Menus and flyouts fade in over Fast; see [0036](0036-menus-and-flyouts.md).
   - Motion is instant when "reduce motion" is on. The library reads it from the OS once, when the theme is created (macOS accessibility settings, Windows animation setting, Linux desktop animation setting). Apps can force it through `StandardsTheme` ([0017](0017-app-usage.md)).
   - Motion is theme-controlled: the library's own templates use these values, and `StandardsTheme` sets the library's transitions, together with `ReduceMotion`. The `Motion*` keys are read-only values that apps can use for their own animations; overriding them does not retune library controls.
   - Colour and brush fades are true cross-fades that take transparency into account (`CrossFadeBrushTransition`), so a fade never passes through a lighter or darker colour than its two ends (for example, no white flash when fading from transparent). This applies to the button family, list items and window buttons, and is tested.

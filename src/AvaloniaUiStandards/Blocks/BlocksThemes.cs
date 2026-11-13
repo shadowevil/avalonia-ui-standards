@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -30,6 +31,16 @@ internal static class BlocksThemes
         resources[typeof(DropDownButton)] = DropDownButtonTheme.Create();
         resources[typeof(SplitButton)] = SplitButtonTheme.Create();
         resources[typeof(Icon)] = IconTheme.Create();
+        resources[typeof(MenuItem)] = MenuTheme.Item();
+        resources[typeof(Menu)] = MenuTheme.Menu(fluentTheme(typeof(Menu)));
+        resources[typeof(ContextMenu)] = MenuTheme.MenuOverlay(typeof(ContextMenu), fluentTheme(typeof(ContextMenu)));
+        resources[typeof(MenuFlyoutPresenter)] = MenuTheme.MenuOverlay(typeof(MenuFlyoutPresenter), fluentTheme(typeof(MenuFlyoutPresenter)));
+        resources[typeof(FlyoutPresenter)] = MenuTheme.FlyoutPresenter(fluentTheme(typeof(FlyoutPresenter)));
+        resources[typeof(ToolTip)] = ToolTipTheme.Create(fluentTheme(typeof(ToolTip)));
+        resources[typeof(WindowNotificationManager)] = NotificationTheme.Manager(fluentTheme(typeof(WindowNotificationManager)));
+        resources[typeof(NotificationCard)] = NotificationTheme.Card();
+        resources[typeof(Separator)] = SeparatorTheme.Create();
+        resources[typeof(GridSplitter)] = GridSplitterTheme.Create();
         var fieldButton = FieldParts.ButtonTheme();
         resources[typeof(TextBox)] = TextInputTheme.Create(fieldButton);
         var innerTextBox = TextInputTheme.CreateInner(fieldButton);
@@ -67,13 +78,19 @@ internal static class BlocksThemes
         WindowButtonThemes.AddResources(resources);
     }
 
+    /// <summary>Blocks styles that depend on where a control sits, added to the theme after the control themes.</summary>
+    public static IEnumerable<IStyle> Styles() => [SeparatorTheme.InMenuStyle()];
+
     /// <summary>
     /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
-    /// is <c>MotionFast</c> and <paramref name="normal"/> is <c>MotionNormal</c>, or both zero
-    /// under reduce motion (no transitions).
+    /// is <c>MotionFast</c>, <paramref name="normal"/> is <c>MotionNormal</c> and <paramref name="slow"/>
+    /// is <c>MotionSlow</c>, or all zero under reduce motion (no transitions).
     /// </summary>
-    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, TimeSpan normal, Easing easing)
+    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, TimeSpan normal, TimeSpan slow, Easing easing)
     {
+        resources[OverlayParts.FadeInFastKey] = OverlayParts.FadeIn(fast, easing);
+        resources[OverlayParts.FadeInSlowKey] = OverlayParts.FadeIn(slow, easing);
+        resources[OverlayParts.FadeOutSlowKey] = OverlayParts.FadeOut(slow, easing);
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
@@ -93,7 +110,9 @@ internal static class BlocksThemes
         resources[ButtonParts.MinHeightKey] = sizes.MinHeight;
         resources[ButtonParts.PaddingKey] = sizes.Padding;
         resources[ButtonParts.GlyphMarginKey] = new Thickness(0, 0, sizes.Padding.Right, 0);
-        resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        var iconSize = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        resources[IconTheme.SizeKey] = iconSize;
+        resources[NotificationTheme.CloseMarginKey] = NotificationTheme.CloseMargin(sizes.MinHeight, iconSize);
         FieldParts.ApplyDensity(resources, density);
         resources[ComboBoxTheme.PaddingKey] = ComboBoxTheme.Padding(sizes.Padding);
         var segment = SegmentedControlTheme.Item(sizes);

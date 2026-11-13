@@ -14,7 +14,8 @@ namespace AvaloniaUiStandards.Style;
 /// </summary>
 /// <remarks>
 /// Falls back to a solid fill in <see cref="TintColor"/> with a fixed 1 px border in
-/// <see cref="BorderBrush"/> instead of the rim when transparency is reduced (<c>StandardsTheme.ReduceTransparency</c>) or Skia is not
+/// <see cref="BorderBrush"/> instead of the rim when transparency is reduced (<c>StandardsTheme.ReduceTransparency</c>), when it
+/// sits in a popup shown as its own OS window (see <see cref="IsSolid"/>), or when Skia is not
 /// available. Without Skia runtime effects it keeps the blur and drops refraction.
 /// The 1 px border is counted in layout, so the child sits inside it, and is drawn above the
 /// child, so a child with a background does not cover it at the corners.
@@ -22,7 +23,7 @@ namespace AvaloniaUiStandards.Style;
 /// </remarks>
 public class GlassBorder : Decorator
 {
-    private const double BorderWidth = 1;
+    internal const double BorderWidth = 1;
 
     // Defaults, shared with the Glass* resources that StandardsTheme sets.
     internal static readonly Color DefaultTintLight = Colors.White;
@@ -224,6 +225,42 @@ public class GlassBorder : Decorator
             _borderOverlay.InvalidateVisual();
     }
 
+    /// <summary>
+    /// Whether the glass draws as the solid fallback: when transparency is reduced, or when it
+    /// sits in a popup shown as its own OS window, where nothing of the app's window is behind it
+    /// in its top level to blur. A popup in the window's overlay layer keeps the glass.
+    /// </summary>
+    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || InPopupWindow;
+
+    /// <summary>
+    /// Whether the glass sits in a popup shown as its own OS window, updated each time it joins a
+    /// visual tree. Settable so tests can draw that case, which the headless platform (overlay
+    /// popups only) cannot produce.
+    /// </summary>
+    internal bool InPopupWindow
+    {
+        get => _inPopupWindow;
+        set
+        {
+            if (value == _inPopupWindow)
+                return;
+            _inPopupWindow = value;
+            InvalidateVisual();
+            _borderOverlay.InvalidateVisual();
+        }
+    }
+
+    private bool _inPopupWindow;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        InPopupWindow = IsPopupWindow(TopLevel.GetTopLevel(this));
+    }
+
+    /// <summary>True for a popup's own OS window; false for a window, and for the overlay layer, which is part of its window.</summary>
+    internal static bool IsPopupWindow(TopLevel? topLevel) => topLevel is Avalonia.Controls.Primitives.PopupRoot;
+
     public override void Render(DrawingContext context)
     {
         var size = Bounds.Size;
@@ -232,7 +269,7 @@ public class GlassBorder : Decorator
             return;
 
         var solid = new ImmutableSolidColorBrush(TintColor);
-        if (GetValue(ReduceTransparencyProperty))
+        if (IsSolid)
         {
             context.DrawGeometry(solid, null, _fill);
         }
@@ -250,7 +287,7 @@ public class GlassBorder : Decorator
     {
         var size = Bounds.Size;
         UpdateShape(size);
-        if (!GetValue(ReduceTransparencyProperty) && GlassRimDrawOperation.Effect is not null)
+        if (!IsSolid && GlassRimDrawOperation.Effect is not null)
         {
             if (RimAbsorption > 0)
                 context.Custom(new GlassRimDrawOperation(new GlassRimDrawOperation.Parameters(

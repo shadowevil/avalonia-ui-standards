@@ -7,6 +7,7 @@
   - The danger colour is `#E1332A`, between the Windows critical red (`#C42B1C`) and the macOS system red (`#FF3B30`). Its foreground, `DangerForeground`, is white. The brand keys `SystemAccentColor` (`#007CEA`) and `DangerColor` (`#E1332A`) keep their values.
   - Filled controls meet WCAG AA contrast with white text, by the AA fill rule. For the accent and the danger colour, rest is the brand colour darkened by the smallest HSL lightness step that reaches 4.5:1 with white text; hover is 0.04 darker; pressed is 0.08 darker. It is recomputed for any app accent, and is the same in light and dark.
   - Keys: `AccentFillColor`, `AccentFillColorPointerOver`, `AccentFillColorPressed`, `DangerFillColor`, `DangerFillColorPointerOver`, `DangerFillColorPressed`.
+  - The success and warning colours and the status text keys (`SuccessColor`, `WarningColor`, `SuccessTextColor`, `WarningTextColor`, `DangerTextColor`) are in [0037](0037-tooltip-and-notifications.md).
   - Default results (contrast with white text):
 
     | | Rest | Hover | Pressed |

@@ -32,6 +32,9 @@ internal static class CatalogPages
         new("AutoCompleteBox", Icons.MagnifyingGlass, () => new AutoCompleteBoxPage()),
         new("Tabs", Icons.Tabs, () => new TabsPage()),
         new("Expander", Icons.CaretDown, () => new ExpanderPage()),
+        new("Menus and flyouts", Icons.DotsThree, () => new MenuPage()),
+        new("ToolTip and notifications", Icons.Info, () => new ToolTipNotificationPage()),
         new("Pickers", Icons.CalendarBlank, () => new PickersPage()),
+        new("Separator and GridSplitter", Icons.ArrowsOutLineHorizontal, () => new SeparatorPage()),
     ];
 }

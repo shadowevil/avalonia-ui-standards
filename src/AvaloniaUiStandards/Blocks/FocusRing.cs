@@ -29,8 +29,8 @@ internal static class FocusRing
     public const string Part = "PART_FocusRing";
 
     private const double Gap = 2;
-    private const double Width = 2;
-    private const double Offset = Gap + Width;
+    internal const double Width = 2;
+    internal const double Offset = Gap + Width;
 
     private static readonly IValueConverter Grow = new FuncValueConverter<CornerRadius, CornerRadius>(r =>
         new CornerRadius(r.TopLeft + Offset, r.TopRight + Offset, r.BottomRight + Offset, r.BottomLeft + Offset));
