@@ -1,5 +1,7 @@
+using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using AvaloniaUiStandards.Style;
 
@@ -7,13 +9,13 @@ namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
 /// The node lines of one tree item (<see cref="TreeViewOptions.ShowLinesProperty"/>), drawn under
-/// its row and its children's rows, over the item's whole height. An expanded item with lines on
-/// draws a stub down from below its caret to the bottom of its row. An item whose parent item has
-/// lines on draws its branch: down its parent's caret column from its top, a rounded elbow into its
-/// row's centre, and a level line ending before its caret (or before its header on a leaf); unless
-/// it is its parent's last child, the column carries on to its bottom, past its own children. So
-/// the stub and the branches of consecutive children join into one line per expanded parent.
-/// Lines are 1 px in the border colour, snapped to device pixels.
+/// its row and its children's rows, over the item's whole height, beside the content pills. An
+/// expanded item with lines on draws a stub down from below its caret to the bottom of its row. An
+/// item with lines on whose parent item has them on draws its branch: down its parent's caret column
+/// from its top, a rounded elbow into its row's centre, and a level line ending before its caret (or
+/// before its pill on a leaf); unless it is its parent's last child, the column carries on to its
+/// bottom, past its own children. So the stub and the branches of consecutive children join into one
+/// line per expanded parent. Lines are 1 px in the border colour, snapped to device pixels.
 /// </summary>
 internal sealed class TreeLines : Control
 {
@@ -25,7 +27,7 @@ internal sealed class TreeLines : Control
     /// <summary>The elbow's radius.</summary>
     public const double Radius = Spacing.XS;
 
-    /// <summary>The space between a level line's end and the caret glyph or header.</summary>
+    /// <summary>The space between a level line's end and the caret glyph or pill.</summary>
     public const double Gap = Spacing.XS;
 
     /// <summary>The caret glyph's left edge in its box, pointing right or turned down (72 of the 256 design box).</summary>
@@ -40,20 +42,22 @@ internal sealed class TreeLines : Control
     private readonly TreeViewItem _item;
     private readonly Control _row;
     private readonly Control _caret;
-    private readonly Control _header;
+    private readonly Control _content;
     private TreeViewItem? _parent;
+    private TopLevel? _topLevel;
+    private bool _watchingParent;
 
     static TreeLines()
     {
-        AffectsRender<TreeLines>(StrokeProperty, TreeViewOptions.ShowLinesProperty);
+        AffectsRender<TreeLines>(StrokeProperty);
     }
 
-    public TreeLines(TreeViewItem item, Control row, Control caret, Control header)
+    public TreeLines(TreeViewItem item, Control row, Control caret, Control content)
     {
-        (_item, _row, _caret, _header) = (item, row, caret, header);
+        (_item, _row, _caret, _content) = (item, row, caret, content);
         Name = Part;
         IsHitTestVisible = false;
-        foreach (var part in new[] { row, caret, header })
+        foreach (var part in new[] { row, caret, content })
             part.PropertyChanged += OnPartChanged;
     }
 
@@ -63,11 +67,13 @@ internal sealed class TreeLines : Control
         set => SetValue(StrokeProperty, value);
     }
 
-    /// <summary>Whether this item's stub shows: lines on, expanded, with children.</summary>
-    internal bool HasStub => GetValue(TreeViewOptions.ShowLinesProperty) && _item.IsExpanded && _item.ItemCount > 0;
+    private bool IsOn => GetValue(TreeViewOptions.ShowLinesProperty);
 
-    /// <summary>Whether this item's branch shows: its parent item has lines on.</summary>
-    internal bool HasBranch => _parent is { } parent && parent.GetValue(TreeViewOptions.ShowLinesProperty);
+    /// <summary>Whether this item's stub shows: lines on, expanded, with children.</summary>
+    internal bool HasStub => IsOn && _item.IsExpanded && _item.ItemCount > 0;
+
+    /// <summary>Whether this item's branch shows: lines on for it and for its parent item.</summary>
+    internal bool HasBranch => IsOn && _parent is { } parent && parent.GetValue(TreeViewOptions.ShowLinesProperty);
 
     /// <summary>Whether the parent's column carries on past this item (it is not the last child).</summary>
     internal bool Continues => _parent is { } parent && parent.IndexFromContainer(_item) < parent.ItemCount - 1;
@@ -77,17 +83,32 @@ internal sealed class TreeLines : Control
         base.OnAttachedToVisualTree(e);
         _item.PropertyChanged += OnItemChanged;
         _parent = ItemsControl.ItemsControlFromItemContainer(_item) as TreeViewItem;
-        if (_parent is not null)
-            _parent.PropertyChanged += OnParentChanged;
+        _topLevel = TopLevel.GetTopLevel(this);
+        if (_topLevel is not null)
+            _topLevel.ScalingChanged += OnScalingChanged;
+        WatchParent(IsOn);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         _item.PropertyChanged -= OnItemChanged;
-        if (_parent is not null)
-            _parent.PropertyChanged -= OnParentChanged;
+        if (_topLevel is not null)
+            _topLevel.ScalingChanged -= OnScalingChanged;
+        _topLevel = null;
+        WatchParent(false);
         _parent = null;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == TreeViewOptions.ShowLinesProperty)
+        {
+            if (VisualRoot is not null)
+                WatchParent(IsOn);
+            InvalidateVisual();
+        }
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -96,10 +117,28 @@ internal sealed class TreeLines : Control
         InvalidateVisual();
     }
 
+    // The parent's option and children decide the branch; they are followed only while lines are on here.
+    private void WatchParent(bool watch)
+    {
+        if (watch == _watchingParent || _parent is null)
+            return;
+        _watchingParent = watch;
+        if (watch)
+        {
+            _parent.PropertyChanged += OnParentChanged;
+            _parent.Items.CollectionChanged += OnSiblingsChanged;
+        }
+        else
+        {
+            _parent.PropertyChanged -= OnParentChanged;
+            _parent.Items.CollectionChanged -= OnSiblingsChanged;
+        }
+    }
+
     private void OnItemChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property == TreeViewItem.IsExpandedProperty || e.Property == ItemsControl.ItemCountProperty
-            || e.Property == TreeViewItem.LevelProperty || e.Property == Avalonia.Controls.Primitives.TemplatedControl.PaddingProperty)
+            || e.Property == TreeViewItem.LevelProperty || e.Property == TemplatedControl.PaddingProperty)
             InvalidateVisual();
     }
 
@@ -114,6 +153,11 @@ internal sealed class TreeLines : Control
         if (e.Property == ItemsControl.ItemCountProperty || e.Property == TreeViewOptions.ShowLinesProperty)
             InvalidateVisual();
     }
+
+    // An add, remove, move or replace can change which child is last.
+    private void OnSiblingsChanged(object? sender, NotifyCollectionChangedEventArgs e) => InvalidateVisual();
+
+    private void OnScalingChanged(object? sender, EventArgs e) => InvalidateVisual();
 
     public override void Render(DrawingContext context)
     {
@@ -155,7 +199,7 @@ internal sealed class TreeLines : Control
                 var caretLeft = centre.X - size.Width / 2;
                 var end = Edge(_item.ItemCount > 0
                     ? caretLeft + indent * CaretGlyphInset - Gap
-                    : (_header.TranslatePoint(default, this)?.X ?? caretLeft + indent) - Gap);
+                    : (_content.TranslatePoint(default, this)?.X ?? caretLeft + indent) - Gap);
                 if (Continues)
                 {
                     g.BeginFigure(new Point(x, 0), false);
