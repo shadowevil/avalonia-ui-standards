@@ -1,0 +1,35 @@
+# 0032 — Segmented control
+
+- **Status:** Proposed, 2026-11-13
+- **Decision:**
+  - `SegmentedControl` is a new Block ([0004](0004-tier-names.md)), since Fluent has none ([0003](0003-restyle-fluent.md)). It chooses one of a few options of a single setting. Its segments are `SegmentedControlItem`s.
+    - **Why:** A row of exclusive options for one setting is a common pattern (macOS and iOS segmented controls) that a ListBox or a group of toggles does not express on its own.
+  - It subclasses `ListBox`, with `SelectionMode` `Single | AlwaysSelected` by default and a one-row `UniformGrid` as its items panel.
+    - **Why:** It keeps the list's items, data binding, selection model and automation, and the list's single Tab stop. A setting always has a value, so the selection is kept: a click or Ctrl+click never clears it.
+  - Keyboard:
+    - One Tab stop for the whole control, landing on the selected segment.
+    - Left and Right (and Up and Down) move to the previous or next enabled segment and select it; Home and End select the first and last enabled segment. In right-to-left layouts Left and Right swap.
+    - Movement stops at the ends; it does not wrap.
+    - The navigation keys are always handled, so they never scroll a page around the control.
+    - **Why:** Selection follows focus, as in a radio group, so the arrows change the setting directly. The control handles the keys itself because a `UniformGrid` gives a ListBox no arrow navigation. Stopping at the ends matches the ListBox and TabControl in the same app, which also stop at their ends.
+  - Shape and size:
+    - A squircle track with `CornerRadiusControl` (8) holds equal-width segments inset 2 px from its edge.
+    - The pill and the segments' own chrome use radius 6: the track's radius less the inset, so the curves are concentric. The inner radius is derived from `CornerRadiusControl` and follows it.
+    - Height 32 at Normal density and 24 at Compact, as Button ([0018](0018-button.md)); segments are 4 px shorter (the inset). Segment padding is Button's side padding (12 Normal, 8 Compact) with the content centred.
+    - Icon segments use `Icon` ([0026](0026-icon.md)) at its density size (20 Normal, 16 Compact).
+    - **Why:** The control lines up with buttons in a row (the M4 toolbar band), equal widths make the options read as peers (Apple HIG), and the 2 px inset keeps the pill visibly inside the track.
+  - Selection is one pill, a `SquircleBorder` under the segments' content, that slides between segments: its position and size move over `MotionNormal` with the ease-out ([0016](0016-motion.md)), and are instant under reduce motion. When the layout changes (a resize, the first layout) it moves at once, so it never lags its segment. The segments add no fill of their own when selected.
+    - **Why:** One sliding pill shows where the selection went, as on macOS and iOS; a per-segment fill would only blink from one place to the next. `MotionNormal` is the duration for toggles.
+  - Colours:
+    - The track is Button's Standard fill (`ButtonBackground`, `ButtonBackgroundDisabled`) and the text Button's (`ButtonForeground`, `ButtonForegroundDisabled`).
+    - The pill is neutral and raised from the track: the palette's AltHigh (`#FFFFFF`) in light and BaseMediumLow (`#6B6B6B`) in dark ([0011](0011-colour.md)). The selected text is the palette's BaseHigh, as on the track.
+    - A disabled control keeps the pill, in AltHigh (`#FFFFFF`) in light and ChromeHigh (`#525252`) in dark, so the disabled text stays visible on it.
+    - Unselected segments take Button's hover and pressed fills (`ButtonBackgroundPointerOver`, `ButtonBackgroundPressed`), fading over `MotionFast`. A disabled segment shows Button's disabled text.
+    - The segments' text colour cross-fades (`CrossFadeBrushTransition`) over `MotionNormal`, with the pill.
+    - Text meets WCAG AA on the track and on the pill in both themes; this is tested.
+    - **Why (neutral pill rather than the accent):** A segmented control always has a selection, so an accent pill puts an accent block on every one, and a toolbar holding several of them (theme, density, motion) would carry several accent blocks competing with the one accent action. The neutral raised pill is the platform convention on macOS and iOS and keeps accent for actions and for the user's current item in a list ([0024](0024-lists-and-scrolling.md)) or an on/off toggle ([0021](0021-button-siblings.md)). The track in Button's fill makes the control read as part of the button family.
+  - The focus ring ([0019](0019-focus-ring.md)) is drawn around the whole control while one of its segments has keyboard focus.
+    - **Why:** The 2 px inset leaves no room for a ring with its 2 px gap around a single segment; with selection following focus the pill already shows which segment is focused.
+  - Content: segments are text or icons, preferably not mixed in one control, with nouns or short phrases in title case, and about five to seven segments at most. Icon-only segments carry a `ToolTip` and an automation name (`AutomationProperties.Name`).
+    - **Why:** Apple HIG guidance; an icon alone does not name the option for a pointer user or a screen reader.
+- **Why:** A segmented control built on the list keeps Fluent's selection and accessibility, and the shared shape, density, motion and focus ring make it one family with the buttons and lists.

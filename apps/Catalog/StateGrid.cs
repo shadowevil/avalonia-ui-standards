@@ -19,7 +19,12 @@ internal static class StateGrid
 {
     private static readonly SampleState[] States = Enum.GetValues<SampleState>();
 
-    public static Control Build(IReadOnlyList<(string Label, Func<Control> Create)> variants)
+    /// <param name="stateTarget">
+    /// For controls whose states live on a part or item (a segment, a tab, a header): the element
+    /// that takes hover and press. Focus is then shown as keyboard focus on it, which draws the
+    /// library's focus ring.
+    /// </param>
+    public static Control Build(IReadOnlyList<(string Label, Func<Control> Create)> variants, Func<Control, Control>? stateTarget = null)
     {
         var grid = new Grid { ColumnSpacing = 8, RowSpacing = 4 };
         for (var c = 0; c <= States.Length + 1; c++)
@@ -37,7 +42,8 @@ internal static class StateGrid
             label.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
             Place(grid, label, r + 1, 0, HorizontalAlignment.Left);
             for (var c = 0; c < States.Length; c++)
-                Place(grid, Sample(variants[r].Create(), States[c]), r + 1, c + 1, HorizontalAlignment.Center);
+                Place(grid, stateTarget is null ? Sample(variants[r].Create(), States[c]) : Sample(variants[r].Create(), States[c], stateTarget),
+                    r + 1, c + 1, HorizontalAlignment.Center);
             var live = new Border { Padding = new Thickness(12), Child = variants[r].Create() };
             Place(grid, live, r + 1, States.Length + 1, HorizontalAlignment.Center);
         }
@@ -91,6 +97,31 @@ internal static class StateGrid
                 layer?.Children.Remove(ring);
             ring = null;
         };
+        return new Border { Padding = new Thickness(12), IsHitTestVisible = false, Child = control };
+    }
+
+    /// <summary>
+    /// Forces <paramref name="state"/> on the part <paramref name="target"/> picks; focus is shown
+    /// as keyboard focus on that part (its <c>:focus-visible</c>, and the control's
+    /// <c>:focus-visible-within</c> for a ring drawn around the whole control).
+    /// </summary>
+    private static Control Sample(Control control, SampleState state, Func<Control, Control> target)
+    {
+        control.IsEnabled = state != SampleState.Disabled;
+        control.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            var part = target(control);
+            var pseudo = (IPseudoClasses)part.Classes;
+            if (state == SampleState.Hover)
+                pseudo.Set(":pointerover", true);
+            if (state == SampleState.Pressed)
+                pseudo.Set(":pressed", true);
+            if (state == SampleState.Focused)
+            {
+                pseudo.Set(":focus-visible", true);
+                ((IPseudoClasses)control.Classes).Set(":focus-visible-within", true);
+            }
+        }, DispatcherPriority.Loaded);
         return new Border { Padding = new Thickness(12), IsHitTestVisible = false, Child = control };
     }
 }

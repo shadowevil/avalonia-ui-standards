@@ -4,8 +4,10 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Style;
 
 namespace AvaloniaUiStandards.Blocks;
@@ -59,6 +61,58 @@ internal static class FocusRing
         theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting())) { Setters = { new Setter(Visual.IsVisibleProperty, false) } });
         theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting().Class(":focus-visible"))) { Setters = { new Setter(Visual.IsVisibleProperty, true) } });
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":focus-visible")) { Setters = { new Setter(Visual.ZIndexProperty, 1) } });
+    }
+
+    /// <summary>The pseudo-class a control gets while a control inside it shows keyboard focus (<see cref="AddWithin"/>).</summary>
+    public const string FocusVisibleWithin = ":focus-visible-within";
+
+    /// <summary>
+    /// Adds the ring's states to a theme whose template is wrapped with <see cref="Wrap"/>, for a
+    /// control whose focus lands on a part or item inside it (a segment, a header): the ring is
+    /// drawn around the whole control while the focused element inside it shows keyboard focus.
+    /// </summary>
+    public static void AddWithin(ControlTheme theme)
+    {
+        theme.Setters.Add(new Setter(Control.FocusAdornerProperty, null));
+        theme.Setters.Add(new Setter(Visual.ClipToBoundsProperty, false));
+        theme.Setters.Add(new Setter(TracksFocusWithinProperty, true));
+        theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting())) { Setters = { new Setter(Visual.IsVisibleProperty, false) } });
+        theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting().Class(FocusVisibleWithin))) { Setters = { new Setter(Visual.IsVisibleProperty, true) } });
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(FocusVisibleWithin)) { Setters = { new Setter(Visual.ZIndexProperty, 1) } });
+    }
+
+    /// <summary>Set by <see cref="AddWithin"/>: the control tracks keyboard focus inside it as <see cref="FocusVisibleWithin"/>.</summary>
+    private static readonly AttachedProperty<bool> TracksFocusWithinProperty =
+        AvaloniaProperty.RegisterAttached<Control, bool>("TracksFocusWithin", typeof(FocusRing));
+
+    static FocusRing()
+    {
+        TracksFocusWithinProperty.Changed.AddClassHandler<Control>((control, e) =>
+        {
+            if (e.NewValue is true)
+            {
+                control.AddHandler(InputElement.GotFocusEvent, OnFocusChanged, handledEventsToo: true);
+                control.AddHandler(InputElement.LostFocusEvent, OnFocusChanged, handledEventsToo: true);
+            }
+            else
+            {
+                control.RemoveHandler(InputElement.GotFocusEvent, OnFocusChanged);
+                control.RemoveHandler(InputElement.LostFocusEvent, OnFocusChanged);
+                ((IPseudoClasses)control.Classes).Set(FocusVisibleWithin, false);
+            }
+        });
+    }
+
+    // Focus events bubble from the focused element after its own handler has set :focus-visible.
+    // The ring shows while the newly focused element is inside the control and shows keyboard focus.
+    private static void OnFocusChanged(object? sender, FocusChangedEventArgs e)
+    {
+        var control = (Control)sender!;
+        var focused = e.NewFocusedElement as Control;
+        var within = focused is not null && (focused == control || control.IsVisualAncestorOf(focused));
+        if (e.RoutedEvent == InputElement.LostFocusEvent && within)
+            return; // the GotFocus of the element inside decides
+        ((IPseudoClasses)control.Classes).Set(FocusVisibleWithin, within && focused!.Classes.Contains(":focus-visible"));
     }
 
     private static Selector Ring(Selector state) => state.Template().OfType<SquircleBorder>().Name(Part);
