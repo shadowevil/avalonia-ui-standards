@@ -145,6 +145,40 @@ public class TabsAndExpanderThemeTests
         }
     }
 
+    // A click (press and release) on a header, with motion on: once the slide ends, the selection
+    // and the underline stay on the clicked tab, also for a second slide that starts where the
+    // first one ended. TabControl and TabStrip alike.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Tabs_UnderlineStaysOnTheClickedTab_AfterTheSlide(bool strip)
+    {
+        SelectingItemsControl control = strip ? new TabStrip() : TabsAndExpanderRenderTests.Tabs();
+        if (strip)
+            foreach (var header in new[] { "One", "Two", "Three" })
+                control.Items.Add(new TabStripItem { Content = header });
+        control.SelectedIndex = 0;
+        var (window, tabs) = Show(control);
+        try
+        {
+            foreach (var index in new[] { 2, 1 })
+            {
+                var tab = Tab(tabs, index);
+                var point = tab.TranslatePoint(new Point(tab.Bounds.Width / 2, tab.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
+                Settle(window);
+                Assert.Equal(index, tabs.SelectedIndex);
+                AssertUnderline(tabs, index);
+                Assert.Equal(Expected(tabs, index).Position, Follower(tabs).Offset);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void Tabs_UnderlineFollowsPlacementAndResizes()
     {
@@ -580,5 +614,18 @@ public class TabsAndExpanderThemeTests
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
+    }
+
+    // Runs the animation clock in real time for 600 ms, three times the slide's MotionNormal, so any slide has ended.
+    private static void Settle(Window window)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        while (stopwatch.Elapsed < TimeSpan.FromMilliseconds(600))
+        {
+            using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(16));
+            Dispatcher.UIThread.MainLoop(stop.Token);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+        Pump(window);
     }
 }
