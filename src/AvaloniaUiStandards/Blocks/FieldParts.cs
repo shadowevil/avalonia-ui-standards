@@ -19,10 +19,10 @@ namespace AvaloniaUiStandards.Blocks;
 /// <summary>
 /// The parts shared by the field Blocks (TextInput, ComboBox, NumericUpDown, ButtonSpinner,
 /// AutoCompleteBox): the squircle field chrome, the field state colours, and the small subtle
-/// icon buttons that sit inside a field (clear, reveal password, spin, drop-down chevron zone).
-/// Field state styles set the field control's own Background, BorderBrush and Foreground, and the
-/// chrome binds to them, so a template that sets local values on an inner field (a borderless
-/// TextBox inside another control) overrides every state.
+/// icon buttons that sit inside a field (clear, reveal password, spin). Field state styles set
+/// the field control's own Background, BorderBrush and Foreground, and the chrome binds to them.
+/// A borderless TextBox inside another field takes TextInput's inner theme, which has no states
+/// of its own: values a Fluent template sets on it have template priority, below the state styles.
 /// </summary>
 internal static class FieldParts
 {
@@ -117,7 +117,7 @@ internal static class FieldParts
         },
     };
 
-    /// <summary>The field chrome: a squircle bound to the templated control's brushes and shape. Its fades come from <see cref="ChromeMotion"/>.</summary>
+    /// <summary>The field chrome: a squircle bound to the templated control's brushes and shape. Its fades come from <see cref="ButtonParts.ChromeMotion"/> with <see cref="ChromePart"/>.</summary>
     public static SquircleBorder CreateChrome()
     {
         var chrome = new SquircleBorder { Name = ChromePart };
@@ -128,11 +128,12 @@ internal static class FieldParts
         return chrome;
     }
 
-    /// <summary>The chrome's background and border fades (MotionFast; none under reduce motion), as fixed transitions.</summary>
-    public static IStyle ChromeMotion() => new Avalonia.Styling.Style(x => x.Nesting().Template().OfType<SquircleBorder>().Name(ChromePart))
-    {
-        Setters = { new Setter(Animatable.TransitionsProperty, new DynamicResourceExtension(ChromeTransitionsKey)) },
-    };
+    /// <summary>One setter on a named template part, under an optional state of the templated control.</summary>
+    public static Avalonia.Styling.Style Part<T>(string name, Func<Selector, Selector>? state, AvaloniaProperty property, object? value) where T : Control =>
+        new(x => (state is null ? x.Nesting() : state(x.Nesting())).Template().OfType<T>().Name(name))
+        {
+            Setters = { new Setter(property, value) },
+        };
 
     /// <summary>
     /// The theme of the buttons inside a field: a squircle icon button with no fill until hover,

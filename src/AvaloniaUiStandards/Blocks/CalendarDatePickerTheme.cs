@@ -25,9 +25,8 @@ internal static class CalendarDatePickerTheme
         if (FluentTemplates.Extend(fluentTheme, (root, scope) => Extend(root, scope, fieldButton)) is { } template)
             theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, template));
         FieldParts.AddColours(theme, FieldParts.TextControl, x => x.Nesting().Class(":focus-within"));
-        theme.Children.Add(FieldParts.ChromeMotion());
-        FocusRing.AddWithinTo(theme);
-        FocusRing.TrackWithin(typeof(CalendarDatePicker));
+        theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
+        FocusRing.AddWithin(theme);
         return theme;
     }
 

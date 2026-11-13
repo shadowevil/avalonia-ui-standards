@@ -39,11 +39,13 @@ public class PickerRenderTests
                 ("With a date", FieldStates.Select(s => FieldCell(sheet, theme, new DatePicker { SelectedDate = Date }, s)).ToList()),
                 ("Compact", FieldStates.Select(s => FieldCell(sheet, theme, new DatePicker { SelectedDate = Date }, s, compact: true)).ToList()),
             ]);
-            sheet.AddSection($"{themeLabel}: flyout open", ["Normal, row hovered", "Compact"],
+            sheet.AddSection($"{themeLabel}: flyout open", ["Normal, row hovered", "Compact", "Pointer over the month selector", "Keyboard focus on the month selector"],
             [
                 ("Over the window", [
                     OpenCell(sheet, theme, new DatePicker { SelectedDate = Date }, OpenFlyout, new Size(340, 340), hover: true),
                     OpenCell(sheet, theme, new DatePicker { SelectedDate = Date }, OpenFlyout, new Size(340, 280), compact: true),
+                    OpenCell(sheet, theme, new DatePicker { SelectedDate = Date }, OpenFlyout, new Size(340, 340), state: FlyoutState.PointerOverSelector),
+                    OpenCell(sheet, theme, new DatePicker { SelectedDate = Date }, OpenFlyout, new Size(340, 340), state: FlyoutState.SelectorFocused),
                 ]),
             ]);
         }
@@ -62,11 +64,13 @@ public class PickerRenderTests
                 ("With a time", FieldStates.Select(s => FieldCell(sheet, theme, new TimePicker { SelectedTime = Time }, s)).ToList()),
                 ("24-hour, compact", FieldStates.Select(s => FieldCell(sheet, theme, new TimePicker { SelectedTime = Time, ClockIdentifier = "24HourClock" }, s, compact: true)).ToList()),
             ]);
-            sheet.AddSection($"{themeLabel}: flyout open", ["Normal, row hovered", "24-hour, compact"],
+            sheet.AddSection($"{themeLabel}: flyout open", ["Normal, row hovered", "24-hour, compact", "Pointer over the hour selector", "Keyboard focus on the hour selector"],
             [
                 ("Over the window", [
                     OpenCell(sheet, theme, new TimePicker { SelectedTime = Time }, OpenFlyout, new Size(290, 340), hover: true),
                     OpenCell(sheet, theme, new TimePicker { SelectedTime = Time, ClockIdentifier = "24HourClock" }, OpenFlyout, new Size(290, 280), compact: true),
+                    OpenCell(sheet, theme, new TimePicker { SelectedTime = Time }, OpenFlyout, new Size(290, 340), state: FlyoutState.PointerOverSelector),
+                    OpenCell(sheet, theme, new TimePicker { SelectedTime = Time }, OpenFlyout, new Size(290, 340), state: FlyoutState.SelectorFocused),
                 ]),
             ]);
         }
@@ -115,7 +119,10 @@ public class PickerRenderTests
         sheet.Save("m3-calendardatepicker.png");
     }
 
-    /// <summary>A day of the current month (so today is shown), clamped to its length.</summary>
+    /// <summary>
+    /// A day of the current month (so today is shown), clamped to its length. The Calendar and
+    /// CalendarDatePicker sheets therefore change with the date they are rendered on.
+    /// </summary>
     internal static DateTime Today(int day)
     {
         var today = DateTime.Today;
@@ -187,7 +194,11 @@ public class PickerRenderTests
             });
     }
 
-    private static Control OpenCell(Sheet sheet, ThemeVariant theme, Control picker, Action<Control> open, Size size, bool compact = false, bool hover = false)
+    /// <summary>What the open flyout shows besides its rest look.</summary>
+    internal enum FlyoutState { Rest, RowHovered, PointerOverSelector, SelectorFocused }
+
+    private static Control OpenCell(Sheet sheet, ThemeVariant theme, Control picker, Action<Control> open, Size size, bool compact = false, bool hover = false,
+        FlyoutState state = FlyoutState.Rest)
     {
         var window = new Window { Width = size.Width, Height = size.Height, RequestedThemeVariant = theme };
         if (compact)
@@ -216,6 +227,16 @@ public class PickerRenderTests
                 var item = first.Children.OfType<ListBoxItem>().First(i => Math.Abs(i.Bounds.Top - selected.Bounds.Bottom) < 1);
                 ((IPseudoClasses)item.Classes).Set(":pointerover", true);
             }
+            var firstSelector = popup.Child!.GetVisualDescendants().OfType<DateTimePickerPanel>().FirstOrDefault();
+            if (state == FlyoutState.PointerOverSelector && firstSelector?.FindAncestorOfType<ScrollViewer>()?.Parent is Panel host)
+                ((IPseudoClasses)host.Classes).Set(":pointerover", true);
+            if (state == FlyoutState.SelectorFocused)
+            {
+                // The flyout focuses its first selector when it opens; focus moves off and back by Tab.
+                popup.Child!.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_DismissButton").Focus(NavigationMethod.Pointer);
+                firstSelector?.Focus(NavigationMethod.Tab);
+            }
+            StripTransitions((Control)popup.Child!);
             Pump(window);
             Pump(root);
             using var capture = root.CaptureRenderedFrame()!;

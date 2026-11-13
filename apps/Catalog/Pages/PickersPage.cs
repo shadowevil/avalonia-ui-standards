@@ -6,6 +6,7 @@ namespace Catalog.Pages;
 /// <summary>DatePicker, TimePicker, CalendarDatePicker, their flyouts and the Calendar.</summary>
 internal sealed class PickersPage : UserControl
 {
+    // Today, so the Calendar shows today's look; the page changes with the date it is shown on.
     private static readonly DateTime Sample = DateTime.Today;
 
     public PickersPage() => Content = Ui.Page("Pickers",

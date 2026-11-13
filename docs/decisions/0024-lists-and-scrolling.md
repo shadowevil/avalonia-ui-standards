@@ -16,5 +16,4 @@
     - It fades with the fixed transitions ([0016](0016-motion.md)) and is clipped to the viewport.
     - It is turned off per scroller with the public attached property `ScrollShadows.IsEnabled` (default true; a ListBox passes it to its inner scroller).
   - Reach: this includes the scrollers inside Fluent controls (for example TextBox) and the AutoCompleteBox drop-down, which uses the library items.
-  - Known for later steps: the DatePicker and TimePicker flyout items still overrun their rounded corners.
 - **Why:** One item design for lists and drop-downs, selection matching the accent buttons, and clear cues for hidden content.

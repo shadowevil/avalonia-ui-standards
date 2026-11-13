@@ -56,6 +56,7 @@ public class CalendarThemeTests
             data.Add(theme, ":selected", "AccentFillColor", "AccentButtonForeground");
             data.Add(theme, ":selected:pointerover", "AccentFillColorPointerOver", "AccentButtonForeground");
             data.Add(theme, ":today:selected", "AccentFillColor", "AccentButtonForeground");
+            data.Add(theme, ":selected:disabled", "AccentButtonBackgroundDisabled", "AccentButtonForegroundDisabled");
             data.Add(theme, ":blackout", null, "SystemControlDisabledBaseMediumLowBrush");
         }
         return data;
@@ -80,6 +81,29 @@ public class CalendarThemeTests
             var text = (Avalonia.Controls.Presenters.ContentPresenter)chrome.Child!;
             Assert.Equal(fillKey is null ? Colors.Transparent : Effective(Resolve(window, fillKey)), fill);
             Assert.Equal(Effective(Resolve(window, textKey)), Effective(text.Foreground));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Normal")]
+    [InlineData("Compact")]
+    public void Size_IsTheSameInMonthYearAndDecadeViews(string density)
+    {
+        var calendar = new Calendar { DisplayDate = PickerRenderTests.Date };
+        var (window, _) = Show(calendar, theme: density == "Compact" ? PickerRenderTests.Compact() : null, height: 600);
+        try
+        {
+            var month = calendar.Bounds.Size;
+            foreach (var mode in new[] { CalendarMode.Year, CalendarMode.Decade, CalendarMode.Month })
+            {
+                calendar.DisplayMode = mode;
+                Pump(window);
+                Assert.Equal(month, calendar.Bounds.Size);
+            }
         }
         finally
         {

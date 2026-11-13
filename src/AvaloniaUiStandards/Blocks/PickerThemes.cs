@@ -37,12 +37,26 @@ internal static class PickerThemes
     // Density-dependent values, set by ApplyDensity under these non-public keys.
     internal static readonly object SelectorHeightKey = new();
     internal static readonly object LeadingSegmentPaddingKey = new();
+    internal static readonly object ColumnRingHeightKey = new();
+    internal static readonly object ColumnRingRadiusKey = new();
+    internal static readonly object ColumnRingGapRadiusKey = new();
+
+    public const string ColumnFocusRingPart = "PART_ColumnFocusRing";
+
+    // The ring and gap widths of the focus ring ([0019]).
+    private const double FocusRingWidth = 2;
 
     public static void ApplyDensity(IResourceDictionary resources, DensityStyle density)
     {
         var sizes = density == DensityStyle.Compact ? ButtonParts.Compact : ButtonParts.Normal;
         resources[SelectorHeightKey] = VisibleRows * sizes.MinHeight;
         resources[LeadingSegmentPaddingKey] = new Thickness(sizes.Padding.Left, 0, 0, 0);
+        // The column ring reaches the ring and gap widths above and below the row; its curves
+        // stay concentric with the row's (radius 8).
+        var reach = 2 * FocusRingWidth;
+        resources[ColumnRingHeightKey] = sizes.MinHeight + 2 * reach;
+        resources[ColumnRingRadiusKey] = new CornerRadius(8 + reach);
+        resources[ColumnRingGapRadiusKey] = new CornerRadius(8 + FocusRingWidth);
     }
 
     // --- The closed field --------------------------------------------------------------------
@@ -64,9 +78,8 @@ internal static class PickerThemes
         if (FluentTemplates.Extend(fluentTheme, extend) is { } template)
             theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, template));
         FieldParts.AddColours(theme, FieldParts.TextControl, x => x.Nesting().Class(":focus-within"));
-        theme.Children.Add(FieldParts.ChromeMotion());
-        FocusRing.AddWithinTo(theme);
-        FocusRing.TrackWithin(target);
+        theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
+        FocusRing.AddWithin(theme);
         return theme;
     }
 
@@ -228,7 +241,11 @@ internal static class PickerThemes
                     // The selectors loop, so there is always more content: no scroll-edge shadow.
                     ScrollShadows.SetIsEnabled(scroller, false);
                     if (scroller.Content is DateTimePickerPanel panel)
+                    {
                         panel.Bind(DateTimePickerPanel.ItemHeightProperty, new DynamicResourceExtension(MinHeightKey));
+                        // The column ring shows keyboard focus in place of Fluent's rectangle adorner.
+                        panel.FocusAdorner = null;
+                    }
                     break;
                 case RepeatButton step:
                     step.Theme = stepButton;
@@ -241,6 +258,39 @@ internal static class PickerThemes
                     break;
             }
         }
+        if (host.Children.OfType<ScrollViewer>().FirstOrDefault() is { Content: DateTimePickerPanel selector } selectorScroller)
+            host.Children.Insert(host.Children.IndexOf(selectorScroller) + 1, ColumnFocusRing(selector));
+    }
+
+    /// <summary>
+    /// The focus ring of a selector column ([0019]): the selected row's highlight runs on through
+    /// the neighbouring columns, so the ring sits around this column's part of it, 2 px inside the
+    /// column's sides (and so inside the viewport's curve): a 2 px accent ring, then a 2 px gap in the
+    /// glass tint that sets this column's part of the highlight apart. Shown while the selector
+    /// has keyboard focus.
+    /// </summary>
+    private static SquircleBorder ColumnFocusRing(DateTimePickerPanel selector)
+    {
+        var gap = new SquircleBorder { BorderThickness = new Thickness(FocusRingWidth) };
+        gap.Bind(SquircleBorder.BorderBrushProperty, Resource("GlassTintColor"));
+        gap.Bind(SquircleBorder.CornerRadiusProperty, new DynamicResourceExtension(ColumnRingGapRadiusKey));
+        var ring = new SquircleBorder
+        {
+            Name = ColumnFocusRingPart,
+            BorderThickness = new Thickness(FocusRingWidth),
+            VerticalAlignment = VerticalAlignment.Center,
+            // 2 px in from the column's sides, so it clears the viewport's edge and the neighbouring column.
+            Margin = new Thickness(FocusRingWidth, 0),
+            IsHitTestVisible = false,
+            IsVisible = false,
+            Child = gap,
+        };
+        ring.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlHighlightAccentBrush"));
+        ring.Bind(SquircleBorder.CornerRadiusProperty, new DynamicResourceExtension(ColumnRingRadiusKey));
+        ring.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(ColumnRingHeightKey));
+        // The ring follows the selector's :focus-visible pseudo-class.
+        selector.Classes.CollectionChanged += (_, _) => ring.IsVisible = selector.Classes.Contains(":focus-visible");
+        return ring;
     }
 
     /// <summary>The selected row's highlight: a squircle in the accent fill, the list item shape and height.</summary>

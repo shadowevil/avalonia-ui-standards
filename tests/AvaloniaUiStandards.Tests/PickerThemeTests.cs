@@ -430,18 +430,161 @@ public class PickerThemeTests
         var reduced = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
         foreach (var (theme, expectEmpty) in new[] { ((StandardsTheme?)null, false), (reduced, true) })
         {
-            var (window, field) = Show(new DatePicker(), theme: theme);
+            // The field chrome, a selector row in the open flyout and a calendar cell.
+            var picker = new DatePicker { SelectedDate = PickerRenderTests.Date };
+            var calendar = new Calendar { DisplayDate = PickerRenderTests.Date };
+            var window = new Window { Width = 400, Height = 800, Content = new StackPanel { Children = { picker, calendar } } };
+            if (theme is not null)
+                window.Styles.Add(theme);
+            window.Show();
+            Pump(window);
             try
             {
-                var chrome = field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FieldParts.ChromePart);
+                PickerRenderTests.OpenFlyout(picker);
+                Pump(window);
+                var presenter = (Control)picker.GetVisualDescendants().OfType<Popup>().Single().Child!;
+                var row = presenter.GetVisualDescendants().OfType<ListBoxItem>().First(i => i.IsEffectivelyVisible);
+                var day = calendar.GetVisualDescendants().OfType<CalendarDayButton>().First();
                 Assert.True(window.TryFindResource(ButtonParts.ChromeTransitionsKey, out var shared));
-                Assert.Same(shared, chrome.Transitions);
-                Assert.Equal(expectEmpty, chrome.Transitions!.Count == 0);
+                foreach (var chrome in new[]
+                         {
+                             picker.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FieldParts.ChromePart),
+                             row.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == ButtonParts.ChromePart),
+                             day.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == ButtonParts.ChromePart),
+                         })
+                {
+                    Assert.Same(shared, chrome.Transitions);
+                    Assert.Equal(expectEmpty, chrome.Transitions!.Count == 0);
+                }
             }
             finally
             {
                 window.Close();
             }
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(nameof(DatePicker))]
+    [InlineData(nameof(TimePicker))]
+    public void FlyoutSelectors_ShowTheRingOnTheFocusedColumn(string name)
+    {
+        Control picker = name == nameof(DatePicker) ? new DatePicker { SelectedDate = PickerRenderTests.Date } : new TimePicker { SelectedTime = PickerRenderTests.Time };
+        var (window, _) = Show(picker, height: 500);
+        try
+        {
+            PickerRenderTests.OpenFlyout(picker);
+            Pump(window);
+            var presenter = (Control)picker.GetVisualDescendants().OfType<Popup>().Single().Child!;
+            var selectors = presenter.GetVisualDescendants().OfType<DateTimePickerPanel>().Where(p => p.IsEffectivelyVisible)
+                .OrderBy(p => p.TranslatePoint(default, presenter)!.Value.X).ToList();
+            SquircleBorder Ring(DateTimePickerPanel selector) => ((Panel)selector.FindAncestorOfType<ScrollViewer>()!.Parent!)
+                .Children.OfType<SquircleBorder>().Single(b => b.Name == PickerThemes.ColumnFocusRingPart);
+            var viewport = presenter.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == PickerThemes.ViewportPart);
+            var highlight = presenter.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == PickerThemes.HighlightPart);
+            var fieldRing = picker.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part);
+            Assert.All(selectors, s => Assert.False(Ring(s).IsVisible));
+            Assert.All(selectors, s => Assert.Null(s.FocusAdorner));
+
+            // Tab moves from selector to selector; the focused column alone shows the ring. The
+            // flyout focuses its first selector when it opens, so focus is moved off it first.
+            presenter.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_DismissButton").Focus(NavigationMethod.Pointer);
+            selectors[0].Focus(NavigationMethod.Tab);
+            Pump(window);
+            for (var i = 0; i < selectors.Count; i++)
+            {
+                Assert.True(selectors[i].IsFocused, $"selector {i} focused");
+                for (var j = 0; j < selectors.Count; j++)
+                    Assert.Equal(i == j, Ring(selectors[j]).IsVisible);
+
+                // Around the column's part of the highlight (2 px gap and 2 px ring above and
+                // below), inside the column and so inside the viewport's curve.
+                var ring = Ring(selectors[i]);
+                var ringBox = new Rect(ring.TranslatePoint(default, viewport)!.Value, ring.Bounds.Size);
+                var rowBox = new Rect(highlight.TranslatePoint(default, viewport)!.Value, highlight.Bounds.Size);
+                Assert.Equal(rowBox.Height + 8, ringBox.Height);
+                Assert.Equal(rowBox.Center.Y, ringBox.Center.Y, 0.5);
+                Assert.True(new Rect(viewport.Bounds.Size).Contains(ringBox), $"{ringBox} inside the viewport");
+                Assert.Equal(new CornerRadius(12), ring.CornerRadius);
+                Assert.Equal(Effective(Resolve(window, "SystemControlHighlightAccentBrush")), Effective(ring.BorderBrush));
+                // The field shows no ring while a column does.
+                Assert.False(fieldRing.IsVisible);
+
+                window.KeyPressQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+                Pump(window);
+            }
+
+            // Pointer focus shows no ring.
+            selectors[0].Focus(NavigationMethod.Pointer);
+            Pump(window);
+            Assert.All(selectors, s => Assert.False(Ring(s).IsVisible));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Normal", 32)]
+    [InlineData("Compact", 24)]
+    public void StepButtons_ShowOverASelectorOnHover(string density, double row)
+    {
+        var picker = new DatePicker { SelectedDate = PickerRenderTests.Date };
+        var (window, _) = Show(picker, theme: density == "Compact" ? PickerRenderTests.Compact() : null, height: 500);
+        try
+        {
+            PickerRenderTests.OpenFlyout(picker);
+            Pump(window);
+            var presenter = (Control)picker.GetVisualDescendants().OfType<Popup>().Single().Child!;
+            var host = (Panel)presenter.GetVisualDescendants().OfType<DateTimePickerPanel>().First().FindAncestorOfType<ScrollViewer>()!.Parent!;
+            var steps = host.Children.OfType<RepeatButton>().ToList();
+            Assert.Equal(2, steps.Count);
+            Assert.All(steps, s => Assert.False(s.IsVisible));
+
+            ((IPseudoClasses)host.Classes).Set(":pointerover", true);
+            Pump(window);
+            foreach (var step in steps)
+            {
+                Assert.True(step.IsVisible);
+                Assert.Equal(row, step.Bounds.Height);
+                Assert.False(step.Focusable);
+                var chrome = step.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == ButtonParts.ChromePart);
+                var fill = chrome.GetBaseValue(SquircleBorder.BackgroundProperty) is { HasValue: true } set ? Effective(set.Value) : Effective(chrome.Background);
+                Assert.Equal(Effective(Resolve(window, "GlassTintColor")), fill);
+                Assert.Equal(255, fill.A);
+            }
+            Assert.Same(Icons.CaretUp, Assert.IsType<Icon>(steps.Single(s => s.VerticalAlignment == Avalonia.Layout.VerticalAlignment.Top).Content).Data);
+            Assert.Same(Icons.CaretDown, Assert.IsType<Icon>(steps.Single(s => s.VerticalAlignment == Avalonia.Layout.VerticalAlignment.Bottom).Content).Data);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CalendarDatePicker_FieldRingStaysHiddenWhileACalendarCellHasTheRing()
+    {
+        var picker = new CalendarDatePicker { Width = 200, SelectedDate = PickerRenderTests.Date };
+        var (window, _) = Show(picker, height: 500);
+        try
+        {
+            picker.IsDropDownOpen = true;
+            Pump(window);
+            var calendar = (Calendar)((GlassBorder)picker.GetVisualDescendants().OfType<Popup>().Single().Child!).Child!;
+            var day = calendar.GetVisualDescendants().OfType<CalendarDayButton>().First(d => d.Classes.Contains(":selected"));
+            day.Focus(NavigationMethod.Tab);
+            window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            Pump(window);
+
+            var cursor = calendar.GetVisualDescendants().OfType<CalendarDayButton>().Single(d => d.Classes.Contains(":dayfocused"));
+            Assert.True(cursor.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part).IsVisible);
+            Assert.False(picker.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == FocusRing.Part).IsVisible);
+        }
+        finally
+        {
+            window.Close();
         }
     }
 

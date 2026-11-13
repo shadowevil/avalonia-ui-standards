@@ -24,6 +24,9 @@ namespace AvaloniaUiStandards.Blocks;
 internal static class ButtonParts
 {
     public const string ChromePart = "PART_Chrome";
+
+    /// <summary>A corner larger than any side: the shapes clamp it to half the shorter side, a pill (or circle).</summary>
+    public static readonly CornerRadius Pill = new(1000);
     public const string ContentPart = "PART_ContentPresenter";
 
     // Density-dependent values, set by BlocksThemes.ApplyDensity under these non-public keys.
@@ -100,8 +103,11 @@ internal static class ButtonParts
     /// The chrome's transitions, from a theme resource, as Fluent declares transitions in its themes:
     /// fixed transition objects, so their duration and easing never depend on where the chrome is
     /// in the tree. The resource is replaced when motion changes (empty under reduce motion).
+    /// <paramref name="part"/> names the chrome squircle (<c>PART_Chrome</c> for buttons,
+    /// <c>PART_BorderElement</c> for fields).
     /// </summary>
-    public static IStyle ChromeMotion() => new Avalonia.Styling.Style(x => Chrome(x.Nesting()))
+    public static IStyle ChromeMotion(string part = ChromePart) =>
+        new Avalonia.Styling.Style(x => x.Nesting().Template().OfType<SquircleBorder>().Name(part))
     {
         Setters = { new Setter(Animatable.TransitionsProperty, new DynamicResourceExtension(ChromeTransitionsKey)) },
     };

@@ -51,8 +51,9 @@ internal static class CalendarThemes
     public static ControlTheme Calendar(ControlTheme? fluentTheme)
     {
         var theme = Panel(fluentTheme);
-        FocusRing.TrackWithin(typeof(Calendar));
-        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().PropertyEquals(FocusRing.IsVisibleWithinProperty, true))
+        // The Calendar draws no ring of its own; its keyboard-focus state passes to the cells.
+        FocusRing.AddWithin(theme);
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(FocusRing.FocusVisibleWithin))
         {
             Setters = { new Setter(CursorRingProperty, true) },
         });
@@ -222,7 +223,8 @@ internal static class CalendarThemes
         theme.Children.Add(new Avalonia.Styling.Style(x => Cursor(x)) { Setters = { new Setter(Visual.ZIndexProperty, 1) } });
         theme.Children.Add(ChromeMotion());
 
-        // Rising precedence: rest, out of month, today, hover, press, selected, unavailable, disabled.
+        // Rising precedence: rest, out of month, today, hover, press, unavailable, disabled, then
+        // selected, whose own disabled look shows on a disabled Calendar.
         var text = "SystemControlForegroundBaseHighBrush";
         theme.Children.Add(State((string?)null, new Look(Brushes.Transparent, Brushes.Transparent, text)));
         theme.Children.Add(State(":inactive", new Look(Brushes.Transparent, Brushes.Transparent, "SystemControlForegroundBaseMediumBrush")));
@@ -233,13 +235,13 @@ internal static class CalendarThemes
         });
         theme.Children.Add(Hover(":pointerover", "SystemControlHighlightListMediumBrush"));
         theme.Children.Add(Hover(":pressed", "SystemControlHighlightBaseMediumLowBrush"));
+        theme.Children.Add(State(":blackout", new Look(Brushes.Transparent, Brushes.Transparent, "SystemControlDisabledBaseMediumLowBrush")));
+        theme.Children.Add(State(":disabled", new Look(Brushes.Transparent, Brushes.Transparent, "SystemControlDisabledBaseMediumLowBrush")));
         theme.Children.Add(Group(x => x.Nesting().Class(":selected"),
             rest: new("AccentFillColor", Brushes.Transparent, "AccentButtonForeground"),
             hover: new("AccentFillColorPointerOver", Brushes.Transparent, "AccentButtonForeground"),
             pressed: new("AccentFillColorPressed", Brushes.Transparent, "AccentButtonForeground"),
             disabled: new("AccentButtonBackgroundDisabled", Brushes.Transparent, "AccentButtonForegroundDisabled")));
-        theme.Children.Add(State(":blackout", new Look(Brushes.Transparent, Brushes.Transparent, "SystemControlDisabledBaseMediumLowBrush")));
-        theme.Children.Add(State(":disabled", new Look(Brushes.Transparent, Brushes.Transparent, "SystemControlDisabledBaseMediumLowBrush")));
         return theme;
     }
 
