@@ -650,6 +650,61 @@ public class TreeViewTests
     }
 
     [AvaloniaFact]
+    public void Lines_ParentsColumnPassesThroughAnItemWithLinesOff()
+    {
+        var (window, tree) = ShowLines(1, true);
+        try
+        {
+            var items = Items(tree);
+            TreeViewOptions.SetShowLines(items[1], false);
+            Pump(window);
+            Assert.False(Lines(items[1]).HasBranch);
+            Assert.False(Lines(items[1]).HasStub);
+            using var frame = Frame.Capture(window);
+            // Style's column inside Squircle's row (Shape's child), and below Shape's elbow.
+            Assert.Single(LinePixels(frame, Column(window, items[0]), RowY(window, items[3], 3), 1));
+            Assert.Single(LinePixels(frame, Column(window, items[0]), RowY(window, items[1], -3), 1));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Lines_AddingChildren_RedrawsOnlyTheChangedSiblings()
+    {
+        var children = new System.Collections.ObjectModel.ObservableCollection<string> { "0" };
+        var parent = new TreeViewItem { Header = "Parent", IsExpanded = true, ItemsSource = children };
+        var tree = new TreeView { Width = 260, ItemsSource = new[] { parent } };
+        var window = new Window { Width = 400, Height = 400, Content = tree };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Show();
+        Pump(window);
+        try
+        {
+            TreeLines Layer(int i) => Lines((TreeViewItem)parent.ContainerFromIndex(i)!);
+            var first = Layer(0).Redraws;
+            const int added = 200;
+            for (var i = 1; i <= added; i++)
+            {
+                children.Add(i.ToString());
+                Pump(window);
+            }
+            // The first child is redrawn only when it stops being last; every child a bounded number of times.
+            Assert.InRange(Layer(0).Redraws - first, 1, 3);
+            var total = Enumerable.Range(0, added + 1).Sum(i => Layer(i).Redraws);
+            Assert.InRange(total, added, 12 * added);
+            Assert.True(Lines((TreeViewItem)parent.ContainerFromIndex(added - 1)!).Continues);
+            Assert.False(Layer(added).Continues);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Lines_FollowAddedAndRemovedItems()
     {
         var children = new System.Collections.ObjectModel.ObservableCollection<string> { "One", "Two" };
