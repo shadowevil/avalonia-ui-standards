@@ -19,5 +19,6 @@ internal static class CatalogPages
         new("Motion", () => new MotionPage()),
         new("Button", () => new ButtonPage()),
         new("Button family", () => new ButtonFamilyPage()),
+        new("Icon", () => new IconPage()),
     ];
 }

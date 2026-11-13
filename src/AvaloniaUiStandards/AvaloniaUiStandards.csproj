@@ -12,6 +12,10 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The Phosphor Icons licence (0026) ships at the package root. -->
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="AvaloniaUiStandards.Tests" />
   </ItemGroup>
 </Project>

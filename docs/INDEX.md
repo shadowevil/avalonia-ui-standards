@@ -26,6 +26,7 @@
 - [0023 — Versioning](decisions/0023-versioning.md) — the versioning scheme, the starting version and where it is set
 - [0024 — ListBox, ScrollViewer and ComboBox drop-down](decisions/0024-lists-and-scrolling.md) — the shared list item design, the drop-down popup and the scroll-edge shadow
 - [0025 — Overlay scrollbar](decisions/0025-overlay-scrollbar.md) — the overlay ScrollBar Block: reveal, sizes, colours and motion
+- [0026 — Icon](decisions/0026-icon.md) — the icon set and licence, the Icon Block's design box, sizes and colour, and how icons are added
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions
