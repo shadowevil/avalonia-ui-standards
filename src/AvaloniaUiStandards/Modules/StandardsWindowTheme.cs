@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Chrome;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
@@ -38,7 +39,7 @@ internal static class StandardsWindowTheme
 
     public static string ResizePart(WindowEdge edge) => $"PART_Resize{edge}";
 
-    /// <summary>Room around the frame for the shadow (blur sigma 8, offset 8 down).</summary>
+    /// <summary>Room around the frame for the drawn shadow (blur sigma 8, offset 8 down); none on the native macOS frame.</summary>
     public static readonly Thickness ShadowMargin = new(24, 16, 24, 32);
 
     /// <summary>The smallest frame (the visible window).</summary>
@@ -106,7 +107,16 @@ internal static class StandardsWindowTheme
                 (SquircleBorder.CornerRadiusProperty, new CornerRadius(0))),
             Part<WindowShadow>(ShadowPart, ":opaque", (Visual.IsVisibleProperty, false)),
             Part<Panel>(ResizeGripsPart, ":opaque", (Layoutable.MarginProperty, new Thickness(0))),
-            new Avalonia.Styling.Style(x => x.Nesting().Class(":opaque"))
+
+            // Native macOS frame: the system draws the shadow and resizes the window, so the
+            // window is exactly the frame, with no drawn shadow and no grips.
+            Part<SquircleBorder>(FramePart, ":native-frame", (Layoutable.MarginProperty, new Thickness(0))),
+            Part<WindowShadow>(ShadowPart, ":native-frame", (Visual.IsVisibleProperty, false)),
+            Part<Panel>(ResizeGripsPart, ":native-frame", (Visual.IsVisibleProperty, false)),
+
+            // Without OS transparency, or on the native macOS frame, the window adds no margin
+            // around the frame, so the minimum size is the frame's.
+            new Avalonia.Styling.Style(x => Selectors.Or(x.Nesting().Class(":opaque"), x.Nesting().Class(":native-frame")))
             {
                 Setters =
                 {
@@ -176,6 +186,7 @@ internal static class StandardsWindowTheme
             ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
             Children = { buttons, heading, toolbar },
         }, TitleBandPart);
+        WindowDecorationProperties.SetElementRole(titleBand, WindowDecorationsElementRole.TitleBar);
         titleBand.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(TitleBandHeightKey));
         DockPanel.SetDock(titleBand, Dock.Top);
 
@@ -271,19 +282,19 @@ internal static class StandardsWindowTheme
 
     private static ResizeGrip Grip(WindowEdge edge)
     {
-        var (horizontal, vertical, cursor) = edge switch
+        var (horizontal, vertical, cursor, role) = edge switch
         {
-            WindowEdge.NorthWest => (HorizontalAlignment.Left, VerticalAlignment.Top, StandardCursorType.TopLeftCorner),
-            WindowEdge.North => (HorizontalAlignment.Stretch, VerticalAlignment.Top, StandardCursorType.TopSide),
-            WindowEdge.NorthEast => (HorizontalAlignment.Right, VerticalAlignment.Top, StandardCursorType.TopRightCorner),
-            WindowEdge.West => (HorizontalAlignment.Left, VerticalAlignment.Stretch, StandardCursorType.LeftSide),
-            WindowEdge.East => (HorizontalAlignment.Right, VerticalAlignment.Stretch, StandardCursorType.RightSide),
-            WindowEdge.SouthWest => (HorizontalAlignment.Left, VerticalAlignment.Bottom, StandardCursorType.BottomLeftCorner),
-            WindowEdge.South => (HorizontalAlignment.Stretch, VerticalAlignment.Bottom, StandardCursorType.BottomSide),
-            _ => (HorizontalAlignment.Right, VerticalAlignment.Bottom, StandardCursorType.BottomRightCorner),
+            WindowEdge.NorthWest => (HorizontalAlignment.Left, VerticalAlignment.Top, StandardCursorType.TopLeftCorner, WindowDecorationsElementRole.ResizeNW),
+            WindowEdge.North => (HorizontalAlignment.Stretch, VerticalAlignment.Top, StandardCursorType.TopSide, WindowDecorationsElementRole.ResizeN),
+            WindowEdge.NorthEast => (HorizontalAlignment.Right, VerticalAlignment.Top, StandardCursorType.TopRightCorner, WindowDecorationsElementRole.ResizeNE),
+            WindowEdge.West => (HorizontalAlignment.Left, VerticalAlignment.Stretch, StandardCursorType.LeftSide, WindowDecorationsElementRole.ResizeW),
+            WindowEdge.East => (HorizontalAlignment.Right, VerticalAlignment.Stretch, StandardCursorType.RightSide, WindowDecorationsElementRole.ResizeE),
+            WindowEdge.SouthWest => (HorizontalAlignment.Left, VerticalAlignment.Bottom, StandardCursorType.BottomLeftCorner, WindowDecorationsElementRole.ResizeSW),
+            WindowEdge.South => (HorizontalAlignment.Stretch, VerticalAlignment.Bottom, StandardCursorType.BottomSide, WindowDecorationsElementRole.ResizeS),
+            _ => (HorizontalAlignment.Right, VerticalAlignment.Bottom, StandardCursorType.BottomRightCorner, WindowDecorationsElementRole.ResizeSE),
         };
         var corner = horizontal != HorizontalAlignment.Stretch && vertical != VerticalAlignment.Stretch;
-        return new ResizeGrip
+        var grip = new ResizeGrip
         {
             Background = Brushes.Transparent,
             Cursor = new Cursor(cursor),
@@ -294,6 +305,8 @@ internal static class StandardsWindowTheme
             Margin = horizontal == HorizontalAlignment.Stretch ? new Thickness(ResizeCorner, 0)
                 : vertical == VerticalAlignment.Stretch ? new Thickness(0, ResizeCorner) : default,
         };
+        WindowDecorationProperties.SetElementRole(grip, role);
+        return grip;
     }
 
     // A style on a named template part, under an optional window pseudo-class.
