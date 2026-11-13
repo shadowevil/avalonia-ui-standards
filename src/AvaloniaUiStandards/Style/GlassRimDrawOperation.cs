@@ -18,7 +18,8 @@ namespace AvaloniaUiStandards.Style;
 /// a short way along the rim in both directions, and a soft glow falls inward from the rim. The top
 /// edge and the corners catch a little more.
 /// It is drawn above the glass's child; outside the shape the backdrop is still unchanged. Only
-/// thin strips along the edges are filtered. Without Skia it draws the fixed border.
+/// thin strips along the edges are filtered (small glass in one layer), and the rim's geometry is rasterised
+/// once per size and device scale. Without Skia it draws the fixed border.
 /// </summary>
 internal sealed class GlassRimDrawOperation : ICustomDrawOperation
 {
@@ -71,6 +72,8 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     // How far past its strip each strip's filter sees the backdrop, in px: the outward sample, the
     // spread and the fade all reach that far.
     private const double Margin = 24;
+
+    private const double SingleLayerArea = 1.5;
 
     // The depth range the depth picture encodes (red 0..1 = 0..DepthRange px from the edge: the
     // widest rim, its glow and a soft edge), and its steps: concentric fills of the exact
@@ -169,13 +172,15 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     /// <summary>The compiled effects, or null when Skia runtime effects are not available.</summary>
     internal static SKRuntimeEffect? Effect => LazyShader.Value is not null && LazyBlender.Value is not null ? LazyShader.Value : null;
 
-    internal readonly record struct Parameters(Rect Rect, CornerRadius CornerRadius, double Smoothing, double Absorption, double Lighten, double Boost, double Spread, double SpreadWhite, double Glow, Color FallbackBorder);
+    internal readonly record struct Parameters(Rect Rect, CornerRadius CornerRadius, double Smoothing, double Absorption, double Lighten, double Boost, double Spread, double SpreadWhite, double Glow, Color FallbackBorder, bool CacheGeometry = true);
 
     private readonly Parameters _p;
     private SKPath? _ring;
     private SKPicture? _depth;
     private SKPicture? _band;
+    private SKPicture? _normal;
     private SKImageFilter[]? _stripFilters;
+    private readonly List<SKImage> _images = [];
     private double _deviceScale;
 
     public GlassRimDrawOperation(Parameters parameters) => _p = parameters;
@@ -238,6 +243,7 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         _ring?.Dispose();
         _depth?.Dispose();
         _band?.Dispose();
+        _normal?.Dispose();
         DisposeFilters();
     }
 
@@ -246,25 +252,66 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         foreach (var filter in _stripFilters ?? [])
             filter.Dispose();
         _stripFilters = null;
+        foreach (var image in _images)
+            image.Dispose();
+        _images.Clear();
     }
 
-    // The rim's filter per strip: the shared filter, kept to that strip's rectangle.
+    // The rim's filter per strip, cropped to that strip's rectangle. Its geometry (the outward
+    // normal, the band and the depth) is rasterised once per size and device scale, for the
+    // strip's reach only, so each frame samples cached images instead of re-drawing paths.
     private SKImageFilter[]? BuildStripFilters(double pixel)
     {
-        using var shared = BuildFilter(pixel);
-        if (shared is null)
+        if (LazyShader.Value is not { } shaderEffect || LazyBlender.Value is not { } blenderEffect)
             return null;
+        _depth ??= BuildDepth(shaderEffect);
+        _band ??= BuildBand();
+        _normal ??= BuildNormal(shaderEffect);
+        var shape = ToSkRect(_p.Rect);
         return Strips().Select(strip =>
         {
-            using var recorder = new SKPictureRecorder();
-            var canvas = recorder.BeginRecording(strip);
-            using (var paint = new SKPaint { Color = SKColors.White })
-                canvas.DrawRect(strip, paint);
-            using var picture = recorder.EndRecording();
-            using var keep = SKImageFilter.CreatePicture(picture, strip);
-            return SKImageFilter.CreateBlendMode(SKBlendMode.DstIn, shared, keep);
+            var reach = SKRect.Inflate(strip, (float)Margin, (float)Margin);
+            var region = SKRect.Intersect(reach, shape);
+            using var filter = BuildFilter(blenderEffect, pixel, region);
+            return _p.CacheGeometry ? SKImageFilter.CreateOffset(0, 0, filter, strip) : KeepToStrip(filter, strip);
         }).ToArray();
     }
+
+    // The reference without the cache: the filter kept to the strip by a picture of it.
+    private static SKImageFilter KeepToStrip(SKImageFilter filter, SKRect strip)
+    {
+        using var recorder = new SKPictureRecorder();
+        var canvas = recorder.BeginRecording(strip);
+        using (var paint = new SKPaint { Color = SKColors.White })
+            canvas.DrawRect(strip, paint);
+        using var picture = recorder.EndRecording();
+        using var stripFilter = SKImageFilter.CreatePicture(picture, strip);
+        return SKImageFilter.CreateBlendMode(SKBlendMode.DstIn, filter, stripFilter);
+    }
+
+    // The picture rasterised at device resolution over the region (snapped out to device pixels),
+    // as a filter that places it back in the layer's coordinates. Without the cache (the
+    // reference), the picture itself, drawn again on every frame.
+    private SKImageFilter Geometry(SKPicture picture, SKRect region)
+    {
+        if (!_p.CacheGeometry)
+            return SKImageFilter.CreatePicture(picture, ToSkRect(_p.Rect));
+
+        var s = (float)_deviceScale;
+        var left = MathF.Floor(region.Left * s);
+        var top = MathF.Floor(region.Top * s);
+        var size = new SKSizeI((int)(MathF.Ceiling(region.Right * s) - left), (int)(MathF.Ceiling(region.Bottom * s) - top));
+        using var surface = SKSurface.Create(new SKImageInfo(Math.Max(size.Width, 1), Math.Max(size.Height, 1), SKColorType.Rgba8888, SKAlphaType.Premul));
+        surface.Canvas.Translate(-left, -top);
+        surface.Canvas.Scale(s);
+        surface.Canvas.DrawPicture(picture);
+        var image = surface.Snapshot();
+        _images.Add(image);
+        return SKImageFilter.CreateImage(image, new SKRect(0, 0, image.Width, image.Height),
+            new SKRect(left / s, top / s, (left + image.Width) / s, (top + image.Height) / s), ImageSampling);
+    }
+
+    private static readonly SKSamplingOptions ImageSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
 
     // The band the rim can cover: the shape minus the shape inset by the widest rim and its soft edge.
     private SKPath BuildRing()
@@ -281,21 +328,17 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     // lightening from its luminance, times the light bias). The blender's colour is the band's
     // premultiplied colour over its alpha, so the fade averages along the rim: broad areas keep
     // their colour, a thin bright feature lights a short stretch that fades at its ends.
-    private SKImageFilter? BuildFilter(double pixel)
+    private SKImageFilter BuildFilter(SKRuntimeEffect blenderEffect, double pixel, SKRect region)
     {
-        if (LazyShader.Value is not { } shaderEffect || LazyBlender.Value is not { } blenderEffect)
-            return null;
-
-        using var normal = SKImageFilter.CreateShader(Shader(shaderEffect, 0, 0), false);
+        using var normal = Geometry(_normal!, region);
         // The backdrop exactly SampleOffset px outside the edge (unblurred: a blur there would
         // reach into the glass and mute thin features).
         var local = SKImageFilter.CreateDisplacementMapEffect(SKColorChannel.R, SKColorChannel.G, (float)(2 * MaxOffset), normal, null);
-        using var sampled = _p.Spread > 0 ? Carry(local) : local;
+        using var sampled = _p.Spread > 0 ? Carry(local, region) : local;
         if (!ReferenceEquals(sampled, local))
             local.Dispose();
 
-        _depth ??= BuildDepth(shaderEffect);
-        using var depth = SKImageFilter.CreatePicture(_depth, ToSkRect(_p.Rect));
+        using var depth = Geometry(_depth!, region);
 
         using var uniforms = new SKRuntimeEffectUniforms(blenderEffect)
         {
@@ -322,10 +365,9 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     // The local sample kept in the rim's band, its bright features spread along the band (a
     // maximum) and faded (a blur, normalised by the band), packed with how much brighter that
     // spread colour is than its surroundings: (spread colour · e, e), e = 1 - ExcessScale · excess.
-    private SKImageFilter Carry(SKImageFilter local)
+    private SKImageFilter Carry(SKImageFilter local, SKRect region)
     {
-        _band ??= BuildBand();
-        using var band = SKImageFilter.CreatePicture(_band, ToSkRect(_p.Rect));
+        using var band = Geometry(_band!, region);
         using var masked = SKImageFilter.CreateBlendMode(SKBlendMode.DstIn, local, band);
         var spread = (float)_p.Spread;
         var fade = (float)SpreadSigma;
@@ -355,6 +397,18 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         using var alphaMatrix = SKColorFilter.CreateColorMatrix([0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0]);
         using var eAlpha = SKImageFilter.CreateColorFilter(alphaMatrix, e);
         return SKImageFilter.CreateArithmetic(1, 0, 0, 0, true, eAlpha, spreadColour);
+    }
+
+    // The outward normal over the whole shape (the shader's mode 0).
+    private SKPicture BuildNormal(SKRuntimeEffect effect)
+    {
+        using var recorder = new SKPictureRecorder();
+        var rect = ToSkRect(_p.Rect);
+        var canvas = recorder.BeginRecording(rect);
+        using var shader = Shader(effect, 0, 0);
+        using var paint = new SKPaint { Shader = shader };
+        canvas.DrawRect(rect, paint);
+        return recorder.EndRecording();
     }
 
     // The rim's band, opaque.
@@ -402,7 +456,10 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         return effect.ToShader(uniforms, children, SKMatrix.CreateTranslation((float)_p.Rect.X, (float)_p.Rect.Y));
     }
 
-    // The top and bottom strips hold the corners; the side strips are just wider than the rim.
+    // The top and bottom strips hold the corners; the side strips are just wider than the rim. Small
+    // glass, whose whole area (with the margin) is at most SingleLayerArea times the strips' area, takes
+    // one layer instead: each layer costs a backdrop copy and a pass per filter step, which outweighs
+    // the larger area there.
     private IEnumerable<SKRect> Strips()
     {
         var r = _p.Rect;
@@ -410,7 +467,8 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         var top = Math.Max(c.TopLeft, c.TopRight) + 3 + _p.Glow;
         var bottom = Math.Max(c.BottomLeft, c.BottomRight) + 3 + _p.Glow;
         var side = (float)(MaxWidth + 2 + _p.Glow);
-        if (top + bottom >= r.Height)
+        double Reach(double w, double h) => (w + 2 * Margin) * (h + 2 * Margin);
+        if (top + bottom >= r.Height || Reach(r.Width, r.Height) <= SingleLayerArea * (2 * Reach(r.Width, top) + 2 * Reach(side, r.Height - top - bottom)))
         {
             yield return ToSkRect(r);
             yield break;

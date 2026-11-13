@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.VisualTree;
 
 namespace AvaloniaUiStandards.Style;
 
@@ -96,6 +97,11 @@ public class GlassBorder : Decorator
     internal static readonly StyledProperty<double> RimGlowProperty =
         AvaloniaProperty.Register<GlassBorder, double>("RimGlow", GlassRimDrawOperation.GlowWidth);
 
+    // Whether the rim's geometry is rasterised once and reused; tests set false to render the
+    // reference, which draws it again on every frame.
+    internal static readonly StyledProperty<bool> RimCacheGeometryProperty =
+        AvaloniaProperty.Register<GlassBorder, bool>("RimCacheGeometry", true);
+
     /// <summary>The fraction of the device resolution at which refraction and blur run (1 = full).</summary>
     internal const double DefaultBackdropScale = 0.5;
 
@@ -121,7 +127,7 @@ public class GlassBorder : Decorator
         AffectsRender<GlassBorder>(
             TintColorProperty, TintOpacityProperty, BlurSigmaProperty, CornerRadiusProperty, BorderBrushProperty,
             RefractionStrengthProperty, RefractionEdgeProperty, ChromaticDispersionProperty,
-            RimAbsorptionProperty, RimLightenProperty, RimBoostProperty, RimSpreadProperty, RimSpreadWhiteProperty, RimGlowProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty);
+            RimAbsorptionProperty, RimLightenProperty, RimBoostProperty, RimSpreadProperty, RimSpreadWhiteProperty, RimGlowProperty, RimCacheGeometryProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty);
         AffectsArrange<GlassBorder>(CornerRadiusProperty, SmoothingProperty);
         ChildProperty.Changed.AddClassHandler<GlassBorder>((b, _) => b._borderOverlay.MoveToTop(b.VisualChildren));
     }
@@ -220,17 +226,48 @@ public class GlassBorder : Decorator
         if (change.Property == BorderBrushProperty || change.Property == CornerRadiusProperty
             || change.Property == SmoothingProperty || change.Property == RimAbsorptionProperty
             || change.Property == RimLightenProperty || change.Property == RimBoostProperty || change.Property == RimSpreadProperty
-            || change.Property == RimSpreadWhiteProperty || change.Property == RimGlowProperty
+            || change.Property == RimSpreadWhiteProperty || change.Property == RimGlowProperty || change.Property == RimCacheGeometryProperty
             || change.Property == ReduceTransparencyProperty)
             _borderOverlay.InvalidateVisual();
+        if (change.Property == ReduceTransparencyProperty)
+        {
+            UpdateNestedGlass();
+            UpdateInnerGlass();
+        }
     }
 
+    /// <summary>The number of glass levels drawn as glass; a glass inside that many glass ancestors is solid.</summary>
+    internal const int MaxGlassDepth = 2;
+
     /// <summary>
-    /// Whether the glass draws as the solid fallback: when transparency is reduced, or when it
+    /// Whether the glass draws as the solid fallback: when transparency is reduced, when it
     /// sits in a popup shown as its own OS window, where nothing of the app's window is behind it
-    /// in its top level to blur. A popup in the window's overlay layer keeps the glass.
+    /// in its top level to blur (a popup in the window's overlay layer keeps the glass), or when
+    /// it sits inside <see cref="MaxGlassDepth"/> glass ancestors that draw as glass.
     /// </summary>
-    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || InPopupWindow;
+    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || InPopupWindow || TooDeep;
+
+    /// <summary>Whether this glass sits inside <see cref="MaxGlassDepth"/> or more glass ancestors that draw as glass.</summary>
+    internal bool TooDeep { get; private set; }
+
+    // Recounts the glass ancestors that draw as glass, and, when this glass changes between glass
+    // and solid, updates the glass inside it, whose count depends on it.
+    private void UpdateNestedGlass()
+    {
+        var wasSolid = IsSolid;
+        TooDeep = this.GetVisualAncestors().OfType<GlassBorder>().Count(g => !g.IsSolid) >= MaxGlassDepth;
+        if (IsSolid == wasSolid)
+            return;
+        InvalidateVisual();
+        _borderOverlay.InvalidateVisual();
+        UpdateInnerGlass();
+    }
+
+    private void UpdateInnerGlass()
+    {
+        foreach (var inner in this.GetVisualDescendants().OfType<GlassBorder>())
+            inner.UpdateNestedGlass();
+    }
 
     /// <summary>
     /// Whether the glass sits in a popup shown as its own OS window, updated each time it joins a
@@ -247,6 +284,7 @@ public class GlassBorder : Decorator
             _inPopupWindow = value;
             InvalidateVisual();
             _borderOverlay.InvalidateVisual();
+            UpdateInnerGlass();
         }
     }
 
@@ -256,6 +294,7 @@ public class GlassBorder : Decorator
     {
         base.OnAttachedToVisualTree(e);
         InPopupWindow = IsPopupWindow(TopLevel.GetTopLevel(this));
+        UpdateNestedGlass();
     }
 
     /// <summary>True for a popup's own OS window; false for a window, and for the overlay layer, which is part of its window.</summary>
@@ -294,7 +333,7 @@ public class GlassBorder : Decorator
                     new Rect(size), CornerRadius, GetValue(SmoothingProperty), RimAbsorption, GetValue(RimLightenProperty),
                     GetValue(RimBoostProperty), GetValue(RimSpreadProperty), GetValue(RimSpreadWhiteProperty),
                     GetValue(RimGlowProperty),
-                    (BorderBrush as ISolidColorBrush)?.Color ?? Colors.Transparent)));
+                    (BorderBrush as ISolidColorBrush)?.Color ?? Colors.Transparent, GetValue(RimCacheGeometryProperty))));
         }
         else if (BorderBrush is { } borderBrush && _stroke is not null)
         {
