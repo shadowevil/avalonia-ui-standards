@@ -756,7 +756,7 @@ public class StandardsWindowTests
         {
             var start = Resource<Color>(theme, "BackdropWashStartColor", variant);
             var end = Resource<Color>(theme, "BackdropWashEndColor", variant);
-            Color[] backgrounds = [start, end, StandardsTheme.Mix(start, tint, 0.6), StandardsTheme.Mix(end, tint, 0.6)];
+            Color[] backgrounds = [start, end, StandardsTheme.Mix(start, tint, GlassBorder.DefaultTintOpacity), StandardsTheme.Mix(end, tint, GlassBorder.DefaultTintOpacity)];
             foreach (var key in new[] { "SystemBaseHighColor", "SystemBaseMediumColor", "AccentTextColor", "AccentTextColorPressed" })
             {
                 var text = Resource<Color>(theme, key, variant);

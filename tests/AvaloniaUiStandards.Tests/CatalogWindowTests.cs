@@ -55,7 +55,9 @@ public class CatalogWindowTests
                     VisitAllPages(window);
                 }
 
-            // The intent: after all of it, the shown page's buttons are alive and still animate.
+            // The intent: after all of it, the Button page's buttons are alive and still animate.
+            window.PageList.SelectedIndex = CatalogPages.All.ToList().FindIndex(p => p.Title == "Button");
+            Pump();
             var chromes = CatalogRenderTests.ContentScroller(window).GetVisualDescendants().OfType<SquircleBorder>().Where(c => c.Name == ButtonParts.ChromePart).ToList();
             Assert.NotEmpty(chromes);
             Assert.All(chromes, c => Assert.Equal(3, c.Transitions?.Count));

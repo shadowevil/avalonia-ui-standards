@@ -24,7 +24,7 @@ namespace AvaloniaUiStandards.Modules;
 /// corners with its own mask. On macOS the window is a native resizable window with its title bar
 /// hidden: the system draws the shadow and handles resizing, and the window is exactly the frame.
 /// </remarks>
-public class StandardsWindow : Window
+public class StandardsWindow : Window, IFrameTickSource
 {
     public static readonly StyledProperty<object?> ToolbarProperty =
         AvaloniaProperty.Register<StandardsWindow, object?>(nameof(Toolbar));
@@ -217,6 +217,8 @@ public class StandardsWindow : Window
 
         if (e.NameScope.Find<Control>(StandardsWindowTheme.TitleBandPart) is { } band)
             band.PointerPressed += OnTitleBandPressed;
+        if (e.NameScope.Find<Button>(StandardsWindowTheme.SidebarTogglePart) is { } sidebarToggle)
+            sidebarToggle.Click += (_, _) => (Sidebar as Sidebar)?.Toggle();
         foreach (var edge in Enum.GetValues<WindowEdge>())
             if (e.NameScope.Find<ResizeGrip>(StandardsWindowTheme.ResizePart(edge)) is { } grip)
             {
@@ -233,6 +235,8 @@ public class StandardsWindow : Window
         if (change.Property == WindowStateProperty || change.Property == WindowButtonStyleProperty
             || change.Property == ActualTransparencyLevelProperty || change.Property == IsActiveProperty)
             UpdateStates();
+        if (change.Property == SidebarProperty)
+            PseudoClasses.Set(":sidebar-module", change.NewValue is Sidebar);
         if (change.Property == IsActiveProperty || change.Property == WindowStateProperty
             || change.Property == ReduceMotionProperty || change.Property == HighRefreshRateProperty)
             UpdateTicker();
@@ -246,6 +250,14 @@ public class StandardsWindow : Window
 
     // Whether frame ticks are running now (for tests).
     internal bool IsFrameTickRunning => _ticker.IsRunning;
+
+    // Frame ticks for Blocks that animate continuously (an indeterminate ProgressBar or ProgressRing).
+    IDisposable IFrameTickSource.SubscribeFrameTicks(Action<TimeSpan> tick)
+    {
+        EventHandler<FrameTickEventArgs> handler = (_, e) => tick(e.Elapsed);
+        FrameTick += handler;
+        return FrameTicks.Subscription(() => FrameTick -= handler);
+    }
 
     // Ticks run while someone listens, motion is not reduced, and the window is active and not minimised.
     private void UpdateTicker()

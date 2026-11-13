@@ -1,0 +1,23 @@
+# 0028 — ComboBox
+
+- **Status:** Proposed, 2026-11-13
+- **Decision:**
+  - The closed ComboBox field has the TextInput chrome ([0027](0027-text-input.md)): `SquircleBorder` `PART_BorderElement` with `CornerRadiusControl` 8, the density height (32 Normal, 24 Compact), a 1 px border, and TextInput's padding with no right padding (12,4,0,4 Normal, 8,2,0,2 Compact) because the caret zone follows the content. Its minimum width is Fluent's `TextControlThemeMinWidth`, as for TextInput. The ComboBox gets the library's own template, keeping Fluent's part names (`PART_Popup`, `PART_EditableTextBox`, `PlaceholderTextBlock`, `ContentPresenter`, `DropDownGlyph`, `DropDownOverlay`, `PART_ItemsPresenter`); the drop-down is unchanged from [0024](0024-lists-and-scrolling.md).
+    - **Why:** Fields line up in height, shape and text position with TextInput and Button in a row.
+  - Colours are Fluent's ComboBox keys (`ComboBoxBackground`, `ComboBoxBorderBrush`, `ComboBoxForeground` and their `PointerOver` and `Disabled` forms); error turns the border `DangerColor`, as on TextInput.
+    - **Why:** The same rule as TextInput and Button: Fluent's own keys on the library palette. Fluent's ComboBox values equal its TextControl values, so a ComboBox and a TextInput look the same at rest.
+  - No pressed look: pressing keeps the hover look, and the list opening is the feedback. Fluent's pressed fill (`ComboBoxBackgroundPressed`) is dropped, and so is the pressed scale of buttons.
+    - **Why:** Over Fluent's pressed fill the placeholder falls to about 3.5:1, below AA. A field is not a button, so it takes no button press scale.
+  - The caret zone: a trailing square as wide as the field is high (32 or 24), holding `Icons.CaretDown` at 16 px, centred, in Fluent's glyph colours (`ComboBoxDropDownGlyphForeground`, and its `Disabled` form).
+    - **Why:** A square zone matches the SplitButton chevron half ([0021](0021-button-siblings.md)) and puts the caret 8 px (Normal) from the edge; 16 px at both densities is the field-icon exception to [0026](0026-icon.md) recorded in [0027](0027-text-input.md).
+  - Not editable, the ComboBox is button-like: pointer focus changes nothing, and keyboard focus shows the ring ([0019](0019-focus-ring.md)). Fluent's focus fill (`HighlightBackground`) is dropped.
+    - **Why:** One focus cue family: the ring alone marks keyboard focus, as on buttons.
+  - Editable, it is a text field: the inner `PART_EditableTextBox` is a borderless TextBox with no chrome or ring of its own and the field's padding; the field turns its border accent (with TextInput's focused fill) while focus is inside it, and keyboard focus inside it shows the ring around the whole field. The caret zone takes clicks and opens the list; the ComboBox itself is not a tab stop (its TextBox is).
+    - **Why:** It reads and behaves as TextInput with a list attached; the ring follows the field's shape, not the inner TextBox's.
+  - Keyboard focus inside a composite field (a ComboBox's or ButtonSpinner's part) shows the ring around the whole field through the library's `:focus-visible-within` pseudo-class (shared with the segmented control and Expander), set while the focused element inside the field shows `:focus-visible` (Avalonia's rule: Tab or arrow-key navigation). Only focus on the field's own template parts counts: keyboard focus on an item in the open drop-down shows the item's ring, not the field's.
+    - **Why:** Avalonia has no "focus-visible within" state (`:focus-within` is set for pointer focus too), and one ring shows at a time, on the element the keys act on.
+  - The placeholder (`TextControlPlaceholderForeground`, full opacity) shows while nothing is selected and the ComboBox is not editable; editable, the inner TextBox shows it. Fluent's primary-text placeholder at 0.5 opacity is dropped.
+    - **Why:** The same legible placeholder as TextInput, meeting 4.5:1 on every surface (tested).
+  - Border and fill fades are `MotionFast` cross-fades ([0016](0016-motion.md)), instant under reduce motion.
+- **Accepted consequence:** Fluent's chrome borders `Background` and `HighlightBackground` are replaced by `PART_BorderElement`, so app styles that target those names stop applying.
+- **Why:** The closed ComboBox joins the field family: it lines up with TextInput and Button, keeps Fluent's behaviour and drop-down, and shows focus the way the rest of the library does.

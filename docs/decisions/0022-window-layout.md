@@ -47,7 +47,7 @@
   - Tiers ([0004](0004-tier-names.md)):
     - Window buttons (traffic lights, caption buttons) are Blocks.
     - `StandardsWindow` is the shell Module. It holds the frame (which draws the window background, including the backdrop wash below), the title band, the glass content panel, the status bar and a sidebar slot. Its parts are internal, so the layout can evolve.
-    - The sidebar Module (with its collapse stages) plugs into the sidebar slot later.
+    - The `Sidebar` Module ([0034](0034-sidebar.md)) plugs into the sidebar slot; with it, the title band shows its button before the title.
     - The app shell Screen (M5) is `StandardsWindow` with the sidebar Module plugged into the slot and the standard content arrangements (sidebar + content, and + inspector), with the collapse stages. Which further Screens follow is an open question ([roadmap](../plan/roadmap.md)).
   - Title band: the title and the toolbar share one band at the top (a unified toolbar).
   - Areas on the window background: the title band, an optional sidebar on the left (a plain list, not a panel) and an optional status bar at the bottom.
@@ -57,6 +57,6 @@
     - Layouts: sidebar + content, and sidebar + content + inspector.
   - Backdrop wash (keys `BackdropWash`, `BackdropWashStartColor`, `BackdropWashEndColor`): the window background carries a gentle wash across the whole window, with no visible lines or shapes, so the glass panel reads as glass and text outside it stays calm. It runs from the page colour with the accent mixed in at the top-left (10% light, 14% dark) to the page colour at the bottom-right, and is recomputed for app accents.
   - Contrast: text on the backdrop wash and inside the glass panel meets WCAG AA. The backgrounds that the AA text colours ([0011](0011-colour.md)) are checked against include both the wash's extreme colours and the glass panel's tint laid over those extremes. Both are proven by tests. The guarantee covers the library's own wash and glass. Apps that fill the `Backdrop` slot must keep text over it at AA themselves (as [0020](0020-catalog-app.md) does for the catalog's ribbons).
-  - Narrow windows collapse in stages: the inspector hides first, then the sidebar collapses to icons, then to a button that opens it as an overlay. The minimum window size is in Values.
+  - Narrow windows collapse in stages: the inspector hides first, then the sidebar collapses to icons, then to a button that opens it as an overlay. The minimum window size is in Values; the sidebar's widths, thresholds and button are in [0034](0034-sidebar.md).
 - **Accepted consequence:** Windows and Linux behaviour is verified only on those machines, not from macOS.
 - **Why:** One recognisable window on every OS, with the squircle (except on Windows, see Native behaviour) and glass carried through to the window itself, and a clear focus on the content.

@@ -18,11 +18,12 @@ internal static class CalendarDatePickerTheme
 {
     public const string PopupChromePart = "PART_PopupChrome";
 
-    public static ControlTheme Create(ControlTheme? fluentTheme, ControlTheme fieldButton)
+    /// <param name="innerTextBox">TextInput's inner theme, for the text box inside the field.</param>
+    public static ControlTheme Create(ControlTheme? fluentTheme, ControlTheme fieldButton, ControlTheme innerTextBox)
     {
         var theme = new ControlTheme(typeof(CalendarDatePicker)) { BasedOn = fluentTheme };
         FieldParts.AddSizing(theme, PaddingKey);
-        if (FluentTemplates.Extend(fluentTheme, (root, scope) => Extend(root, scope, fieldButton)) is { } template)
+        if (FluentTemplates.Extend(fluentTheme, (root, scope) => Extend(root, scope, fieldButton, innerTextBox)) is { } template)
             theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, template));
         FieldParts.AddColours(theme, FieldParts.TextControl, x => x.Nesting().Class(":focus-within"));
         theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
@@ -30,7 +31,7 @@ internal static class CalendarDatePickerTheme
         return theme;
     }
 
-    private static Control Extend(Control root, INameScope scope, ControlTheme fieldButton)
+    private static Control Extend(Control root, INameScope scope, ControlTheme fieldButton, ControlTheme innerTextBox)
     {
         // Fluent's rectangle-cornered field border gives way to the squircle field chrome.
         if (scope.Find<Border>("Background") is { Parent: Panel layout } fluentChrome)
@@ -38,6 +39,8 @@ internal static class CalendarDatePickerTheme
 
         if (scope.Find<TextBox>("PART_TextBox") is { } text)
         {
+            // No field inside the field: the text box draws no chrome, state or ring of its own.
+            text.Theme = innerTextBox;
             text.SetValue(Layoutable.MinHeightProperty, 0d);
             text.VerticalAlignment = VerticalAlignment.Center;
         }

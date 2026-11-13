@@ -1,0 +1,37 @@
+# 0034 — Sidebar
+
+- **Status:** Proposed, 2026-11-13
+- **Decision:**
+  - `Sidebar` is a Module ([0004](0004-tier-names.md)) for `StandardsWindow.Sidebar` ([0022](0022-window-layout.md)). It is a `ListBox` subclass holding `SidebarItem` rows (an `Icon` geometry from `Icons` and a label) and optional `SidebarHeader` section headers.
+    - **Why:** A navigation list is a list: selection, keyboard navigation (arrows, Home, End) and scrolling stay Fluent's ([0003](0003-restyle-fluent.md)), and one control carries the stages below.
+  - Rows are the list item design of [0024](0024-lists-and-scrolling.md) (squircle inset 4, list-medium hover, base-medium-low press, accent selection with white text, the focus ring), 32 high at Normal and 24 at Compact, with a 20 px icon (16 at Compact; [0026](0026-icon.md)) and the label `SpacingS` after it.
+    - **Why:** Sidebar rows look and behave like every other list row.
+  - Row icons take the row's text colour, not the accent: white on the selected row, dimmed when disabled.
+    - **Why:** The accent pill is then the only accent in the sidebar, so the selection reads at a glance, including in the icon rail where it is the only cue. It follows the Icon rule that icons take their host's foreground with no state styles of their own ([0026](0026-icon.md)), and matches Fluent. macOS tints sidebar icons with the accent; with the accent pill as the selection that would put accent on accent.
+  - Headers: caption text (`FontSizeCaption`) in the secondary text colour (`BaseMedium`, AA; [0011](0011-colour.md)), aligned with the row icons, at the bottom of a row-high band. They are not selectable and take no focus; arrows pass over them.
+    - **Why:** Sections stay quiet and readable, as in macOS and Windows sidebars, and keyboard users move only between destinations.
+  - Stages ([0022](0022-window-layout.md) "Narrow windows collapse in stages"):
+
+    | Stage | Width | Shows |
+    |---|---|---|
+    | Expanded | 240 | Icon and label |
+    | Compact | 48 (40 at Compact density) | The icon rail: icons centred, the label as the row's tooltip, the selected row keeps the accent pill, headers keep their height with their text hidden |
+    | Hidden | 0 | Nothing; the window's sidebar button opens the sidebar as an overlay |
+
+    The widths are the list's, items' inset included; the sidebar adds its `SpacingS` gap from the window's edge itself, so the glass panel sits `SpacingS` from the edge when it is hidden.
+    - **Why:** 240 holds typical labels at Body size; the rail width is the icon (20, or 16 at Compact) plus the row's side padding on each side (10, or 8 at Compact) plus the 4 px inset on each side, so each rail row is a pill centred on its icon. Headers keep their height so the rail's icons stay where they were and the gaps still separate the sections.
+  - The icon has the same place in every stage: the row's side padding (10 at Normal, 8 at Compact) centres it in the rail, and it stays there when the labels show.
+    - **Why:** Nothing moves sideways while the sidebar collapses or expands; only the labels fade.
+  - Thresholds are window widths, as the properties `ExpandedThreshold` (default 1008) and `CompactThreshold` (default 640): expanded at 1008 and wider, the rail from 640, hidden below. The window width is the `StandardsWindow` frame's (the visible window, without any shadow margin), or the top level's outside a `StandardsWindow`.
+    - **Why:** They are Windows NavigationView's breakpoints (expanded at 1008 and wider, compact from 641, rounded here to 640 on the 4 px grid). With the 480 minimum ([0022](0022-window-layout.md)) each stage has a real band of widths, and the glass panel never drops below 464 px wide.
+  - The sidebar button sits in the title band, before the title: after the traffic lights on macOS (`SpacingM`), first with caption buttons (`SpacingL` in, so its icon lines up with the rail's icons below). It is a subtle button ([0018](0018-button.md)), square at the button height, with `Icons.SidebarSimple`, shown only while the window's `Sidebar` is a `Sidebar`. It has the chrome role `DecorationsElement` (an interactive chrome element, not the band's `TitleBar` drag role), so where the client area extends under the title bar the OS passes its input to the button; pressing it starts no window drag and no double-click action, in the drawn and the native macOS frame. Unlike the window buttons ([0022](0022-window-layout.md)), it is a Tab stop.
+    - **Why:** Both platforms keep the sidebar toggle in the title or toolbar row (macOS after the traffic lights, Windows NavigationView's pane button at the top left), and a hidden sidebar has no room of its own for it.
+    - **Why (Tab stop):** In the hidden stage it is the only keyboard route to the sidebar; the window buttons have OS shortcuts instead, the sidebar button has none.
+  - The button (`Sidebar.Toggle()`): when expanded, it collapses to the rail; when collapsed by the user, it expands again; in the compact and hidden stages it opens the overlay, and closes it. The user's choice holds until the window next crosses a threshold, which returns to the automatic stage.
+    - **Why:** It matches NavigationView: inline expand and collapse where there is room, an overlay where there is not, so the content does not reflow in a narrow window. Collapsing to the rail rather than hiding keeps every destination one click away.
+  - The overlay is the expanded sidebar drawn over the glass panel on glass (`GlassBorder`, radius 16; [0015](0015-glass.md)), from the sidebar's place to 240 wide, the full height of the sidebar. It closes on choosing a row (click, Enter or Space), on Escape, on a click outside it (that click is not passed on, as a light-dismiss popup does), on the button and when the window crosses a threshold. Opening it gives the selected row (or else the first row) keyboard focus; arrows move the selection and keep it open. Closing it on Escape, a click outside or the button gives focus back to what had it when it opened (normally the sidebar button); choosing a row keeps focus on that row in the compact stage, and gives it back in the hidden stage, where the rows go away.
+    - **Why:** It is an overlay, and overlays are glass ([0015](0015-glass.md)). The inline sidebar stays on the window background ("sidebars are not glass"). The same rows serve both, so selection and focus carry over.
+  - Motion ([0016](0016-motion.md)): a toggle animates the width over `MotionNormal`; labels and header text fade over `MotionFast`. A stage change from resizing applies at once. Under reduce motion everything is instant. The transitions are fixed theme objects.
+    - **Why:** An animation during a live resize drag lags behind the pointer; NavigationView also switches display mode at once on resize and animates only the pane opening and closing.
+  - A hidden sidebar takes no keyboard focus.
+- **Why:** A sidebar that follows the window width the way both platforms do, keeps the list item design and the icon set, and never squeezes the content below a usable width.

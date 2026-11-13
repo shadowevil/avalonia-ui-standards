@@ -39,7 +39,7 @@ public class PickerThemeTests
         var (window, field) = Show(CreateField(name));
         try
         {
-            var chrome = field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FieldParts.ChromePart);
+            var chrome = field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FieldParts.ChromePart && b.TemplatedParent == field);
             var picker = (TemplatedControl)field;
             Assert.Equal(new CornerRadius(8), picker.CornerRadius);
             Assert.Equal(new Thickness(1), picker.BorderThickness);
@@ -118,7 +118,7 @@ public class PickerThemeTests
         var (window, field) = Show(CreateField(name));
         try
         {
-            var ring = field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part);
+            var ring = field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part && b.TemplatedParent == field);
             Assert.False(ring.IsVisible);
             PickerRenderTests.FocusTarget(field).Focus(NavigationMethod.Tab);
             Pump(window);
@@ -137,7 +137,7 @@ public class PickerThemeTests
         {
             PickerRenderTests.FocusTarget(field).Focus(NavigationMethod.Pointer);
             Pump(window);
-            Assert.False(field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part).IsVisible);
+            Assert.False(field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part && b.TemplatedParent == field).IsVisible);
         }
         finally
         {
@@ -580,7 +580,7 @@ public class PickerThemeTests
 
             var cursor = calendar.GetVisualDescendants().OfType<CalendarDayButton>().Single(d => d.Classes.Contains(":dayfocused"));
             Assert.True(cursor.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part).IsVisible);
-            Assert.False(picker.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == FocusRing.Part).IsVisible);
+            Assert.False(picker.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part && b.TemplatedParent == picker).IsVisible);
         }
         finally
         {
