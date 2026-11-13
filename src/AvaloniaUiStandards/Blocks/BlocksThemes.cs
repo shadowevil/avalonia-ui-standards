@@ -16,6 +16,8 @@ internal static class BlocksThemes
         resources[typeof(ListBox)] = ListItemTheme.ListBox(fluentTheme(typeof(ListBox)));
         resources[typeof(ListBoxItem)] = ListItemTheme.Item(typeof(ListBoxItem));
         resources[typeof(ComboBoxItem)] = ListItemTheme.Item(typeof(ComboBoxItem));
+        resources[typeof(TreeView)] = TreeViewTheme.TreeView(fluentTheme(typeof(TreeView)));
+        resources[typeof(TreeViewItem)] = TreeViewTheme.Item();
         resources[typeof(ComboBox)] = ComboBoxTheme.Create(fluentTheme(typeof(ComboBox)));
         resources[typeof(ScrollViewer)] = ScrollViewerTheme.Create(fluentTheme(typeof(ScrollViewer)));
         ScrollViewerTheme.AddResources(resources);
@@ -36,13 +38,15 @@ internal static class BlocksThemes
 
     /// <summary>
     /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
-    /// is <c>MotionFast</c>, or zero under reduce motion (no transitions).
+    /// is <c>MotionFast</c> and <paramref name="normal"/> is <c>MotionNormal</c>, or zero under
+    /// reduce motion (no transitions).
     /// </summary>
-    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, Easing easing)
+    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, TimeSpan normal, Easing easing)
     {
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
+        resources[TreeViewTheme.CaretTransitionsKey] = TreeViewTheme.CaretTransitions(normal, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>
@@ -53,5 +57,6 @@ internal static class BlocksThemes
         resources[ButtonParts.PaddingKey] = sizes.Padding;
         resources[ButtonParts.GlyphMarginKey] = new Thickness(0, 0, sizes.Padding.Right, 0);
         resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        TreeViewTheme.ApplyDensity(resources, density == DensityStyle.Compact);
     }
 }

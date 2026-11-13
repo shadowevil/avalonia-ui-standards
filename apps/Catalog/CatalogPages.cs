@@ -22,5 +22,6 @@ internal static class CatalogPages
         new("Button", Icons.CursorClick, () => new ButtonPage()),
         new("Button family", Icons.ToggleRight, () => new ButtonFamilyPage()),
         new("Icon", Icons.Bell, () => new IconPage()),
+        new("TreeView", Icons.TreeStructure, () => new TreeViewPage()),
     ];
 }
