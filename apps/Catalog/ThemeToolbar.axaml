@@ -1,44 +1,52 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Catalog.ThemeToolbar">
-  <WrapPanel Orientation="Horizontal">
-    <StackPanel Spacing="4" Margin="0,0,16,0">
-      <TextBlock Text="Theme" FontSize="{DynamicResource FontSizeCaption}" />
-      <ComboBox x:Name="ThemeBox" Width="110" SelectedIndex="0">
-        <ComboBoxItem>System</ComboBoxItem>
-        <ComboBoxItem>Light</ComboBoxItem>
-        <ComboBoxItem>Dark</ComboBoxItem>
-      </ComboBox>
-    </StackPanel>
-    <StackPanel Spacing="4" Margin="0,0,16,0">
-      <TextBlock Text="Density" FontSize="{DynamicResource FontSizeCaption}" />
-      <ComboBox x:Name="DensityBox" Width="110" SelectedIndex="0">
-        <ComboBoxItem>Normal</ComboBoxItem>
-        <ComboBoxItem>Compact</ComboBoxItem>
-      </ComboBox>
-    </StackPanel>
-    <StackPanel Spacing="4" Margin="0,0,16,0">
-      <TextBlock Text="Accent" FontSize="{DynamicResource FontSizeCaption}" />
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <ComboBox x:Name="AccentBox" Width="130" />
-        <TextBox x:Name="AccentHex" Width="100" MaxLength="9" />
+             x:Class="Catalog.ThemeToolbar"
+             HorizontalAlignment="Left">
+  <Grid>
+    <StackPanel x:Name="Row" Orientation="Horizontal" Spacing="12">
+      <StackPanel x:Name="ThemeGroup" Orientation="Horizontal" Spacing="6">
+        <TextBlock x:Name="ThemeCaption" Text="Theme" IsVisible="False" />
+        <ComboBox x:Name="ThemeBox" Width="96" SelectedIndex="0" ToolTip.Tip="Theme">
+          <ComboBoxItem>System</ComboBoxItem>
+          <ComboBoxItem>Light</ComboBoxItem>
+          <ComboBoxItem>Dark</ComboBoxItem>
+        </ComboBox>
+      </StackPanel>
+      <StackPanel x:Name="DensityGroup" Orientation="Horizontal" Spacing="6">
+        <TextBlock x:Name="DensityCaption" Text="Density" IsVisible="False" />
+        <ComboBox x:Name="DensityBox" Width="104" SelectedIndex="0" ToolTip.Tip="Density">
+          <ComboBoxItem>Normal</ComboBoxItem>
+          <ComboBoxItem>Compact</ComboBoxItem>
+        </ComboBox>
+      </StackPanel>
+      <StackPanel x:Name="AccentGroup" Orientation="Horizontal" Spacing="6">
+        <TextBlock x:Name="AccentCaption" Text="Accent" IsVisible="False" />
+        <ComboBox x:Name="AccentBox" Width="104" ToolTip.Tip="Accent colour" />
+        <TextBox x:Name="AccentHex" Width="84" MaxLength="9" ToolTip.Tip="Accent colour as #RRGGBB" />
+      </StackPanel>
+      <StackPanel x:Name="MotionGroup" Orientation="Horizontal" Spacing="6">
+        <TextBlock x:Name="MotionCaption" Text="Motion" />
+        <ComboBox x:Name="MotionBox" Width="116" SelectedIndex="0" ToolTip.Tip="Reduce motion">
+          <ComboBoxItem>Follow OS</ComboBoxItem>
+          <ComboBoxItem>Reduced</ComboBoxItem>
+          <ComboBoxItem>Full</ComboBoxItem>
+        </ComboBox>
+      </StackPanel>
+      <StackPanel x:Name="TransparencyGroup" Orientation="Horizontal" Spacing="6">
+        <TextBlock x:Name="TransparencyCaption" Text="Transparency" />
+        <ComboBox x:Name="TransparencyBox" Width="116" SelectedIndex="0" ToolTip.Tip="Reduce transparency">
+          <ComboBoxItem>Follow OS</ComboBoxItem>
+          <ComboBoxItem>Reduced</ComboBoxItem>
+          <ComboBoxItem>Full</ComboBoxItem>
+        </ComboBox>
       </StackPanel>
     </StackPanel>
-    <StackPanel Spacing="4" Margin="0,0,16,0">
-      <TextBlock Text="Reduce motion" FontSize="{DynamicResource FontSizeCaption}" />
-      <ComboBox x:Name="MotionBox" Width="120" SelectedIndex="0">
-        <ComboBoxItem>Follow OS</ComboBoxItem>
-        <ComboBoxItem>On</ComboBoxItem>
-        <ComboBoxItem>Off</ComboBoxItem>
-      </ComboBox>
-    </StackPanel>
-    <StackPanel Spacing="4">
-      <TextBlock Text="Reduce transparency" FontSize="{DynamicResource FontSizeCaption}" />
-      <ComboBox x:Name="TransparencyBox" Width="120" SelectedIndex="0">
-        <ComboBoxItem>Follow OS</ComboBoxItem>
-        <ComboBoxItem>On</ComboBoxItem>
-        <ComboBoxItem>Off</ComboBoxItem>
-      </ComboBox>
-    </StackPanel>
-  </WrapPanel>
+    <Button x:Name="MoreButton" Content="Settings" IsVisible="False">
+      <Button.Flyout>
+        <Flyout Placement="BottomEdgeAlignedRight">
+          <StackPanel x:Name="FlyoutBody" Spacing="8" />
+        </Flyout>
+      </Button.Flyout>
+    </Button>
+  </Grid>
 </UserControl>

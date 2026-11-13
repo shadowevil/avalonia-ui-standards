@@ -2,60 +2,64 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Styling;
 using AvaloniaUiStandards.Style;
 
 namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
 /// The keyboard focus ring of every Block: a 2 px accent ring with a 2 px gap outside the
-/// control's squircle. Its corner radius is the control's radius grown by the ring's offset,
-/// so the curves stay concentric.
+/// control's squircle, its corner radius the control's grown by the ring's offset so the curves
+/// stay concentric.
 /// </summary>
+/// <remarks>
+/// The ring is part of the control's template, drawn just outside the control and shown on
+/// <c>:focus-visible</c>, rather than in the window's adorner layer. It is therefore clipped by
+/// the control's clipping ancestors (scroll viewers, the glass panel, the window frame) exactly
+/// as the control is, including while scrolling. The focused control is raised above its siblings
+/// so neighbours do not paint over the ring.
+/// </remarks>
 internal static class FocusRing
 {
+    public const string Part = "PART_FocusRing";
+
     private const double Gap = 2;
     private const double Width = 2;
     private const double Offset = Gap + Width;
 
-    public static ITemplate<Control> Template { get; } = new FuncTemplate<Control>(Build);
+    private static readonly IValueConverter Grow = new FuncValueConverter<CornerRadius, CornerRadius>(r =>
+        new CornerRadius(r.TopLeft + Offset, r.TopRight + Offset, r.BottomRight + Offset, r.BottomLeft + Offset));
 
-    private static Control Build()
+    /// <summary>Puts <paramref name="root"/> and the ring together as a template root.</summary>
+    public static Control Wrap(Control root, INameScope scope)
     {
         var ring = new SquircleBorder
         {
+            Name = Part,
             BorderThickness = new Thickness(Width),
             Margin = new Thickness(-Offset),
             IsHitTestVisible = false,
         };
-        // The ring lies outside the control, so the adorner layer must not clip it to the control's bounds.
-        AdornerLayer.SetIsClipEnabled(ring, false);
         ring.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlHighlightAccentBrush"));
-
-        // Follow the adorned control's corner radius while the ring is shown.
-        TemplatedControl? adorned = null;
-        void Follow(object? sender, AvaloniaPropertyChangedEventArgs e)
-        {
-            if (e.Property == TemplatedControl.CornerRadiusProperty)
-                ring.CornerRadius = Grow(adorned!.CornerRadius);
-        }
-        ring.AttachedToVisualTree += (_, _) =>
-        {
-            adorned = AdornerLayer.GetAdornedElement(ring) as TemplatedControl;
-            if (adorned is null)
-                return;
-            ring.CornerRadius = Grow(adorned.CornerRadius);
-            adorned.PropertyChanged += Follow;
-        };
-        ring.DetachedFromVisualTree += (_, _) =>
-        {
-            if (adorned is not null)
-                adorned.PropertyChanged -= Follow;
-            adorned = null;
-        };
-        return ring;
+        ring.Bind(SquircleBorder.CornerRadiusProperty, new TemplateBinding(TemplatedControl.CornerRadiusProperty) { Converter = Grow });
+        ring.RegisterInNameScope(scope);
+        return new Panel { Children = { root, ring } };
     }
 
-    private static CornerRadius Grow(CornerRadius r) =>
-        new(r.TopLeft + Offset, r.TopRight + Offset, r.BottomRight + Offset, r.BottomLeft + Offset);
+    /// <summary>Adds the ring's states to a theme whose template is wrapped with <see cref="Wrap"/>.</summary>
+    public static void AddTo(ControlTheme theme)
+    {
+        theme.Setters.Add(new Setter(Control.FocusAdornerProperty, null));
+        // Button clips to its bounds by default; the ring lies outside them. The chrome still clips
+        // the content to the squircle, so only the ring draws outside the control.
+        theme.Setters.Add(new Setter(Visual.ClipToBoundsProperty, false));
+        theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting())) { Setters = { new Setter(Visual.IsVisibleProperty, false) } });
+        theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting().Class(":focus-visible"))) { Setters = { new Setter(Visual.IsVisibleProperty, true) } });
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":focus-visible")) { Setters = { new Setter(Visual.ZIndexProperty, 1) } });
+    }
+
+    private static Selector Ring(Selector state) => state.Template().OfType<SquircleBorder>().Name(Part);
 }

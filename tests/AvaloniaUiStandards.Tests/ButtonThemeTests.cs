@@ -25,8 +25,11 @@ public class ButtonThemeTests
     {
         var (_, button) = Show(variant: null);
 
-        var chrome = Assert.IsType<SquircleBorder>(Assert.Single(button.GetVisualChildren()));
+        // Template root: the chrome and, beside it, the (hidden) focus ring.
+        var root = Assert.IsType<Panel>(Assert.Single(button.GetVisualChildren()));
+        var chrome = Assert.IsType<SquircleBorder>(root.Children[0]);
         Assert.Equal(ButtonParts.ChromePart, chrome.Name);
+        Assert.Equal(FocusRing.Part, Assert.IsType<SquircleBorder>(root.Children[1]).Name);
         var presenter = Assert.IsType<ContentPresenter>(chrome.Child);
         Assert.Equal(ButtonParts.ContentPart, presenter.Name);
         Assert.Equal(new CornerRadius(8), button.CornerRadius);
@@ -250,17 +253,21 @@ public class ButtonThemeTests
     public void Focus_ShowsAccentRingWithGapAroundTheButton()
     {
         var (window, button) = Show(variant: null);
+        var ring = Ring(button);
+        Assert.False(ring.IsVisible);
+
         button.Focus(NavigationMethod.Tab);
         Dispatcher.UIThread.RunJobs();
 
-        var layer = AdornerLayer.GetAdornerLayer(button)!;
-        var ring = Assert.IsType<SquircleBorder>(Assert.Single(layer.Children));
+        // Drawn in the button's own template (so its ancestors clip it), not in the adorner layer.
+        Assert.True(ring.IsVisible);
+        Assert.Empty(AdornerLayer.GetAdornerLayer(button)!.Children);
         Assert.Equal(new CornerRadius(12), ring.CornerRadius);
         Assert.Equal(new Thickness(-4), ring.Margin);
         Assert.Equal(new Thickness(2), ring.BorderThickness);
         Assert.Equal(Color.Parse("#007CEA"), ((ISolidColorBrush)ring.BorderBrush!).Color);
-        Assert.Null(ring.Child);
-        Assert.False(AdornerLayer.GetIsClipEnabled(ring));
+        Assert.Equal(new Rect(-4, -4, button.Bounds.Width + 8, button.Bounds.Height + 8), ring.Bounds);
+        Assert.Equal(1, button.ZIndex);
     }
 
     private static (Window Window, Button Button) Show(string? variant, ThemeVariant? themeVariant = null, StandardsTheme? theme = null)
@@ -286,7 +293,7 @@ public class ButtonThemeTests
         var (window, button) = Show(variant: null);
         button.Focus(NavigationMethod.Tab);
         Dispatcher.UIThread.RunJobs();
-        var ring = (SquircleBorder)AdornerLayer.GetAdornerLayer(button)!.Children.Single();
+        var ring = Ring(button);
         Assert.Equal(new CornerRadius(12), ring.CornerRadius);
 
         button.CornerRadius = new CornerRadius(4);
@@ -327,7 +334,7 @@ public class ButtonThemeTests
         window.Show();
 
         var libraryThemed = control.GetVisualDescendants().OfType<TemplatedControl>()
-            .Where(c => c.GetVisualChildren().FirstOrDefault() is SquircleBorder { Name: ButtonParts.ChromePart })
+            .Where(c => c.GetVisualChildren().SelectMany(v => v.GetVisualChildren().Prepend(v)).Any(v => v is SquircleBorder { Name: ButtonParts.ChromePart }))
             .Select(c => $"{c.GetType().Name}#{c.Name}");
         Assert.Empty(libraryThemed);
     }
@@ -349,7 +356,11 @@ public class ButtonThemeTests
         return Assert.IsType<T>(value);
     }
 
-    private static SquircleBorder Chrome(Button button) => (SquircleBorder)button.GetVisualChildren().Single();
+    private static SquircleBorder Chrome(Button button) =>
+        button.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == ButtonParts.ChromePart);
+
+    private static SquircleBorder Ring(Button button) =>
+        button.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part);
 
     private static ContentPresenter Content(Button button) => (ContentPresenter)Chrome(button).Child!;
 

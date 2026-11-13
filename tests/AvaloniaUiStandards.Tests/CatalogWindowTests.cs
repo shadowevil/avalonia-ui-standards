@@ -75,7 +75,7 @@ public class CatalogWindowTests
     {
         for (var i = 0; i < CatalogPages.All.Count; i++)
         {
-            window.Sidebar.SelectedIndex = i;
+            window.PageList.SelectedIndex = i;
             Pump();
         }
     }

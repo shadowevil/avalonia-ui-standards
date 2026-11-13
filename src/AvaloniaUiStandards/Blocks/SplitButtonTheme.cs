@@ -51,8 +51,8 @@ internal static class SplitButtonTheme
         theme.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
         theme.Setters.Add(new Setter(KeyboardNavigation.IsTabStopProperty, true));
         theme.Setters.Add(new Setter(InputElement.FocusableProperty, true));
-        theme.Setters.Add(new Setter(Control.FocusAdornerProperty, FocusRing.Template));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<SplitButton>(BuildTemplate)));
+        FocusRing.AddTo(theme);
 
         theme.Children.Add(PartTag(x => x.Nesting().Class(":flyout-open"), "flyout-open"));
         theme.Children.Add(PartTag(x => x.Nesting().Class(":checked"), "checked"));
@@ -86,7 +86,7 @@ internal static class SplitButtonTheme
         primary.RegisterInNameScope(scope);
         separator.RegisterInNameScope(scope);
         secondary.RegisterInNameScope(scope);
-        return grid;
+        return FocusRing.Wrap(grid, scope);
     }
 
     // A part: a Button with the component theme, the control's brushes, its side of the

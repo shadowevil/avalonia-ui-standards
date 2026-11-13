@@ -23,6 +23,7 @@ internal static class Ui
     public static TextBlock Caption(string text)
     {
         var block = Sized(text, "FontSizeCaption");
+        block.TextWrapping = TextWrapping.Wrap;
         block.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("SystemControlForegroundBaseMediumBrush"));
         return block;
     }
@@ -45,7 +46,8 @@ internal static class Ui
     /// <summary>A page: a title and its sections, stacked.</summary>
     public static Control Page(string title, params Control[] sections)
     {
-        var stack = new StackPanel { Spacing = 24, Margin = new Thickness(24) };
+        // No margin: the window's content panel already pads its content.
+        var stack = new StackPanel { Spacing = 24 };
         var heading = Sized(title, "FontSizeTitle");
         heading.Bind(TextBlock.FontWeightProperty, new DynamicResourceExtension("FontWeightTitle"));
         stack.Children.Add(heading);

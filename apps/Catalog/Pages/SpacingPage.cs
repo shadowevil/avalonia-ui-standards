@@ -26,10 +26,10 @@ internal sealed class SpacingPage : UserControl
         bar.Bind(Border.BackgroundProperty, new DynamicResourceExtension("SystemControlHighlightAccentBrush"));
 
         var label = Ui.Body(key);
-        label.Width = 140;
+        label.Width = 110;
         var value = Ui.CaptionOf(key, v => v is double d ? $"{d:0} px" : "");
-        value.Width = 60;
-        var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        value.Width = 56;
+        var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         stack.Children.Add(label);
         stack.Children.Add(value);
         stack.Children.Add(bar);

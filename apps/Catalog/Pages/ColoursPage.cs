@@ -36,6 +36,12 @@ internal sealed class ColoursPage : UserControl
         var panel = new WrapPanel();
         foreach (var key in keys)
             panel.Children.Add(Swatch(key));
+        // Cards are 340 wide, or as wide as the panel when it is narrower.
+        panel.SizeChanged += (_, e) =>
+        {
+            foreach (var card in panel.Children.Cast<Grid>())
+                card.Width = Math.Min(340, e.NewSize.Width - card.Margin.Right);
+        };
         return panel;
     }
 

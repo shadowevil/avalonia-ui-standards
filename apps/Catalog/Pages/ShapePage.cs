@@ -11,7 +11,7 @@ internal sealed class ShapePage : UserControl
 {
     public ShapePage()
     {
-        var shapes = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 32 };
+        var shapes = new WrapPanel();
         shapes.Children.Add(Sample("CornerRadiusControl", 160, 96));
         shapes.Children.Add(Sample("CornerRadiusOverlay", 160, 96));
 
@@ -26,6 +26,6 @@ internal sealed class ShapePage : UserControl
         shape.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("SystemControlBackgroundChromeMediumLowBrush"));
         shape.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlHighlightAccentBrush"));
         var value = Ui.CaptionOf(key, v => v is CornerRadius r ? $"{key} {r.TopLeft:0} px" : "");
-        return new StackPanel { Spacing = 8, Children = { shape, value } };
+        return new StackPanel { Spacing = 8, Margin = new Thickness(0, 0, 32, 16), Children = { shape, value } };
     }
 }

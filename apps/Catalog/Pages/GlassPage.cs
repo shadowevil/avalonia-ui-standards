@@ -28,14 +28,14 @@ internal sealed class GlassPage : UserControl
         // The panels wrap onto further rows when the page is narrow.
         stage.Children.Add(new WrapPanel
         {
-            Margin = new Thickness(24, 24, 0, 0),
+            Margin = new Thickness(12, 12, 0, 0),
             IsHitTestVisible = false,
             VerticalAlignment = VerticalAlignment.Top,
             Children =
             {
-                Panel(220, 140, "Glass card"),
-                Panel(280, 160, "Glass panel"),
-                Panel(160, 100, "Glass chip"),
+                Panel(180, 140, "Glass card"),
+                Panel(220, 160, "Glass panel"),
+                Panel(140, 100, "Glass chip"),
             },
         });
 
@@ -49,7 +49,7 @@ internal sealed class GlassPage : UserControl
     {
         Width = width,
         Height = height,
-        Margin = new Thickness(0, 0, 24, 24),
+        Margin = new Thickness(0, 0, 12, 12),
         IsHitTestVisible = false,
         Child = new TextBlock { Text = text, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
     };

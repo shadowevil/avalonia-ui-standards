@@ -1,18 +1,26 @@
-using Avalonia.Controls;
+using System.Reflection;
+using AvaloniaUiStandards;
+using AvaloniaUiStandards.Modules;
 
 namespace Catalog;
 
-public partial class MainWindow : Window
+public partial class MainWindow : StandardsWindow
 {
     public MainWindow()
     {
         InitializeComponent();
-        Sidebar.ItemsSource = CatalogPages.All.Select(p => p.Title).ToList();
-        Sidebar.SelectionChanged += (_, _) =>
+        var version = typeof(StandardsTheme).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
+        StatusVersion.Text = $"AvaloniaUiStandards {version.Split('+')[0]}";
+
+        PageList.ItemsSource = CatalogPages.All.Select(p => p.Title).ToList();
+        PageList.SelectionChanged += (_, _) =>
         {
-            if (Sidebar.SelectedIndex >= 0)
-                Scroller.Content = CatalogPages.All[Sidebar.SelectedIndex].Create();
+            if (PageList.SelectedIndex < 0)
+                return;
+            var page = CatalogPages.All[PageList.SelectedIndex];
+            Scroller.Content = page.Create();
+            StatusPage.Text = page.Title;
         };
-        Sidebar.SelectedIndex = 0;
+        PageList.SelectedIndex = 0;
     }
 }

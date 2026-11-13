@@ -74,8 +74,9 @@ internal static class ButtonParts
         theme.Setters.Add(new Setter(TemplatedControl.BorderBrushProperty, Value(looks.Normal.BorderBrush)));
         theme.Setters.Add(new Setter(TemplatedControl.BorderThicknessProperty, Resource(borderThicknessKey)));
         theme.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
-        theme.Setters.Add(new Setter(Control.FocusAdornerProperty, FocusRing.Template));
-        theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ContentControl>(BuildContentTemplate)));
+        theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty,
+            new FuncControlTemplate<ContentControl>((control, scope) => FocusRing.Wrap(BuildContentTemplate(control, scope), scope))));
+        FocusRing.AddTo(theme);
         theme.Children.Add(ChromeMotion());
         theme.Children.Add(PressedScale());
         theme.Children.Add(State(":pointerover", looks.Hover));

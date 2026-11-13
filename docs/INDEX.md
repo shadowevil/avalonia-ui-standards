@@ -23,6 +23,7 @@
 - [0020 — Catalog app](decisions/0020-catalog-app.md) — the live browsing app, what its pages and toolbar show, and how it relates to test renders
 - [0021 — Button siblings](decisions/0021-button-siblings.md) — how ToggleButton, RepeatButton, SplitButton, DropDownButton and HyperlinkButton differ from Button
 - [0022 — Window layout](decisions/0022-window-layout.md) — the library-drawn window frame, title band, areas, glass content panel, backdrop and narrow-window behaviour
+- [0023 — Versioning](decisions/0023-versioning.md) — the versioning scheme, the starting version and where it is set
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

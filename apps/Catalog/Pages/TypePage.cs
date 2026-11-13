@@ -39,10 +39,6 @@ internal sealed class TypePage : UserControl
         if (style is not ("Caption" or "Body"))
             sample.Watch("FontWeight" + style, v => { if (v is FontWeight w) { weight = w; Update(); } });
 
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("200,*") };
-        Grid.SetColumn(sample, 1);
-        grid.Children.Add(detail);
-        grid.Children.Add(sample);
-        return grid;
+        return new StackPanel { Children = { detail, sample } };
     }
 }

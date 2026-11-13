@@ -10,7 +10,7 @@ namespace Catalog.Pages;
 /// <summary>The motion durations: a marker slides along a track using the theme's duration and easing.</summary>
 internal sealed class MotionPage : UserControl
 {
-    private const double Track = 320;
+    private const double Track = 200;
     private const double Dot = 24;
 
     private static readonly string[] Steps = ["Fast", "Normal", "Slow"];

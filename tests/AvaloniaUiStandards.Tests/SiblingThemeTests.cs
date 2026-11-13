@@ -215,7 +215,9 @@ public class SiblingThemeTests
         control.Focus(NavigationMethod.Tab);
         Dispatcher.UIThread.RunJobs();
 
-        var ring = Assert.IsType<SquircleBorder>(Assert.Single(AdornerLayer.GetAdornerLayer(control)!.Children));
+        var ring = control.GetVisualChildren().Single().GetVisualChildren().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part);
+        Assert.True(ring.IsVisible);
+        Assert.Empty(AdornerLayer.GetAdornerLayer(control)!.Children);
         Assert.Equal(new CornerRadius(12), ring.CornerRadius);
         Assert.Equal(new Thickness(-4), ring.Margin);
     }
@@ -265,7 +267,7 @@ public class SiblingThemeTests
         control.GetVisualDescendants().OfType<SquircleBorder>().Where(b => b.Name == ButtonParts.ChromePart);
 
     private static SquircleBorder Chrome(TemplatedControl control) =>
-        (SquircleBorder)control.GetVisualChildren().Single(v => v is SquircleBorder { Name: ButtonParts.ChromePart });
+        control.GetVisualDescendants().OfType<SquircleBorder>().First(b => b.Name == ButtonParts.ChromePart);
 
     private static (Button Primary, Button Secondary) Parts(Control split)
     {

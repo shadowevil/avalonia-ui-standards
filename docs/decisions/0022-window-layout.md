@@ -3,9 +3,14 @@
 - **Status:** Agreed, 2026-11-12
 - **Decision:**
   - Window frame:
-    - The library draws its own window frame: a borderless transparent window shaped as a squircle (radius 16, `CornerRadiusOverlay`; [0014](0014-shape.md)) with a soft shadow and a 1 px border.
+    - The library draws its own window frame: a borderless transparent window shaped as a squircle (radius 16, `CornerRadiusOverlay`; [0014](0014-shape.md)), except on Windows (see Native behaviour), with a soft shadow and a 1 px border (shadow per OS: see Native behaviour).
     - Window buttons are drawn by the library, styled per OS: traffic lights on the left on macOS, caption buttons on the right on Windows and Linux.
-    - The library handles drag, resize, minimise, maximise and close.
+    - Drag, resize, minimise, maximise and close are handled by the OS through the chrome roles (see Native behaviour).
+  - Native behaviour per OS (planned as M3 step 6):
+    - macOS: the native window shadow (a borderless, non-opaque window with `hasShadow`; macOS derives the shadow from the content's alpha, so it follows the squircle). No drawn shadow and no margin: the window is exactly the visible frame, so tiling and positions use it.
+    - Windows: a native resizable border with the system shadow, and no margin. Snap and snap layouts work natively (the maximise button is tagged as the maximise button). Window corners follow Windows 11 (8 px rounded, not the squircle), on Windows only. The content panel and controls keep their squircles.
+    - Linux: the drawn shadow and margin stay. The window's input shape is set to the frame (X shape extension), so the margin is click-through, and `_GTK_FRAME_EXTENTS` tells the window manager the margin, so snapping, tiling and positions use the visible frame. The opaque fallback stays for no compositor.
+    - All OSes: the title band, resize grips and window buttons are tagged with Avalonia's chrome roles (`WindowDecorationProperties.ElementRole`), so each OS handles move, resize and buttons natively.
   - Adoption:
     - App windows subclass `StandardsWindow` and fill `Title`, `Toolbar`, `Sidebar`, `Content` (shown in the glass panel) and `StatusBar`.
     - `WindowButtonStyle` is `Auto`, `TrafficLights` or `CaptionButtons`.
@@ -16,10 +21,10 @@
     - Sidebar 8 px from the left.
     - Glass panel 8 px from the sides and bottom, with 12 px padding inside.
     - Frame radius 16 with a 1 px border in Fluent's border colour.
-    - Shadow: blur sigma 8, offset 8 down, black at 25% (light) or 50% (dark).
+    - Drawn shadow (Linux only): blur sigma 8, offset 8 down, black at 25% (light) or 50% (dark).
     - Resize grips 8 px on the edges and 12 px at the corners; the window buttons take precedence over grips.
-    - The shadow margin (24–32 px around the frame) is part of the OS window. That area is click-through, passing clicks to windows behind, and OS snapping and positions use the frame, like native windows. This needs per-OS work ([roadmap](../plan/roadmap.md), M3 step 4b).
-    - Minimum size 480×320, applied to the frame (the window adds the shadow margin).
+    - Shadow and margin differ per OS: see Native behaviour.
+    - Minimum size 480×320, applied to the frame (on Linux the window adds the shadow margin).
     - When maximised: square corners, no shadow, no grips.
     - Without OS transparency the frame fills the window square, with no shadow.
   - Window buttons:
@@ -31,7 +36,7 @@
     - Window buttons (traffic lights, caption buttons) are Blocks.
     - `StandardsWindow` is the shell Module. It holds the frame (which draws the window background, including the backdrop wash below), the title band, the glass content panel, the status bar and a sidebar slot. Its parts are internal, so the layout can evolve.
     - The sidebar Module (with its collapse stages) plugs into the sidebar slot later.
-    - The app shell Screen (M5) is the assembled app shell.
+    - The app shell Screen (M5) is `StandardsWindow` with the sidebar Module plugged into the slot and the standard content arrangements (sidebar + content, and + inspector), with the collapse stages. Which further Screens follow is an open question ([roadmap](../plan/roadmap.md)).
   - Title band: the title and the toolbar share one band at the top (a unified toolbar).
   - Areas on the window background: the title band, an optional sidebar on the left (a plain list, not a panel) and an optional status bar at the bottom.
   - Content panel:
@@ -41,5 +46,5 @@
   - Backdrop wash (keys `BackdropWash`, `BackdropWashStartColor`, `BackdropWashEndColor`): the window background carries a gentle wash across the whole window, with no visible lines or shapes, so the glass panel reads as glass and text outside it stays calm. It runs from the page colour with the accent mixed in at the top-left (10% light, 14% dark) to the page colour at the bottom-right, and is recomputed for app accents.
   - Contrast: text on the backdrop wash and inside the glass panel meets WCAG AA. The backgrounds that the AA text colours ([0011](0011-colour.md)) are checked against include both the wash's extreme colours and the glass panel's tint laid over those extremes. Both are proven by tests.
   - Narrow windows collapse in stages: the inspector hides first, then the sidebar collapses to icons, then to a button that opens it as an overlay. The minimum window size is in Values.
-- **Accepted consequence:** Native-only extras (for example the Windows snap-layout menu on maximise, and macOS full-screen tiling) need extra work or are not available.
-- **Why:** One recognisable window on every OS, with the squircle and glass carried through to the window itself, and a clear focus on the content.
+- **Accepted consequence:** Windows and Linux behaviour is verified only on those machines, not from macOS.
+- **Why:** One recognisable window on every OS, with the squircle (except on Windows, see Native behaviour) and glass carried through to the window itself, and a clear focus on the content.

@@ -30,8 +30,8 @@ internal static class DropDownButtonTheme
         theme.Setters.Add(new Setter(TemplatedControl.BorderThicknessProperty, Resource("ButtonBorderThemeThickness")));
         theme.Setters.Add(new Setter(ContentControl.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
         theme.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
-        theme.Setters.Add(new Setter(Control.FocusAdornerProperty, FocusRing.Template));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<DropDownButton>(BuildTemplate)));
+        FocusRing.AddTo(theme);
 
         theme.Children.Add(ChromeMotion());
         theme.Children.Add(PressedScale());
@@ -58,7 +58,7 @@ internal static class DropDownButtonTheme
         chrome.RegisterInNameScope(scope);
         presenter.RegisterInNameScope(scope);
         glyph.RegisterInNameScope(scope);
-        return chrome;
+        return FocusRing.Wrap(chrome, scope);
     }
 
     private static Avalonia.Styling.Style Glyph(string? pseudoClass, string foregroundKey, bool margin = false)

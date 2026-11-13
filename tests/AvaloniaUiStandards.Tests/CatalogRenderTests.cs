@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using AvaloniaUiStandards.Modules;
 using AvaloniaUiStandards.Style;
 using Catalog;
 using Xunit;
@@ -45,10 +46,66 @@ public class CatalogRenderTests
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
+    // The window at its default size and at its minimum (the 480 x 320 frame plus the shadow margin).
+    private static readonly (Size Size, string Suffix)[] WindowSizes = [(new Size(1200, 800), ""), (new Size(528, 368), "-min")];
+
+    [AvaloniaFact]
+    public void Window_RendersEveryPageInLightAndDark()
+    {
+        var problems = new List<string>();
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+        foreach (var (size, suffix) in WindowSizes)
+            for (var i = 0; i < CatalogPages.All.Count; i++)
+            {
+                var title = CatalogPages.All[i].Title;
+                var name = $"catalog-window-{title.ToLowerInvariant().Replace(' ', '-')}-{label.ToLowerInvariant()}{suffix}.png";
+                var window = new MainWindow
+                {
+                    Width = size.Width,
+                    Height = size.Height,
+                    RequestedThemeVariant = variant,
+                    // Headless frames have no alpha, so a desktop-like grey stands in for what is behind the transparent window.
+                    Background = new SolidColorBrush(Color.Parse(variant == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
+                };
+                window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = title != "Motion" });
+                window.SetRenderScaling(Sheet.Scale);
+                window.Show();
+                window.Activate();
+                window.PageList.SelectedIndex = i;
+                Settle(window);
+
+                problems.AddRange(Check(window.Scroller).Concat(CheckToolbar(window)).Select(p => $"{name}: {p}"));
+                using var frame = Frame.Capture(window);
+                frame.Save(name);
+                window.Close();
+            }
+
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>The toolbar's visible content must sit inside the title band, after the title.</summary>
+    private static IEnumerable<string> CheckToolbar(MainWindow window)
+    {
+        var toolbar = window.GetVisualDescendants().OfType<ThemeToolbar>().Single();
+        var band = window.GetVisualDescendants().OfType<Control>().First(c => c.Name == StandardsWindowTheme.TitleBandPart);
+        var title = window.GetVisualDescendants().OfType<TextBlock>().First(c => c.Name == StandardsWindowTheme.TitlePart);
+        var content = toolbar.GetVisualDescendants().OfType<Control>().First(c => c is StackPanel { Name: "Row" } or Button { Name: "MoreButton" } && c.IsVisible);
+
+        var left = content.TranslatePoint(new Point(0, 0), window)!.Value.X;
+        var right = content.TranslatePoint(new Point(content.Bounds.Width, 0), window)!.Value.X;
+        var bandRight = band.TranslatePoint(new Point(band.Bounds.Width, 0), window)!.Value.X;
+        var titleRight = title.TranslatePoint(new Point(title.Bounds.Width, 0), window)!.Value.X;
+        if (right > bandRight + 0.5)
+            yield return $"toolbar runs past the title band ({right:0} > {bandRight:0})";
+        if (left < titleRight - 0.5)
+            yield return $"toolbar overlaps the title ({left:0} < {titleRight:0})";
+    }
+
     private static List<string> Render(Control content, ThemeVariant variant, string name, double width, bool reduceMotion)
     {
         var host = new PageHost { Content = content };
-        var root = new Border { Child = host };
+        // The window's content panel pads its content by 12 px.
+        var root = new Border { Padding = new Thickness(12), Child = host };
         root.Bind(Border.BackgroundProperty, new DynamicResourceExtension("SystemRegionColor"));
         var window = new Window { Width = width, Height = 4000, RequestedThemeVariant = variant, Content = root };
         // Each window has its own theme with fixed settings, so the shared test theme is never changed.
@@ -58,7 +115,7 @@ public class CatalogRenderTests
         Settle(window);
 
         // Sized to the page's full height, so the capture shows all of it without scrolling.
-        window.Height = Math.Ceiling(host.Extent.Height);
+        window.Height = Math.Ceiling(host.Extent.Height) + 24;
         Settle(window);
 
         var problems = Check(host).Select(p => $"{name}: {p}").ToList();

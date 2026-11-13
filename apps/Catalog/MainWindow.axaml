@@ -1,15 +1,20 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:c="using:Catalog"
-        x:Class="Catalog.MainWindow"
-        Title="Avalonia UI Standards catalog"
-        Width="1200" Height="800" MinWidth="720" MinHeight="480">
-  <DockPanel>
-    <Border DockPanel.Dock="Top" Padding="16,12" BorderThickness="0,0,0,1"
-            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
-      <c:ThemeToolbar />
-    </Border>
-    <ListBox x:Name="Sidebar" DockPanel.Dock="Left" Width="180" Padding="8" />
-    <c:PageHost x:Name="Scroller" />
-  </DockPanel>
-</Window>
+<StandardsWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:c="using:Catalog"
+                 x:Class="Catalog.MainWindow"
+                 Title="Avalonia UI Standards catalog"
+                 Width="1200" Height="800">
+  <StandardsWindow.Toolbar>
+    <c:ThemeToolbar />
+  </StandardsWindow.Toolbar>
+  <StandardsWindow.Sidebar>
+    <ListBox x:Name="PageList" Width="180" Background="Transparent" />
+  </StandardsWindow.Sidebar>
+  <StandardsWindow.StatusBar>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock x:Name="StatusPage" FontSize="{DynamicResource FontSizeCaption}" />
+      <TextBlock x:Name="StatusVersion" Grid.Column="1" FontSize="{DynamicResource FontSizeCaption}" />
+    </Grid>
+  </StandardsWindow.StatusBar>
+  <c:PageHost x:Name="Scroller" />
+</StandardsWindow>
