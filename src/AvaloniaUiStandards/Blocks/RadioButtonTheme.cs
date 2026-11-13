@@ -20,9 +20,6 @@ internal static class RadioButtonTheme
 {
     public const string DotPart = "CheckGlyph";
 
-    // Larger than any circle: a squircle corner clamps to half the side, which is a true circle.
-    private static readonly CornerRadius Round = new(1000);
-
     private readonly record struct Look(object OutlineBackground, object OutlineBorder, object Fill, object Dot, object Label);
 
     public static ControlTheme Create()
@@ -75,7 +72,7 @@ internal static class RadioButtonTheme
         var outline = Layer(OutlinePart);
         outline.BorderThickness = new Thickness(1);
         var fill = Layer(FillPart);
-        var dot = Layer(DotPart, Round);
+        var dot = Layer(DotPart, ButtonParts.Pill);
         dot.HorizontalAlignment = HorizontalAlignment.Center;
         dot.VerticalAlignment = VerticalAlignment.Center;
         dot.Bind(Layoutable.WidthProperty, new DynamicResourceExtension(DotKey));

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
@@ -32,7 +33,7 @@ internal static class ProgressBarTheme
         var theme = new ControlTheme(typeof(ProgressBar));
         theme.Setters.Add(new Setter(TemplatedControl.ForegroundProperty, Resource("AccentFillColor")));
         theme.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Resource("SystemControlBackgroundBaseLowBrush")));
-        theme.Setters.Add(new Setter(TemplatedControl.CornerRadiusProperty, RangeParts.Pill));
+        theme.Setters.Add(new Setter(TemplatedControl.CornerRadiusProperty, ButtonParts.Pill));
         theme.Setters.Add(new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Center));
         foreach (var (orientation, pseudoClass) in new[] { (Orientation.Horizontal, ":horizontal"), (Orientation.Vertical, ":vertical") })
             theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(pseudoClass))
@@ -54,6 +55,12 @@ internal static class ProgressBarTheme
         });
         return theme;
     }
+
+    private static readonly IMultiValueConverter ProgressText = new FuncMultiValueConverter<object?, string>(values =>
+    {
+        var list = values.ToList();
+        return list[0] is string format ? string.Format(CultureInfo.CurrentCulture, format, [.. list.Skip(1)]) : "";
+    });
 
     private static Avalonia.Styling.Style Visible(Func<Selector?, Selector> state, string part, bool visible) =>
         new(x => state(x).Template().Name(part)) { Setters = { new Setter(Visual.IsVisibleProperty, visible) } };
@@ -84,14 +91,19 @@ internal static class ProgressBarTheme
         text.Bind(Visual.IsVisibleProperty, new TemplateBinding(ProgressBar.ShowProgressTextProperty));
         text.Bind(TextBlock.FontSizeProperty, Resource("FontSizeCaption"));
         text.Bind(TextBlock.ForegroundProperty, Resource("SystemControlForegroundBaseMediumBrush"));
-        void UpdateText() => text.Text = string.Format(CultureInfo.CurrentCulture, bar.ProgressTextFormat ?? "", bar.Value, bar.Percentage, bar.Minimum, bar.Maximum);
-        bar.PropertyChanged += (_, e) =>
+        // As in Fluent's template: the format with the value, percentage, minimum and maximum.
+        text.Bind(TextBlock.TextProperty, new MultiBinding
         {
-            if (e.Property == RangeBase.ValueProperty || e.Property == ProgressBar.PercentageProperty || e.Property == ProgressBar.ProgressTextFormatProperty
-                || e.Property == RangeBase.MinimumProperty || e.Property == RangeBase.MaximumProperty)
-                UpdateText();
-        };
-        UpdateText();
+            Converter = ProgressText,
+            Bindings =
+            {
+                new TemplateBinding(ProgressBar.ProgressTextFormatProperty),
+                new TemplateBinding(RangeBase.ValueProperty),
+                new TemplateBinding(ProgressBar.PercentageProperty),
+                new TemplateBinding(RangeBase.MinimumProperty),
+                new TemplateBinding(RangeBase.MaximumProperty),
+            },
+        });
 
         var grid = new Grid { Children = { track, text } };
         if (vertical)
@@ -134,7 +146,12 @@ internal sealed class ProgressSweep : Control
 
     static ProgressSweep() => AffectsRender<ProgressSweep>(BrushProperty, OrientationProperty);
 
-    public ProgressSweep() => Clock = new ContinuousClock(this, InvalidateVisual);
+    public ProgressSweep()
+    {
+        // The sweep is shown only while indeterminate, so it runs whenever it is effectively visible.
+        Clock = new ContinuousClock(this, InvalidateVisual);
+        Clock.Run(true);
+    }
 
     internal ContinuousClock Clock { get; }
 
@@ -175,24 +192,5 @@ internal sealed class ProgressSweep : Control
             : new Rect(0, Bounds.Height - start - size, Bounds.Width, size);
         var radius = Math.Min(rect.Width, rect.Height) / 2;
         context.DrawRectangle(Brush, null, new RoundedRect(rect, radius));
-    }
-
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToVisualTree(e);
-        Clock.Run(IsVisible);
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromVisualTree(e);
-        Clock.Run(false);
-    }
-
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-        if (change.Property == IsVisibleProperty)
-            Clock.Run(IsVisible && this.IsAttachedToVisualTree());
     }
 }

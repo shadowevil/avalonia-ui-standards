@@ -34,17 +34,16 @@ internal static class ToggleParts
 
     /// <summary>The density sizes of the toggles.</summary>
     internal sealed record Sizes(
-        double Row, double Box, double BoxRadius, double Dot, double Glyph,
+        double Box, double BoxRadius, double Dot, double Glyph,
         double TrackWidth, double TrackHeight, double KnobOff, double KnobOn, double KnobStretch);
 
-    /// <summary>Normal: row 32, box and circle 20 (box radius 5), dot 8, glyph stroke 2; track 40 x 20, knob 12 off and 14 on.</summary>
-    public static readonly Sizes Normal = new(32, 20, 5, 8, 2, 40, 20, 12, 14, 4);
+    /// <summary>Normal: box and circle 20 (box radius 5), dot 8, glyph stroke 2; track 40 x 20, knob 12 off and 14 on.</summary>
+    public static readonly Sizes Normal = new(20, 5, 8, 2, 40, 20, 12, 14, 4);
 
-    /// <summary>Compact: row 24, box and circle 16 (box radius 4), dot 6, glyph stroke 1.5; track 32 x 16, knob 10 off and 12 on.</summary>
-    public static readonly Sizes Compact = new(24, 16, 4, 6, 1.5, 32, 16, 10, 12, 4);
+    /// <summary>Compact: box and circle 16 (box radius 4), dot 6, glyph stroke 1.5; track 32 x 16, knob 10 off and 12 on.</summary>
+    public static readonly Sizes Compact = new(16, 4, 6, 1.5, 32, 16, 10, 12, 4);
 
     // Density values, set by ApplyDensity under these non-public keys.
-    internal static readonly object RowKey = new();
     internal static readonly object BoxKey = new();
     internal static readonly object BoxRadiusKey = new();
     internal static readonly object CircleRadiusKey = new();
@@ -67,7 +66,6 @@ internal static class ToggleParts
 
     public static void ApplyDensity(IResourceDictionary resources, Sizes sizes)
     {
-        resources[RowKey] = sizes.Row;
         resources[BoxKey] = sizes.Box;
         resources[BoxRadiusKey] = new CornerRadius(sizes.BoxRadius);
         resources[CircleRadiusKey] = new CornerRadius(sizes.Box / 2);
@@ -186,7 +184,7 @@ internal static class ToggleParts
         var ringed = FocusRing.Wrap(indicator, scope);
         ringed.VerticalAlignment = VerticalAlignment.Center;
         var cell = new Panel { Children = { ringed }, VerticalAlignment = VerticalAlignment.Top };
-        cell.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(RowKey));
+        cell.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
         Grid.SetColumn(label, 1);
         label.RegisterInNameScope(scope);
 
@@ -200,7 +198,7 @@ internal static class ToggleParts
     {
         theme.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
         theme.Setters.Add(new Setter(TemplatedControl.PaddingProperty, new Thickness(LabelGap, 0, 0, 0)));
-        theme.Setters.Add(new Setter(Layoutable.MinHeightProperty, new DynamicResourceExtension(RowKey)));
+        theme.Setters.Add(new Setter(Layoutable.MinHeightProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey)));
         theme.Setters.Add(new Setter(Layoutable.HorizontalAlignmentProperty, HorizontalAlignment.Left));
         theme.Setters.Add(new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Center));
         theme.Setters.Add(new Setter(ContentControl.HorizontalContentAlignmentProperty, HorizontalAlignment.Left));

@@ -313,7 +313,7 @@ public class ToggleThemeTests
     internal static T Part<T>(Control control, string name) where T : Control =>
         control.GetVisualDescendants().OfType<T>().First(c => c.Name == name);
 
-    private static StandardsTheme? Theme(string density) => density == "Compact"
+    internal static StandardsTheme? Theme(string density) => density == "Compact"
         ? new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact }
         : null;
 
@@ -335,6 +335,6 @@ public class ToggleThemeTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static object? Resolve(Window window, string key, ThemeVariant variant) =>
+    internal static object? Resolve(Window window, string key, ThemeVariant variant) =>
         window.TryFindResource(key, variant, out var value) ? value : throw new InvalidOperationException(key);
 }

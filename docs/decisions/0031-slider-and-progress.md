@@ -16,10 +16,10 @@
     | ProgressRing (default size) | 20 | 16 |
     | Track thickness (slider, progress bar) | 4 | 4 |
 
-    - The ring's stroke is a tenth of its size, at least 2 px. A ring can be any size through `Width` and `Height`.
+    - The ring's stroke is a tenth of its size rounded to whole pixels (halves round up), at least 2 px. A ring can be any size through `Width` and `Height`.
     - **Why:** The slider row matches the button heights. The ring follows the Icon sizes ([0026](0026-icon.md)), since it sits where icons sit. The tracks are lines, not targets, so they keep one thickness.
   - Slider:
-    - Value part: the AA accent fills (`AccentFillColor`, `…PointerOver`, `…Pressed`). Rest of the track: Fluent's `SliderTrackFill*`. Ticks: Fluent's `SliderTickBarFill*`, 4 px long, 4 px outside the thumb's row, shown by `TickPlacement` as in Fluent.
+    - Value part: the AA accent fills (`AccentFillColor`, `…PointerOver`, `…Pressed`). Rest of the track: Fluent's `SliderTrackFill*`. Ticks: Fluent's `SliderTickBarFill*`, shown by `TickPlacement` as in Fluent, 4 px long and 4 px from the thumb's edge. Ticks on one side fit within the 32 / 24 px row; ticks on both sides make the slider 36 px tall at Normal and 32 px at Compact (wide, when vertical). Ticks inside the row would sit under the thumb or touch it at Compact, so they stay clear of it and the row grows instead.
     - Thumb: a white circle in both themes with a 1 px black 12 % edge and a soft shadow (0 1 3, black 25 %). It grows 10 % on hover and 20 % while pressed (`MotionFast`).
     - Disabled: value part `SystemControlForegroundBaseMediumLowBrush`, rest `SliderTrackFillDisabled`, thumb `SystemControlBackgroundBaseLowBrush`. Fluent's error state (an error-coloured thumb) is kept.
     - It stretches along its track and is centred across it. Vertical fills from the bottom; `IsDirectionReversed` is honoured.

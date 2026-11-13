@@ -1,10 +1,13 @@
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -75,10 +78,10 @@ public class RangeThemeTests
             ((IPseudoClasses)slider.Classes).Set(state, true);
         Settle(window);
 
-        Assert.Equal(Effective(Find(window, valueKey, variant)), Effective(Part<RepeatButton>(slider, SliderTheme.DecreasePart).Background));
-        Assert.Equal(Effective(Find(window, restKey, variant)), Effective(Part<RepeatButton>(slider, SliderTheme.IncreasePart).Background));
+        Assert.Equal(Effective(Resolve(window, valueKey, variant)), Effective(Part<RepeatButton>(slider, SliderTheme.DecreasePart).Background));
+        Assert.Equal(Effective(Resolve(window, restKey, variant)), Effective(Part<RepeatButton>(slider, SliderTheme.IncreasePart).Background));
         var thumb = slider.GetVisualDescendants().OfType<Thumb>().Single();
-        Assert.Equal(state == ":disabled" ? Effective(Find(window, "SystemControlBackgroundBaseLowBrush", variant)) : Colors.White, Effective(thumb.GetBaseValue(TemplatedControl.BackgroundProperty).Value));
+        Assert.Equal(state == ":disabled" ? Effective(Resolve(window, "SystemControlBackgroundBaseLowBrush", variant)) : Colors.White, Effective(thumb.GetBaseValue(TemplatedControl.BackgroundProperty).Value));
     }
 
     [AvaloniaTheory]
@@ -101,7 +104,7 @@ public class RangeThemeTests
             var (window, slider) = Show(new Slider { Width = 200, Value = 50 }, variant);
             var fill = Effective(Part<RepeatButton>(slider, SliderTheme.DecreasePart).Background);
             foreach (var surface in new[] { "SystemRegionColor", "SystemChromeMediumLowColor" })
-                Assert.True(AccessibleColors.ContrastRatio(fill, Effective(Find(window, surface, variant))) >= 3, $"{variant} {surface}");
+                Assert.True(AccessibleColors.ContrastRatio(fill, Effective(Resolve(window, surface, variant))) >= 3, $"{variant} {surface}");
         }
     }
 
@@ -137,6 +140,18 @@ public class RangeThemeTests
         Assert.Equal(["BottomTickBar"], ticks.Where(t => t.IsVisible).Select(t => t.Name));
     }
 
+    // Ticks sit 4 px from the thumb's edge: one side fits the row, both sides grow it.
+    [AvaloniaTheory]
+    [InlineData("Normal", TickPlacement.TopLeft, 32)]
+    [InlineData("Normal", TickPlacement.Outside, 36)]
+    [InlineData("Compact", TickPlacement.BottomRight, 24)]
+    [InlineData("Compact", TickPlacement.Outside, 32)]
+    public void Slider_Ticks_KeepClearOfTheThumb(string density, TickPlacement placement, double height)
+    {
+        var (_, slider) = Show(new Slider { Width = 200, TickFrequency = 10, TickPlacement = placement }, theme: Theme(density));
+        Assert.Equal(height, slider.Bounds.Height);
+    }
+
     [AvaloniaFact]
     public void Slider_Transitions_AreFastCrossFades_AndStopUnderReduceMotion()
     {
@@ -161,8 +176,8 @@ public class RangeThemeTests
 
         Assert.Equal(new Size(200, 4), track.Bounds.Size);
         Assert.Equal(80, indicator.Bounds.Width, 1);
-        Assert.Equal(Effective(Find(window, "AccentFillColor", ThemeVariant.Light)), Effective(indicator.Background));
-        Assert.Equal(Effective(Find(window, "SystemControlBackgroundBaseLowBrush", ThemeVariant.Light)), Effective(track.Background));
+        Assert.Equal(Effective(Resolve(window, "AccentFillColor", ThemeVariant.Light)), Effective(indicator.Background));
+        Assert.Equal(Effective(Resolve(window, "SystemControlBackgroundBaseLowBrush", ThemeVariant.Light)), Effective(track.Background));
     }
 
     [AvaloniaFact]
@@ -190,28 +205,133 @@ public class RangeThemeTests
     public void Indeterminate_RunsOnTheWindowsFrameTicks_AndNotUnderReduceMotion()
     {
         var bar = new ProgressBar { Width = 200, IsIndeterminate = true };
-        var window = new StandardsWindow { Width = 400, Height = 300, Content = bar };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
-        window.Show();
-        window.Activate();
-        Settle(window);
-        Assert.True(window.IsFrameTickRunning);
+        var window = Window(bar, reduceMotion: false);
+        var reduced = Window(new ProgressBar { IsIndeterminate = true }, reduceMotion: true);
+        try
+        {
+            Assert.True(window.IsFrameTickRunning);
 
-        bar.IsIndeterminate = false;
-        Settle(window);
-        Assert.False(window.IsFrameTickRunning);
+            bar.IsIndeterminate = false;
+            Settle(window);
+            Assert.False(window.IsFrameTickRunning);
 
+            window.Content = new ProgressRing { IsIndeterminate = true };
+            Settle(window);
+            Assert.True(window.IsFrameTickRunning);
+
+            Assert.False(reduced.IsFrameTickRunning);
+        }
+        finally
+        {
+            window.Close();
+            reduced.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Determinate_LeavesFrameTicksOff()
+    {
+        var window = Window(new StackPanel { Children = { new ProgressBar { Value = 40 }, new ProgressRing { Value = 40 } } }, reduceMotion: false);
+        try
+        {
+            Assert.False(window.IsFrameTickRunning);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // A busy overlay hidden with IsVisible = false must not keep the window ticking.
+    [AvaloniaFact]
+    public void Indeterminate_InAHiddenPanel_LeavesFrameTicksOff()
+    {
+        var bar = new ProgressBar { Width = 200, IsIndeterminate = true };
         var ring = new ProgressRing { IsIndeterminate = true };
-        window.Content = ring;
-        Settle(window);
-        Assert.True(window.IsFrameTickRunning);
+        var overlay = new Panel { IsVisible = false, Children = { new StackPanel { Children = { bar, ring } } } };
+        var window = Window(overlay, reduceMotion: false);
+        try
+        {
+            Assert.False(window.IsFrameTickRunning);
 
-        var reduced = new StandardsWindow { Width = 400, Height = 300, Content = new ProgressBar { IsIndeterminate = true } };
-        reduced.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
-        reduced.Show();
-        reduced.Activate();
-        Settle(reduced);
-        Assert.False(reduced.IsFrameTickRunning);
+            overlay.IsVisible = true;
+            Settle(window);
+            Assert.True(window.IsFrameTickRunning);
+
+            overlay.IsVisible = false;
+            Settle(window);
+            Assert.False(window.IsFrameTickRunning);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void FrameTicks_AdvanceTheTime_ExceptUnderReduceMotion()
+    {
+        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var (window, bar) = Show(new ProgressBar { Width = 200, IsIndeterminate = true }, theme: theme);
+        var clock = Part<ProgressSweep>(bar, ProgressBarTheme.SweepPart).Clock;
+
+        clock.OnTick(TimeSpan.FromSeconds(0.1));
+        clock.OnTick(TimeSpan.FromSeconds(0.05));
+        Assert.Equal(TimeSpan.FromSeconds(0.15), clock.Time);
+
+        theme.ReduceMotion = true;
+        Settle(window);
+        clock.OnTick(TimeSpan.FromSeconds(0.1));
+        Assert.Equal(TimeSpan.Zero, clock.Time);
+    }
+
+    [AvaloniaFact]
+    public void Time_StaysZero_OutsideAStandardsWindow()
+    {
+        var (window, bar) = Show(new ProgressBar { Width = 200, IsIndeterminate = true });
+        var clock = Part<ProgressSweep>(bar, ProgressBarTheme.SweepPart).Clock;
+        Assert.True(clock.IsRunning);
+        for (var i = 0; i < 5; i++)
+        {
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Settle(window);
+        }
+        Assert.Equal(TimeSpan.Zero, clock.Time);
+    }
+
+    // Headless popups live in the window's overlay layer, so the PopupRoot.ParentTopLevel path is not reached here.
+    [AvaloniaFact]
+    public void InAPopup_TheWindowsTicksAreUsed()
+    {
+        var bar = new ProgressBar { Width = 200, IsIndeterminate = true };
+        var anchor = new Border { Width = 10, Height = 10 };
+        var window = Window(anchor, reduceMotion: false);
+        var popup = new Popup { PlacementTarget = anchor, Child = bar };
+        try
+        {
+            ((ISetLogicalParent)popup).SetParent(anchor);
+            popup.IsOpen = true;
+            Settle(window);
+            Assert.Same(window, FrameTicks.For(bar));
+            Assert.True(window.IsFrameTickRunning);
+        }
+        finally
+        {
+            popup.IsOpen = false;
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ProgressBarText_FollowsTheValue_AfterReTemplating()
+    {
+        var (window, bar) = Show(new ProgressBar { Width = 200, Value = 40, ShowProgressText = true });
+        bar.Orientation = Orientation.Vertical;
+        Settle(window);
+        bar.Orientation = Orientation.Horizontal;
+        Settle(window);
+        bar.Value = 70;
+        Assert.Equal("70%", Part<TextBlock>(bar, ProgressBarTheme.TextPart).Text);
     }
 
     [AvaloniaFact]
@@ -259,17 +379,34 @@ public class RangeThemeTests
     }
 
     [AvaloniaFact]
+    public void ProgressRing_IsAReadOnlyProgressBar_ToAutomation()
+    {
+        var (_, ring) = Show(new ProgressRing { Value = 30 });
+        var peer = ControlAutomationPeer.CreatePeerForElement(ring);
+        Assert.Equal(AutomationControlType.ProgressBar, peer.GetAutomationControlType());
+        var range = Assert.IsAssignableFrom<IRangeValueProvider>(peer);
+        Assert.True(range.IsReadOnly);
+        Assert.Equal(30, range.Value);
+        Assert.Equal(100, range.Maximum);
+        Assert.Throws<InvalidOperationException>(() => range.SetValue(50));
+    }
+
+    [AvaloniaFact]
     public void ProgressRing_Disabled_DimsTheArc()
     {
         var (window, ring) = Show(new ProgressRing { Value = 25, IsEnabled = false });
-        Assert.Equal(Effective(Find(window, "SystemControlForegroundBaseMediumLowBrush", ThemeVariant.Light)),
+        Assert.Equal(Effective(Resolve(window, "SystemControlForegroundBaseMediumLowBrush", ThemeVariant.Light)),
             Effective(Part<RingArc>(ring, ProgressRingTheme.ArcPart).Arc));
     }
 
-    private static StandardsTheme? Theme(string density) => density == "Compact"
-        ? new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact }
-        : null;
-
-    private static object? Find(Window window, string key, ThemeVariant variant) =>
-        window.TryFindResource(key, variant, out var value) ? value : throw new InvalidOperationException(key);
+    // A shown, active library window with its own theme.
+    private static StandardsWindow Window(Control content, bool reduceMotion)
+    {
+        var window = new StandardsWindow { Width = 400, Height = 300, Content = content };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Show();
+        window.Activate();
+        Settle(window);
+        return window;
+    }
 }

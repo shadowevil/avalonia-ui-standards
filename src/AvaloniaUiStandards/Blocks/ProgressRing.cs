@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
@@ -35,5 +37,17 @@ public class ProgressRing : RangeBase
             UpdatePseudoClasses();
     }
 
+    protected override AutomationPeer OnCreateAutomationPeer() => new ProgressRingAutomationPeer(this);
+
     private void UpdatePseudoClasses() => PseudoClasses.Set(":indeterminate", IsIndeterminate);
+}
+
+/// <summary>A ProgressRing's automation peer: a progress bar to assistive technology, with a read-only value.</summary>
+internal sealed class ProgressRingAutomationPeer(ProgressRing owner) : RangeBaseAutomationPeer(owner), IRangeValueProvider
+{
+    protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.ProgressBar;
+
+    bool IRangeValueProvider.IsReadOnly => true;
+
+    void IRangeValueProvider.SetValue(double value) => throw new InvalidOperationException("A ProgressRing's value is read-only.");
 }

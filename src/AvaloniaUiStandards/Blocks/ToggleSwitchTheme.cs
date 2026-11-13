@@ -28,8 +28,6 @@ internal static class ToggleSwitchTheme
     public const string OnContentPart = "PART_OnContentPresenter";
     public const string OffContentPart = "PART_OffContentPresenter";
 
-    private static readonly CornerRadius Round = new(1000);
-
     private readonly record struct Look(object OutlineBackground, object OutlineBorder, object Fill, object Knob);
 
     public static ControlTheme Create()
@@ -108,7 +106,7 @@ internal static class ToggleSwitchTheme
         var outline = Layer(OutlinePart);
         outline.BorderThickness = new Thickness(1);
         var fill = Layer(FillPart);
-        var knob = Layer(KnobPart, Round);
+        var knob = Layer(KnobPart, ButtonParts.Pill);
         knob.HorizontalAlignment = HorizontalAlignment.Center;
         knob.VerticalAlignment = VerticalAlignment.Center;
 
@@ -132,7 +130,7 @@ internal static class ToggleSwitchTheme
         var contents = new Panel { Margin = new Thickness(LabelGap, 0, 0, 0), Children = { off, on } };
         Grid.SetColumn(contents, 1);
         var switchRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto"), HorizontalAlignment = HorizontalAlignment.Left, Children = { ringed, contents } };
-        switchRow.Bind(Layoutable.MinHeightProperty, new DynamicResourceExtension(RowKey));
+        switchRow.Bind(Layoutable.MinHeightProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
         Grid.SetRow(switchRow, 1);
 
         var header = ButtonParts.CreatePresenter();

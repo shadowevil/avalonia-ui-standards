@@ -46,15 +46,9 @@ internal static class ProgressRingTheme
         arc.Bind(RingArc.TrackProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
         arc.Bind(RingArc.ArcProperty, new TemplateBinding(TemplatedControl.ForegroundProperty));
         arc.Bind(RingArc.IsIndeterminateProperty, new TemplateBinding(ProgressRing.IsIndeterminateProperty));
-        void UpdateFraction() => arc.Fraction = ring.Maximum > ring.Minimum
-            ? Math.Clamp((ring.Value - ring.Minimum) / (ring.Maximum - ring.Minimum), 0, 1)
-            : 0;
-        ring.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == RangeBase.ValueProperty || e.Property == RangeBase.MinimumProperty || e.Property == RangeBase.MaximumProperty)
-                UpdateFraction();
-        };
-        UpdateFraction();
+        arc.Bind(RingArc.MinimumProperty, new TemplateBinding(RangeBase.MinimumProperty));
+        arc.Bind(RingArc.MaximumProperty, new TemplateBinding(RangeBase.MaximumProperty));
+        arc.Bind(RingArc.ValueProperty, new TemplateBinding(RangeBase.ValueProperty));
         arc.RegisterInNameScope(scope);
         return arc;
     }
@@ -62,7 +56,7 @@ internal static class ProgressRingTheme
 
 /// <summary>
 /// Draws a ProgressRing: the track circle and the arc. Determinate, the arc runs clockwise from the
-/// top for <see cref="Fraction"/> of the turn. Indeterminate, a quarter arc turns once per
+/// top for the value's share of the range. Indeterminate, a quarter arc turns once per
 /// <see cref="Period"/> on the window's frame ticks (<see cref="ContinuousClock"/>); its still frame
 /// (time zero) is centred on the top, so it never reads as an amount.
 /// </summary>
@@ -74,8 +68,14 @@ internal sealed class RingArc : Control
     public static readonly StyledProperty<IBrush?> ArcProperty =
         AvaloniaProperty.Register<RingArc, IBrush?>(nameof(Arc));
 
-    public static readonly StyledProperty<double> FractionProperty =
-        AvaloniaProperty.Register<RingArc, double>(nameof(Fraction));
+    public static readonly StyledProperty<double> MinimumProperty =
+        RangeBase.MinimumProperty.AddOwner<RingArc>();
+
+    public static readonly StyledProperty<double> MaximumProperty =
+        RangeBase.MaximumProperty.AddOwner<RingArc>();
+
+    public static readonly StyledProperty<double> ValueProperty =
+        RangeBase.ValueProperty.AddOwner<RingArc>();
 
     public static readonly StyledProperty<bool> IsIndeterminateProperty =
         AvaloniaProperty.Register<RingArc, bool>(nameof(IsIndeterminate));
@@ -86,7 +86,7 @@ internal sealed class RingArc : Control
     /// <summary>The indeterminate arc's length, in degrees.</summary>
     public const double IndeterminateSweep = 90;
 
-    static RingArc() => AffectsRender<RingArc>(TrackProperty, ArcProperty, FractionProperty, IsIndeterminateProperty);
+    static RingArc() => AffectsRender<RingArc>(TrackProperty, ArcProperty, MinimumProperty, MaximumProperty, ValueProperty, IsIndeterminateProperty);
 
     public RingArc() => Clock = new ContinuousClock(this, InvalidateVisual);
 
@@ -104,11 +104,26 @@ internal sealed class RingArc : Control
         set => SetValue(ArcProperty, value);
     }
 
-    public double Fraction
+    public double Minimum
     {
-        get => GetValue(FractionProperty);
-        set => SetValue(FractionProperty, value);
+        get => GetValue(MinimumProperty);
+        set => SetValue(MinimumProperty, value);
     }
+
+    public double Maximum
+    {
+        get => GetValue(MaximumProperty);
+        set => SetValue(MaximumProperty, value);
+    }
+
+    public double Value
+    {
+        get => GetValue(ValueProperty);
+        set => SetValue(ValueProperty, value);
+    }
+
+    /// <summary>The value's share of the range, 0 to 1.</summary>
+    internal double Fraction => Maximum > Minimum ? Math.Clamp((Value - Minimum) / (Maximum - Minimum), 0, 1) : 0;
 
     public bool IsIndeterminate
     {
@@ -116,8 +131,8 @@ internal sealed class RingArc : Control
         set => SetValue(IsIndeterminateProperty, value);
     }
 
-    /// <summary>The stroke for a ring of <paramref name="size"/>: a tenth of it, at least 2 px.</summary>
-    internal static double Stroke(double size) => Math.Max(2, Math.Round(size / 10));
+    /// <summary>The stroke for a ring of <paramref name="size"/>: a tenth of it rounded to whole pixels (halves up), at least 2 px.</summary>
+    internal static double Stroke(double size) => Math.Max(2, Math.Round(size / 10, MidpointRounding.AwayFromZero));
 
     /// <summary>The arc's start (degrees clockwise from the top) and sweep.</summary>
     internal (double Start, double Sweep) Span() => IsIndeterminate
@@ -159,22 +174,10 @@ internal sealed class RingArc : Control
         context.DrawGeometry(null, pen, geometry);
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToVisualTree(e);
-        Clock.Run(IsIndeterminate);
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromVisualTree(e);
-        Clock.Run(false);
-    }
-
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == IsIndeterminateProperty)
-            Clock.Run(IsIndeterminate && this.IsAttachedToVisualTree());
+            Clock.Run(IsIndeterminate);
     }
 }

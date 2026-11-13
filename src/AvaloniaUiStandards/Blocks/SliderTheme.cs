@@ -54,7 +54,7 @@ internal static class SliderTheme
     {
         Setters =
         {
-            new Setter(TemplatedControl.CornerRadiusProperty, RangeParts.Pill),
+            new Setter(TemplatedControl.CornerRadiusProperty, ButtonParts.Pill),
             // The focus ring lies outside the thumb.
             new Setter(Visual.ClipToBoundsProperty, false),
             new Setter(Animatable.TransitionsProperty, new DynamicResourceExtension(ChromeTransitionsKey)),
@@ -74,7 +74,7 @@ internal static class SliderTheme
                 {
                     new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<Slider>((slider, scope) => Build(slider, scope, orientation))),
                     new Setter(orientation == Orientation.Horizontal ? Layoutable.MinHeightProperty : Layoutable.MinWidthProperty,
-                        new DynamicResourceExtension(RangeParts.RowKey)),
+                        new DynamicResourceExtension(MinHeightKey)),
                     // Along the track it stretches; across it, it is as thick as its row, centred.
                     orientation == Orientation.Horizontal
                         ? new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Center)
@@ -165,7 +165,7 @@ internal static class SliderTheme
         {
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<RepeatButton>((_, _) =>
             {
-                var pill = new SquircleBorder { CornerRadius = RangeParts.Pill };
+                var pill = new SquircleBorder { CornerRadius = ButtonParts.Pill };
                 if (orientation == Orientation.Horizontal)
                     pill.Height = RangeParts.TrackThickness;
                 else
