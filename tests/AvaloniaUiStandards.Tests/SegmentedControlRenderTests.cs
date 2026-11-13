@@ -34,23 +34,6 @@ public class SegmentedControlRenderTests
         sheet.Save("m3-segmented-control.png");
     }
 
-    [AvaloniaFact]
-    public void PillVariants_Render()
-    {
-        string[] columns = ["Text", "Icons", "Glass panel", "Several side by side"];
-        using var sheet = new Sheet("SegmentedControl pill: neutral raised (the library) and accent with white text (the alternative)");
-        foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
-            sheet.AddSection(themeLabel, columns,
-                new[] { false, true }.Select(accent => (accent ? "Accent pill" : "Neutral pill", (IReadOnlyList<Control>)
-                [
-                    VariantCell(sheet, theme, accent, Text()),
-                    VariantCell(sheet, theme, accent, Glyphs()),
-                    VariantCell(sheet, theme, accent, Text(), ListBoxRenderTests.Surface.GlassPanel),
-                    VariantCell(sheet, theme, accent, Toolbar()),
-                ])).ToList());
-        sheet.Save("m3-segmented-control-pill.png");
-    }
-
     // --- Content -------------------------------------------------------------------------
 
     internal static SegmentedControl Text()
@@ -71,18 +54,6 @@ public class SegmentedControlRenderTests
         }
         return control;
     }
-
-    private static Control Toolbar() => new StackPanel
-    {
-        Orientation = Avalonia.Layout.Orientation.Horizontal,
-        Spacing = 8,
-        Children =
-        {
-            new SegmentedControl { ItemsSource = new[] { "System", "Light", "Dark" }, SelectedIndex = 1 },
-            new SegmentedControl { ItemsSource = new[] { "Normal", "Compact" }, SelectedIndex = 0 },
-            new Button { Content = "Share" },
-        },
-    };
 
     // --- Cells ---------------------------------------------------------------------------
 
@@ -111,29 +82,6 @@ public class SegmentedControlRenderTests
                     control.ContainerFromIndex(0)!.Focus(NavigationMethod.Tab);
                 w.UpdateLayout();
             });
-    }
-
-    private static Control VariantCell(Sheet sheet, ThemeVariant theme, bool accent, Control content,
-        ListBoxRenderTests.Surface? surface = null) =>
-        sheet.Cell(surface is { } s ? ListBoxRenderTests.OnSurface(content, s) : content, theme,
-            beforeShow: w =>
-            {
-                if (accent)
-                    UseAccentPill(w);
-            },
-            afterShow: w =>
-            {
-                w.UpdateLayout();
-                foreach (var control in content.GetVisualDescendants().OfType<SegmentedControl>().Append(content as SegmentedControl).OfType<SegmentedControl>())
-                    Strip(control);
-            });
-
-    /// <summary>The alternative pill: the AA accent fill with white text, as selected list items and checked toggles.</summary>
-    internal static void UseAccentPill(Window window)
-    {
-        Assert.True(window.TryFindResource("AccentFillColor", out var fill));
-        window.Resources[SegmentedControlTheme.PillKey] = new SolidColorBrush((Color)fill!);
-        window.Resources[SegmentedControlTheme.SelectedTextKey] = Brushes.White;
     }
 
     private static void Strip(Control root)
