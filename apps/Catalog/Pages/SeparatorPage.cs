@@ -35,33 +35,23 @@ internal sealed class SeparatorPage : UserControl
         {
             Children =
             {
-                new Border { Margin = new Thickness(0, 0, 24, 12), Child = Split(columns: true, width: 200, height: 140) },
-                new Border { Margin = new Thickness(0, 0, 24, 12), Child = Split(columns: false, width: 160, height: 180) },
+                Ui.Spaced(Split(columns: true, width: 200, height: 140)),
+                Ui.Spaced(Split(columns: false, width: 160, height: 180)),
             },
         }),
         Ui.Caption("Invisible at rest; a pill grip shows on hover, darker while dragging. Tab to a splitter and use the arrow keys to resize."));
 
     private static Control StatesGrid()
     {
-        var grid = new Grid { ColumnSpacing = 12, RowSpacing = 8 };
-        for (var c = 0; c <= States.Length; c++)
-            grid.ColumnDefinitions.Add(new ColumnDefinition(c == 0 ? new GridLength(150) : GridLength.Auto));
-        grid.RowDefinitions = new RowDefinitions("Auto,Auto,Auto");
-        for (var c = 0; c < States.Length; c++)
-            Place(grid, Ui.Caption(States[c].Label), 0, c + 1);
-        Place(grid, Ui.Body("Between columns"), 1, 0);
-        Place(grid, Ui.Body("Between rows"), 2, 0);
+        var grid = Ui.StateTable(States.Select(s => s.Label).ToList(), 2);
+        Ui.Place(grid, Ui.Body("Between columns"), 1, 0);
+        Ui.Place(grid, Ui.Body("Between rows"), 2, 0);
         for (var c = 0; c < States.Length; c++)
         {
-            Place(grid, Forced(Split(columns: true, width: 140, height: 90), States[c]), 1, c + 1);
-            Place(grid, Forced(Split(columns: false, width: 110, height: 110), States[c]), 2, c + 1);
+            Ui.Place(grid, Forced(Split(columns: true, width: 140, height: 90), States[c]), 1, c + 1);
+            Ui.Place(grid, Forced(Split(columns: false, width: 110, height: 110), States[c]), 2, c + 1);
         }
-        return new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Content = grid,
-        };
+        return Ui.SideScroll(grid);
     }
 
     // A non-interactive copy of a split grid with its splitter forced into a state once attached.
@@ -107,12 +97,5 @@ internal sealed class SeparatorPage : UserControl
         pane.Bind(SquircleBorder.CornerRadiusProperty, new DynamicResourceExtension("CornerRadiusControl"));
         pane.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("SystemControlBackgroundChromeMediumLowBrush"));
         return pane;
-    }
-
-    private static void Place(Grid grid, Control control, int row, int column)
-    {
-        Grid.SetRow(control, row);
-        Grid.SetColumn(control, column);
-        grid.Children.Add(control);
     }
 }

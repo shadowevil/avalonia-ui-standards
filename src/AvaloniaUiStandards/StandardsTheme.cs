@@ -55,10 +55,10 @@ public class StandardsTheme : Styles
     private static readonly Color Danger = Color.FromRgb(0xE1, 0x33, 0x2A);
 
     /// <summary>The success colour, between the Windows success green (#0F7B0F) and the macOS system green (#34C759).</summary>
-    internal static readonly Color Success = Color.FromRgb(0x22, 0xA1, 0x34);
+    private static readonly Color Success = Color.FromRgb(0x22, 0xA1, 0x34);
 
     /// <summary>The warning colour, between the Windows caution (#9D5D00) and the macOS system orange (#FF9500).</summary>
-    internal static readonly Color Warning = Color.FromRgb(0xCE, 0x79, 0x00);
+    private static readonly Color Warning = Color.FromRgb(0xCE, 0x79, 0x00);
 
     private static readonly TimeSpan MotionFast = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan MotionNormal = TimeSpan.FromMilliseconds(200);

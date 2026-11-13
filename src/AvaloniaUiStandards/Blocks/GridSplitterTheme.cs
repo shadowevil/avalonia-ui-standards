@@ -31,9 +31,6 @@ internal static class GridSplitterTheme
     /// <summary>The handle's minimum thickness: <c>SpacingS</c>.</summary>
     public const double MinThickness = Spacing.S;
 
-    // The focus ring's gap and width, as in FocusRing.
-    private const double RingOffset = 4;
-
     public static ControlTheme Create()
     {
         var theme = new ControlTheme(typeof(GridSplitter))
@@ -78,7 +75,7 @@ internal static class GridSplitterTheme
     {
         var grip = new PillBorder { Name = GripPart };
         grip.Bind(Animatable.TransitionsProperty, new DynamicResourceExtension(ScrollBarTheme.PartTransitionsKey));
-        var ring = new PillBorder { Name = RingPart, BorderThickness = new Thickness(2), IsHitTestVisible = false };
+        var ring = new PillBorder { Name = RingPart, BorderThickness = new Thickness(FocusRing.Width), IsHitTestVisible = false };
         ring.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("SystemControlHighlightAccentBrush"));
 
         var root = new GripPanel(grip, ring);
@@ -127,7 +124,7 @@ internal static class GridSplitterTheme
             var size = upright ? new Size(GripThickness, GripLength) : new Size(GripLength, GripThickness);
             var grip = new Rect(new Point((finalSize.Width - size.Width) / 2, (finalSize.Height - size.Height) / 2), size);
             _grip.Arrange(grip);
-            _ring?.Arrange(grip.Inflate(RingOffset));
+            _ring?.Arrange(grip.Inflate(FocusRing.Offset));
             return finalSize;
         }
     }

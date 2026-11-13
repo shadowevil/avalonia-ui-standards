@@ -81,7 +81,9 @@ internal static class BlocksThemes
         resources[ButtonParts.MinHeightKey] = sizes.MinHeight;
         resources[ButtonParts.PaddingKey] = sizes.Padding;
         resources[ButtonParts.GlyphMarginKey] = new Thickness(0, 0, sizes.Padding.Right, 0);
-        resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        var iconSize = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        resources[IconTheme.SizeKey] = iconSize;
+        resources[NotificationTheme.CloseMarginKey] = NotificationTheme.CloseMargin(sizes.MinHeight, iconSize);
         ToggleParts.ApplyDensity(resources, density == DensityStyle.Compact ? ToggleParts.Compact : ToggleParts.Normal);
         RangeParts.ApplyDensity(resources, density == DensityStyle.Compact ? RangeParts.Compact : RangeParts.Normal);
         TreeViewTheme.ApplyDensity(resources, density == DensityStyle.Compact);

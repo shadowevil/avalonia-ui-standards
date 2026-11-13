@@ -40,6 +40,17 @@ internal static class NotificationTheme
     /// <summary>The gap between the icon, the text and the close button: <c>SpacingM</c>.</summary>
     public const double Gap = Spacing.M;
 
+    // The close button's margin, set by BlocksThemes.ApplyDensity under this non-public key.
+    internal static readonly object CloseMarginKey = new();
+
+    /// <summary>
+    /// The close button's margin for a button and icon size: pulled up into the card's padding by
+    /// half their difference, so the button's centre lines up with the type icon's, and right into
+    /// the padding by <c>SpacingS</c>, with <c>SpacingS</c> after the text.
+    /// </summary>
+    public static Thickness CloseMargin(double buttonSize, double iconSize) =>
+        new(Gap - Spacing.XS, -(buttonSize - iconSize) / 2, -Spacing.S, 0);
+
     /// <summary>The icon and colour key per type, by the card's pseudo-class.</summary>
     public static readonly (string PseudoClass, Func<Geometry> Icon, string ColourKey)[] Types =
     [
@@ -110,10 +121,9 @@ internal static class NotificationTheme
             Padding = default,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
-            // Pulled into the padding so its centre lines up with the icon's.
-            Margin = new Thickness(Gap - Spacing.XS, -Spacing.XS - 2, -Spacing.S, 0),
         };
         close.Classes.Add("subtle");
+        close.Bind(Layoutable.MarginProperty, new DynamicResourceExtension(CloseMarginKey));
         close.Bind(Layoutable.WidthProperty, new DynamicResourceExtension(MinHeightKey));
         close.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(MinHeightKey));
         NotificationCard.SetCloseOnClick(close, true);

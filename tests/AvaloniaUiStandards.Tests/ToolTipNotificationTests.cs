@@ -183,6 +183,64 @@ public class ToolTipNotificationTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public void CloseButton_IsCentredOnTheTypeIcon_AtEachDensity(bool compact)
+    {
+        var (window, manager) = ShowManager(ThemeVariant.Light);
+        try
+        {
+            if (compact)
+                window.Styles.OfType<StandardsTheme>().Single().Density = Avalonia.Themes.Fluent.DensityStyle.Compact;
+            manager.Show(new Notification("Title", "Message", NotificationType.Information, TimeSpan.Zero));
+            Overlays.Pump(window);
+            var card = Cards(window).Single();
+            var icon = card.GetVisualDescendants().OfType<Icon>().Single(i => i.Name == NotificationTheme.TypeIconPart);
+            var close = card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == NotificationTheme.CloseButtonPart);
+            Assert.Equal(compact ? 16 : 20, icon.Bounds.Height);
+            Assert.Equal(compact ? 24 : 32, close.Bounds.Height);
+            double CentreY(Control c) => c.TranslatePoint(new Point(0, c.Bounds.Height / 2), card)!.Value.Y;
+            Assert.Equal(CentreY(icon), CentreY(close), 0.01);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Card_WithMotion_IsClosedAfterItsFade()
+    {
+        var (window, manager) = ShowManager(ThemeVariant.Light, reduceMotion: false);
+        try
+        {
+            manager.Show(new Notification("Title", "Message", NotificationType.Information, TimeSpan.Zero));
+            Overlays.Pump(window);
+            var card = Cards(window).Single();
+            card.Close();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(card.IsClosed);
+
+            // The fade runs on the animation clock; tick it until the card is closed, or give up after 2 s.
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (!card.IsClosed && stopwatch.Elapsed < TimeSpan.FromSeconds(2))
+            {
+                using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(16));
+                Dispatcher.UIThread.MainLoop(stop.Token);
+                Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            }
+            Assert.True(card.IsClosed);
+            Assert.InRange(stopwatch.Elapsed, TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(2));
+            Overlays.Pump(window);
+            Assert.Empty(Cards(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void Card_FadesOutThenCloses_InstantlyUnderReduceMotion(bool reduceMotion)
     {
         var (window, manager) = ShowManager(ThemeVariant.Light, reduceMotion);

@@ -197,26 +197,19 @@ public class SeparatorGridSplitterTests
 
     private static Control MenuSeparatorCell(Sheet sheet, ThemeVariant theme)
     {
-        var target = new Border { Width = 1, Height = 1 };
-        var menu = new ContextMenu { ItemsSource = new object[] { new MenuItem { Header = "Cut" }, new Separator(), new MenuItem { Header = "Paste" } } };
+        var target = new Border { Width = 1, Height = 1, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(12) };
+        var menu = new ContextMenu
+        {
+            ItemsSource = new object[] { new MenuItem { Header = "Cut" }, new Separator(), new MenuItem { Header = "Paste" } },
+            Placement = PlacementMode.BottomEdgeAlignedLeft,
+        };
         target.ContextMenu = menu;
-        var window = new Window { Width = 220, Height = 140, RequestedThemeVariant = theme };
-        var wash = new Border { Child = target, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
-        wash.Bind(Border.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
-        window.Content = wash;
-        window.SetRenderScaling(Sheet.Scale);
-        window.Show();
+        // Reduce motion is on in the host, so the menu's fade-in does not affect the capture.
+        var window = Overlays.Host(theme, target, 220, 150);
         try
         {
-            menu.PlacementTarget = target;
-            menu.Placement = PlacementMode.Pointer;
             menu.Open(target);
-            Pump(window);
-            foreach (var part in window.GetVisualDescendants().OfType<Animatable>())
-                part.Transitions = null;
-            Pump(window);
-            using var capture = window.CaptureRenderedFrame()!;
-            return sheet.Image(capture);
+            return Overlays.Capture(sheet, window);
         }
         finally
         {

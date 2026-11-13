@@ -1,11 +1,14 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.LogicalTree;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -332,6 +335,59 @@ public class MenuThemeTests
         Assert.Null(OverlayParts.FadeIn(TimeSpan.Zero, new Avalonia.Animation.Easings.CubicEaseOut()));
     }
 
+    [AvaloniaFact]
+    public void ArrowKeys_MoveTheHighlight_AndTheFillFollows()
+    {
+        var (window, menu, _) = ShowContextMenu(ThemeVariant.Light);
+        try
+        {
+            var highlight = Effective(window.FindResource(ThemeVariant.Light, "SystemListMediumColor"));
+            MenuItem Selected() => Assert.Single(Items(menu), i => i.Classes.Contains(":selected"));
+            Color Fill(MenuItem item) => Effective(Chrome(item).GetBaseValue(SquircleBorder.BackgroundProperty).Value);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Overlays.Pump(window);
+            var first = Selected();
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Overlays.Pump(window);
+            var second = Selected();
+
+            Assert.NotSame(first, second);
+            Assert.Equal(Items(menu).ToList().IndexOf(first) + 1, Items(menu).ToList().IndexOf(second));
+            Assert.Equal(highlight, Fill(second));
+            Assert.Equal(0, Fill(first).A);
+        }
+        finally
+        {
+            menu.Close();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Header_WithAnUnderscore_BecomesAccessText()
+    {
+        var file = new MenuItem { Header = "_File", ItemsSource = new[] { new MenuItem { Header = "_New" } } };
+        var bar = new Menu { ItemsSource = new[] { file } };
+        var window = Overlays.Host(ThemeVariant.Light, bar, 300, 200);
+        try
+        {
+            var access = Assert.IsType<AccessText>(Assert.Single(Header(file).GetVisualChildren()));
+            Assert.Equal("_File", access.Text);
+            Assert.Equal("F", access.AccessKey?.ToUpperInvariant());
+
+            file.Open();
+            Overlays.Pump(window);
+            var item = file.GetLogicalChildren().OfType<MenuItem>().Single();
+            Assert.Equal("N", Assert.IsType<AccessText>(Assert.Single(Header(item).GetVisualChildren())).AccessKey?.ToUpperInvariant());
+        }
+        finally
+        {
+            file.Close();
+            window.Close();
+        }
+    }
+
     // Every menu and flyout popup is asked for the window's overlay layer, so its glass blurs the app.
     [AvaloniaFact]
     public void MenusAndFlyouts_OpenInTheOverlayLayer()
@@ -390,23 +446,35 @@ public class MenuThemeTests
     [AvaloniaFact]
     public void Glass_InAPopupWindow_DrawsTheSolidFallback()
     {
+        // The headless platform has no popup windows: a popup asked for its own window still opens
+        // in the overlay layer. So the rule (only a PopupRoot counts) and the drawing branch are
+        // tested separately.
         var glass = new GlassBorder { Width = 100, Height = 40 };
         var target = new Border { Width = 50, Height = 20 };
         var popup = new Popup { Child = glass, PlacementTarget = target, ShouldUseOverlayLayer = false };
-        var window = new Window { Width = 300, Height = 200, Content = new Panel { Children = { target, popup } } };
+        var stripes = new StackPanel { Orientation = Orientation.Horizontal };
+        for (var i = 0; i < 40; i++)
+            stripes.Children.Add(new Border { Width = 4, Background = i % 2 == 0 ? Avalonia.Media.Brushes.Black : Avalonia.Media.Brushes.Red });
+        var window = new Window { Width = 300, Height = 200, Content = new Panel { Children = { stripes, target, popup } } };
         window.Show();
         try
         {
             popup.IsOpen = true;
             Overlays.Pump(window);
-            Assert.Equal(popup.IsUsingOverlayLayer, !glass.IsSolid);
-
-            popup.IsOpen = false;
-            popup.ShouldUseOverlayLayer = true;
-            popup.IsOpen = true;
-            Overlays.Pump(window);
             Assert.True(popup.IsUsingOverlayLayer);
+            Assert.False(GlassBorder.IsPopupWindow(TopLevel.GetTopLevel(glass)));
+            Assert.False(GlassBorder.IsPopupWindow(window));
             Assert.False(glass.IsSolid);
+
+            // In a popup window the glass is one flat, opaque tint over the stripes.
+            glass.InPopupWindow = true;
+            Assert.True(glass.IsSolid);
+            Overlays.Pump(window);
+            using var frame = Frame.Capture(window);
+            var origin = glass.TranslatePoint(new Point(30, 20), window)!.Value;
+            var tint = glass.TintColor;
+            for (var x = 0; x < 40; x++)
+                Assert.Equal((tint.R, tint.G, tint.B), frame[(int)origin.X + x, (int)origin.Y]);
         }
         finally
         {

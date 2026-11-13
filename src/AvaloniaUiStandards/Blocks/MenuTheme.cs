@@ -206,32 +206,23 @@ internal static class MenuTheme
     /// <summary>A top-level item of a Menu bar: a subtle button whose menu opens below it.</summary>
     public static ControlTheme BarItem()
     {
-        var subtle = new Look(Brushes.Transparent, Brushes.Transparent, "MenuFlyoutItemForeground");
-        var hover = new Look("ButtonBackgroundPointerOver", Brushes.Transparent, "MenuFlyoutItemForeground");
-        var pressed = new Look("ButtonBackgroundPressed", Brushes.Transparent, "MenuFlyoutItemForeground");
-
         var theme = new ControlTheme(typeof(MenuItem));
         foreach (var setter in Sizing())
             theme.Setters.Add(setter);
-        theme.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, subtle.Background));
+        theme.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
         theme.Setters.Add(new Setter(TemplatedControl.ForegroundProperty, Resource("MenuFlyoutItemForeground")));
         theme.Setters.Add(new Setter(Control.FocusAdornerProperty, null));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<MenuItem>(BuildBarItem)));
         theme.Children.Add(ChromeMotion());
-        theme.Children.Add(BarState(":selected", hover));
-        theme.Children.Add(BarState(":pressed", pressed));
-        theme.Children.Add(BarState(":open", pressed));
+        theme.Children.Add(Fill(":selected", "ButtonBackgroundPointerOver"));
+        theme.Children.Add(Fill(":pressed", "ButtonBackgroundPressed"));
+        theme.Children.Add(Fill(":open", "ButtonBackgroundPressed"));
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":disabled"))
         {
             Setters = { new Setter(TemplatedControl.ForegroundProperty, Resource("SystemControlDisabledBaseMediumLowBrush")) },
         });
         return theme;
     }
-
-    private static Avalonia.Styling.Style BarState(string pseudoClass, Look look) => new(x => Chrome(x.Nesting().Class(pseudoClass)))
-    {
-        Setters = { new Setter(SquircleBorder.BackgroundProperty, Value(look.Background)) },
-    };
 
     private static Control BuildBarItem(MenuItem item, INameScope scope)
     {

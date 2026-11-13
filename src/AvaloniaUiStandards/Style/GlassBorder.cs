@@ -230,20 +230,36 @@ public class GlassBorder : Decorator
     /// sits in a popup shown as its own OS window, where nothing of the app's window is behind it
     /// in its top level to blur. A popup in the window's overlay layer keeps the glass.
     /// </summary>
-    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || _inPopupWindow;
+    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || InPopupWindow;
+
+    /// <summary>
+    /// Whether the glass sits in a popup shown as its own OS window, updated each time it joins a
+    /// visual tree. Settable so tests can draw that case, which the headless platform (overlay
+    /// popups only) cannot produce.
+    /// </summary>
+    internal bool InPopupWindow
+    {
+        get => _inPopupWindow;
+        set
+        {
+            if (value == _inPopupWindow)
+                return;
+            _inPopupWindow = value;
+            InvalidateVisual();
+            _borderOverlay.InvalidateVisual();
+        }
+    }
 
     private bool _inPopupWindow;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        var inPopupWindow = TopLevel.GetTopLevel(this) is Avalonia.Controls.Primitives.PopupRoot;
-        if (inPopupWindow == _inPopupWindow)
-            return;
-        _inPopupWindow = inPopupWindow;
-        InvalidateVisual();
-        _borderOverlay.InvalidateVisual();
+        InPopupWindow = IsPopupWindow(TopLevel.GetTopLevel(this));
     }
+
+    /// <summary>True for a popup's own OS window; false for a window, and for the overlay layer, which is part of its window.</summary>
+    internal static bool IsPopupWindow(TopLevel? topLevel) => topLevel is Avalonia.Controls.Primitives.PopupRoot;
 
     public override void Render(DrawingContext context)
     {

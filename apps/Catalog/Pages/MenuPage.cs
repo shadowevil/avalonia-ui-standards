@@ -20,6 +20,8 @@ internal sealed class MenuPage : UserControl
         ("Disabled", [], false),
     ];
 
+    private static readonly string[] StateLabels = States.Select(s => s.Label).ToArray();
+
     public MenuPage() => Content = Ui.Page("Menus and flyouts",
         Ui.Section("Menu items", ItemStates()),
         Ui.Section("Menu bar items", BarStates()),
@@ -35,32 +37,32 @@ internal sealed class MenuPage : UserControl
             ("Checked", () => new MenuItem { Header = "Show sidebar", ToggleType = MenuItemToggleType.CheckBox, IsChecked = true }),
             ("Radio, checked", () => new MenuItem { Header = "Small icons", ToggleType = MenuItemToggleType.Radio, IsChecked = true }),
         ];
-        var grid = StateTable(variants.Length);
+        var grid = Ui.StateTable(StateLabels, variants.Length);
         for (var r = 0; r < variants.Length; r++)
         {
-            Place(grid, Ui.Body(variants[r].Label), r + 1, 0);
+            Ui.Place(grid, Ui.Body(variants[r].Label), r + 1, 0);
             for (var c = 0; c < States.Length; c++)
             {
                 var item = variants[r].Create();
                 Grid.SetIsSharedSizeScope(item, true);
-                Place(grid, InMenu(Forced(item, States[c])), r + 1, c + 1);
+                Ui.Place(grid, InMenu(Forced(item, States[c])), r + 1, c + 1);
             }
         }
-        return Scroll(grid);
+        return Ui.SideScroll(grid);
     }
 
     private static Control BarStates()
     {
-        var grid = StateTable(1);
-        Place(grid, Ui.Body("File"), 1, 0);
+        var grid = Ui.StateTable(StateLabels, 1);
+        Ui.Place(grid, Ui.Body("File"), 1, 0);
         for (var c = 0; c < States.Length; c++)
         {
             var item = new MenuItem { Header = "File" };
             var state = States[c];
             var menu = new Menu { ItemsSource = new[] { Forced(item, state) }, IsHitTestVisible = false };
-            Place(grid, new Border { Padding = new Thickness(8), Child = menu }, 1, c + 1);
+            Ui.Place(grid, new Border { Padding = new Thickness(8), Child = menu }, 1, c + 1);
         }
-        return Scroll(grid);
+        return Ui.SideScroll(grid);
     }
 
     private static Control Live()
@@ -135,7 +137,7 @@ internal sealed class MenuPage : UserControl
             Children =
             {
                 menu,
-                new WrapPanel { Children = { Spaced(contextArea), Spaced(menuFlyout), Spaced(flyout) } },
+                new WrapPanel { Children = { Ui.Spaced(contextArea), Ui.Spaced(menuFlyout), Ui.Spaced(flyout) } },
             },
         };
     }
@@ -157,41 +159,5 @@ internal sealed class MenuPage : UserControl
                 ((IPseudoClasses)item.Classes).Set(pseudoClass, true);
         });
         return item;
-    }
-
-    private static Grid StateTable(int rows)
-    {
-        var grid = new Grid { ColumnSpacing = 8, RowSpacing = 4 };
-        for (var c = 0; c <= States.Length; c++)
-            grid.ColumnDefinitions.Add(new ColumnDefinition(c == 0 ? new GridLength(150) : GridLength.Auto));
-        for (var r = 0; r <= rows; r++)
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        for (var c = 0; c < States.Length; c++)
-        {
-            var label = Ui.Caption(States[c].Label);
-            label.HorizontalAlignment = HorizontalAlignment.Center;
-            Place(grid, label, 0, c + 1);
-        }
-        return grid;
-    }
-
-    private static Control Scroll(Control content) => new ScrollViewer
-    {
-        HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-        VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-        Content = content,
-    };
-
-    private static Control Spaced(Control control)
-    {
-        control.VerticalAlignment = VerticalAlignment.Center;
-        return new Border { Margin = new Thickness(0, 0, 16, 12), Child = control };
-    }
-
-    private static void Place(Grid grid, Control control, int row, int column)
-    {
-        Grid.SetRow(control, row);
-        Grid.SetColumn(control, column);
-        grid.Children.Add(control);
     }
 }

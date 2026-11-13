@@ -27,8 +27,8 @@ internal sealed class ToolTipNotificationPage : UserControl
             Spacing = 12,
             Children =
             {
-                new WrapPanel { Children = { Spaced(OpenTip("Save (Ctrl+S)")), Spaced(OpenTip("Saves the document to its current location.")) } },
-                new WrapPanel { Children = { Spaced(WithTip("Hover for a tooltip", "Save (Ctrl+S)")), Spaced(WithTip("Disabled, with a tooltip", "Not available while offline", enabled: false)) } },
+                new WrapPanel { Children = { Ui.Spaced(OpenTip("Save (Ctrl+S)")), Ui.Spaced(OpenTip("Saves the document to its current location.")) } },
+                new WrapPanel { Children = { Ui.Spaced(WithTip("Hover for a tooltip", "Save (Ctrl+S)")), Ui.Spaced(WithTip("Disabled, with a tooltip", "Not available while offline", enabled: false)) } },
                 Ui.Caption("A solid card in the card colour with a 1 px border, radius 8 and caption text. It appears after 400 ms (100 ms when moving between controls) and fades in over MotionFast."),
             },
         }),
@@ -37,12 +37,7 @@ internal sealed class ToolTipNotificationPage : UserControl
             Spacing = 12,
             Children =
             {
-                new ScrollViewer
-                {
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    Content = Cards(),
-                },
+                Ui.SideScroll(Cards()),
                 ShowButton(),
                 Ui.Caption("Glass cards (radius 16) with an icon in the type's colour and a subtle close button. Shown at the window's top right; they fade in and out over MotionSlow."),
             },
@@ -82,11 +77,5 @@ internal sealed class ToolTipNotificationPage : UserControl
         ToolTip.SetTip(button, tip);
         ToolTip.SetShowOnDisabled(button, true);
         return button;
-    }
-
-    private static Control Spaced(Control control)
-    {
-        control.VerticalAlignment = VerticalAlignment.Center;
-        return new Border { Margin = new Thickness(0, 0, 16, 12), Child = control };
     }
 }

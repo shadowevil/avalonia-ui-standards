@@ -9,7 +9,7 @@
   - Glass overlays open in the window's overlay layer: every menu, submenu, context menu, menu flyout and flyout popup sets `Popup.ShouldUseOverlayLayer`, not an OS popup window. The library's own popups set it in their templates; for the popups Avalonia creates itself (ContextMenu, MenuFlyout, Flyout) the theme sets it on the popup when the overlay is placed in it, before it opens.
     - **Why:** The glass blurs what is behind it in its own top level, and only the overlay layer has the app behind it. Avalonia shows popups as OS windows by default on the desktop, which would leave every menu without glass.
     - **Cost:** An overlay cannot extend past the window's edge; Avalonia keeps it inside the window by flipping, sliding or resizing it; a resized menu scrolls.
-  - Glass that still ends up in a popup shown as its own OS window (for example when an app forces it) draws the solid fallback of [0015](0015-glass.md): the tint colour, opaque, with the 1 px border.
+  - Glass that still ends up in a popup shown as its own OS window (for example a popup the app builds itself) draws the solid fallback of [0015](0015-glass.md): the tint colour, opaque, with the 1 px border.
     - **Why:** A popup window has nothing of the app behind it, so the glass would show an unblurred, see-through tint over the desktop. This adds one case to 0015's fallbacks and applies to every glass in a popup window.
   - Menu items use the list item design of [0024](0024-lists-and-scrolling.md): a squircle pill with `CornerRadiusControl`, transparent at rest, height 32 at Normal and 24 at Compact, with Button's density padding.
     - **Why:** One item design for lists, drop-downs and menus.

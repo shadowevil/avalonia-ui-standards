@@ -41,21 +41,13 @@ internal static class StateGrid
             var live = new Border { Padding = new Thickness(12), Child = variants[r].Create() };
             Place(grid, live, r + 1, States.Length + 1, HorizontalAlignment.Center);
         }
-        // Only the grid scrolls sideways when it cannot fit; the page never does.
-        return new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Content = grid,
-        };
+        return Ui.SideScroll(grid);
     }
 
     private static void Place(Grid grid, Control control, int row, int column, HorizontalAlignment alignment)
     {
         control.HorizontalAlignment = alignment;
-        Grid.SetRow(control, row);
-        Grid.SetColumn(control, column);
-        grid.Children.Add(control);
+        Ui.Place(grid, control, row, column);
     }
 
     /// <summary>Wraps a control in a non-interactive host and forces it into <paramref name="state"/>.</summary>
