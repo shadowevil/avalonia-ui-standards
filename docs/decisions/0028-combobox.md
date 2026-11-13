@@ -15,8 +15,7 @@
   - Editable, it is a text field: the inner `PART_EditableTextBox` is a borderless TextBox with no chrome or ring of its own and the field's padding; the field turns its border accent (with TextInput's focused fill) while focus is inside it, and keyboard focus inside it shows the ring around the whole field. The caret zone takes clicks and opens the list; the ComboBox itself is not a tab stop (its TextBox is).
     - **Why:** It reads and behaves as TextInput with a list attached; the ring follows the field's shape, not the inner TextBox's.
   - Keyboard focus inside a composite field (a ComboBox's or ButtonSpinner's part) is tracked by an internal attached property (`FocusRing.IsVisibleWithin`) set from the focus events that bubble from the part, with Avalonia's own rule for `:focus-visible` (Tab or arrow-key navigation). Only focus on the field's own template parts counts: keyboard focus on an item in the open drop-down shows the item's ring, not the field's.
-    - **Why:** One ring at a time, on the element the keys act on.
-    - **Why:** Avalonia has no "focus-visible within" state; `:focus-within` is set for pointer focus too.
+    - **Why:** Avalonia has no "focus-visible within" state (`:focus-within` is set for pointer focus too), and one ring shows at a time, on the element the keys act on.
   - The placeholder (`TextControlPlaceholderForeground`, full opacity) shows while nothing is selected and the ComboBox is not editable; editable, the inner TextBox shows it. Fluent's primary-text placeholder at 0.5 opacity is dropped.
     - **Why:** The same legible placeholder as TextInput, meeting 4.5:1 on every surface (tested).
   - Border and fill fades are `MotionFast` cross-fades ([0016](0016-motion.md)), instant under reduce motion.

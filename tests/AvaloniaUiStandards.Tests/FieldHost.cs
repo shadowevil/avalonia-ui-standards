@@ -53,19 +53,20 @@ internal static class FieldHost
 
     /// <summary>
     /// The surfaces a field sits on, as 0011 measures text: the page, the card, the backdrop wash's
-    /// two ends, and the glass panel's tint over each end (as StandardsWindowTests does).
+    /// two ends, and the glass panel's tint (at GlassTintOpacity) over each end, as StandardsWindowTests does.
     /// </summary>
     public static IEnumerable<(string Name, Color Colour)> Surfaces(Control control)
     {
         var tint = Effective(Resolve(control, "GlassTintColor"));
+        var opacity = (double)Resolve(control, "GlassTintOpacity");
         var start = Colour(control, "BackdropWashStartColor");
         var end = Colour(control, "BackdropWashEndColor");
         yield return ("page", Colour(control, "SystemRegionColor"));
         yield return ("card", Colour(control, "SystemChromeMediumLowColor"));
         yield return ("wash start", start);
         yield return ("wash end", end);
-        yield return ("glass over wash start", StandardsTheme.Mix(start, tint, 0.6));
-        yield return ("glass over wash end", StandardsTheme.Mix(end, tint, 0.6));
+        yield return ("glass over wash start", StandardsTheme.Mix(start, tint, opacity));
+        yield return ("glass over wash end", StandardsTheme.Mix(end, tint, opacity));
     }
 
     /// <summary>The non-text contrast floor for a field's boundary (WCAG 1.4.11).</summary>
