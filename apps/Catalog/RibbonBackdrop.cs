@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Reactive;
+using AvaloniaUiStandards.Modules;
 
 namespace Catalog;
 
@@ -17,8 +18,8 @@ namespace Catalog;
 /// draws them in one pass: the bands first, then the lines and dots. Every motion is a sine of a whole number
 /// of cycles per loop, so position 1 looks exactly like position 0. A line's light is a gradient shader along
 /// its length whose stops are set from the light's exact value at each point, so it is continuous in space and
-/// in time. The animation stops when reduce motion is on (the motion durations are zero), when the window is
-/// inactive or minimised; with reduce motion the dots are hidden. Outside <see cref="PanelBounds"/>, where text on the
+/// in time. The loop advances on the hosting window's frame ticks (which pause under reduce motion and while the
+/// window is inactive or minimised); with reduce motion the dots are also hidden. Outside <see cref="PanelBounds"/>, where text on the
 /// backdrop sits, one scrim shape in the page colour tones everything down so the text stays legible; its inner
 /// edge is under the panel's border.
 /// </remarks>
@@ -51,10 +52,14 @@ internal sealed class RibbonBackdrop : Control
     private const double SampleStep = 10;
 
     // How much of the page colour covers the ribbons outside the panel. Measured over every pixel of the text areas at
-    // 64 points of the loop, with every dot and line at full brightness: light needs none (9.97:1 without), and dark
-    // reaches 5:1 at about 0.62 (5.06:1 measured). It is set a little above that, to 0.64 (5.36:1 measured).
-    private const double LightScrim = 0;
+    // 64 points of the loop, with every dot and line at full brightness. Light, whose bands and lines are deep enough to
+    // show through the glass, reaches 5:1 at about 0.41 (without a scrim it is 1.78:1); it is set a little above that,
+    // to 0.45 (5.48:1 measured). Dark reaches 5:1 at about 0.62 (5.06:1 measured); it is set to 0.64 (5.36:1 measured).
+    private const double LightScrim = 0.45;
     private const double DarkScrim = 0.64;
+
+    // The opacity of a ribbon band in light.
+    private const double LightBandOpacity = 0.5;
 
     private sealed record Dot(double X, double Y, int Size, double Brightness, int Rate, double Offset, int Line, bool Flash, double Drift);
 
@@ -63,10 +68,6 @@ internal sealed class RibbonBackdrop : Control
     private Color _text = Colors.Black;
     private double _phase;
     private bool _reduced;
-    private bool _windowActive = true;
-    private bool _attached;
-    private bool _running;
-    private TimeSpan? _last;
     private Size _built;
     private double[] _x = [];
     private double[][]? _centre;
@@ -87,7 +88,7 @@ internal sealed class RibbonBackdrop : Control
     private Rect? _panel;
     private Geometry? _scrim;
     private IBrush? _scrimBrush;
-    private Window? _window;
+    private StandardsWindow? _host;
     private readonly List<IDisposable> _watches = [];
 
     public RibbonBackdrop()
@@ -132,9 +133,6 @@ internal sealed class RibbonBackdrop : Control
         }
     }
 
-    /// <summary>True while the animation advances (not reduced, window active and not minimised).</summary>
-    public bool IsRunning => _running;
-
     /// <summary>True when the dots show and twinkle (they are hidden under reduce motion).</summary>
     public bool Twinkling => !_reduced;
 
@@ -147,18 +145,12 @@ internal sealed class RibbonBackdrop : Control
     /// <summary>Leaves the dots out (for tests of the smoothness of the lines and bands, which the quick flashes would mask).</summary>
     internal bool HideDots { get; set; }
 
-    /// <summary>Moves the loop forward by <paramref name="elapsed"/>, unless the animation is stopped.</summary>
-    public void Advance(TimeSpan elapsed)
-    {
-        if (!_running)
-            return;
-        Phase = (Phase + elapsed.TotalSeconds / LoopSeconds) % 1;
-    }
+    /// <summary>Moves the loop forward by <paramref name="elapsed"/>.</summary>
+    public void Advance(TimeSpan elapsed) => Phase = (Phase + elapsed.TotalSeconds / LoopSeconds) % 1;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _attached = true;
         _watches.Add(this.GetResourceObservable("SystemAccentColor").Subscribe(new AnonymousObserver<object?>(v => SetColour(v, c => _accent = c))));
         _watches.Add(this.GetResourceObservable("SystemRegionColor").Subscribe(new AnonymousObserver<object?>(v => SetColour(v, c => _region = c))));
         _watches.Add(this.GetResourceObservable("SystemBaseHighColor").Subscribe(new AnonymousObserver<object?>(v => SetColour(v, c => _text = c))));
@@ -166,42 +158,33 @@ internal sealed class RibbonBackdrop : Control
         _watches.Add(this.GetResourceObservable("MotionNormal").Subscribe(new AnonymousObserver<object?>(v =>
         {
             _reduced = v is TimeSpan t && t == TimeSpan.Zero;
-            UpdateRunning();
             InvalidateVisual();
         })));
 
-        _window = TopLevel.GetTopLevel(this) as Window;
-        if (_window is not null)
-        {
-            _windowActive = IsWindowActive();
-            _window.PropertyChanged += OnWindowChanged;
-        }
-        UpdateRunning();
+        // The window's frame ticks drive the loop: they run only while motion is not reduced and the window is
+        // active and not minimised, so nothing here repeats those checks. Outside a StandardsWindow nothing moves it.
+        _host = TopLevel.GetTopLevel(this) as StandardsWindow;
+        if (_host is not null)
+            _host.FrameTick += OnFrameTick;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _attached = false;
         foreach (var watch in _watches)
             watch.Dispose();
         _watches.Clear();
-        if (_window is not null)
-            _window.PropertyChanged -= OnWindowChanged;
-        _window = null;
-        UpdateRunning();
+        if (_host is not null)
+            _host.FrameTick -= OnFrameTick;
+        _host = null;
     }
 
-    // Active and not minimised.
-    private bool IsWindowActive() => _window is { IsActive: true, WindowState: not WindowState.Minimized };
-
-    private void OnWindowChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    // One step per tick, by the time the window says has passed (zero on the first tick after a start or resume).
+    private void OnFrameTick(object? sender, FrameTickEventArgs e)
     {
-        if (e.Property == Window.IsActiveProperty || e.Property == Window.WindowStateProperty)
-        {
-            _windowActive = IsWindowActive();
-            UpdateRunning();
-        }
+        // A long gap (a stall) must not jump the ribbons.
+        if (AutoAdvance)
+            Advance(TimeSpan.FromSeconds(Math.Min(e.Elapsed.TotalSeconds, 0.1)));
     }
 
     private void SetColour(object? value, Action<Color> set)
@@ -212,32 +195,6 @@ internal sealed class RibbonBackdrop : Control
         _band = null;
         _scrimBrush = null;
         InvalidateVisual();
-    }
-
-    private void UpdateRunning()
-    {
-        var run = _attached && !_reduced && _windowActive;
-        if (run == _running)
-            return;
-        _running = run;
-        _last = null;
-        if (run)
-            RequestFrame();
-    }
-
-    private void RequestFrame() => TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnFrame);
-
-    // One step per display frame, by the real elapsed time, so the motion is even whatever the frame rate.
-    private void OnFrame(TimeSpan time)
-    {
-        if (!_running)
-            return;
-        RequestFrame();
-        var elapsed = _last is { } last ? time - last : TimeSpan.Zero;
-        _last = time;
-        // A long gap (a stall, or waking from sleep) must not jump the ribbons.
-        if (AutoAdvance)
-            Advance(TimeSpan.FromSeconds(Math.Min(elapsed.TotalSeconds, 0.1)));
     }
 
     public override void Render(DrawingContext context)
@@ -393,8 +350,8 @@ internal sealed class RibbonBackdrop : Control
                 for (var s = 0; s < core.GradientStops.Count; s++)
                 {
                     var light = FullGlints ? 1 : Light(r, l, core.GradientStops[s].Offset * Bounds.Width);
-                    core.GradientStops[s].Color = Color.FromArgb((byte)Math.Round(255 * light * (_dark ? 0.7 : 0.85)), _coreColour.R, _coreColour.G, _coreColour.B);
-                    halo.GradientStops[s].Color = Color.FromArgb((byte)Math.Round(255 * light * (_dark ? 0.18 : 0.16)), _haloColour.R, _haloColour.G, _haloColour.B);
+                    core.GradientStops[s].Color = Color.FromArgb((byte)Math.Round(255 * light * (_dark ? 0.7 : 1.0)), _coreColour.R, _coreColour.G, _coreColour.B);
+                    halo.GradientStops[s].Color = Color.FromArgb((byte)Math.Round(255 * light * (_dark ? 0.18 : 0.65)), _haloColour.R, _haloColour.G, _haloColour.B);
                 }
             }
         }
@@ -463,8 +420,10 @@ internal sealed class RibbonBackdrop : Control
         var tints = Tints();
         var dark = Luma(_region) < 0.5;
         _dark = dark;
-        _coreColour = dark ? Mix(_accent, Colors.White, 0.85) : Colors.White;
-        _haloColour = dark ? Mix(_accent, Colors.White, 0.4) : Mix(_accent, Colors.White, 0.25);
+        // Dark: light lines glowing on the dark page. Light: lines a little deeper than the bands, in the accent, with a halo of
+        // the accent, so they read as colour on the pale page (white would vanish into it).
+        _coreColour = dark ? Mix(_accent, Colors.White, 0.85) : Mix(_accent, Colors.Black, 0.45);
+        _haloColour = dark ? Mix(_accent, Colors.White, 0.4) : Mix(_accent, Colors.Black, 0.2);
 
         // Sample positions from just off the left edge to just off the right.
         var count = (int)Math.Ceiling((size.Width + 40) / SampleStep) + 1;
@@ -490,7 +449,9 @@ internal sealed class RibbonBackdrop : Control
             _centre[r] = new double[count];
             _half[r] = new double[count];
             _band[r] = new StreamGeometry();
-            _bandBrush[r] = Solid(Mix(tints[rb.Tint].A, tints[rb.Tint].B, 0.5), (dark ? 0.16 : 0.15) * rb.Strength);
+            _bandBrush[r] = dark
+                ? Solid(Mix(tints[rb.Tint].A, tints[rb.Tint].B, 0.5), 0.16 * rb.Strength)
+                : Solid(LightBand(rb.Tint), LightBandOpacity * rb.Strength);
 
             // The lines: the top and bottom edges, and the weaving middle on the wider ribbons.
             var across = rb.Crest ? new[] { -1.0, 1.0, 0.0 } : new[] { -1.0, 1.0 };
@@ -506,7 +467,7 @@ internal sealed class RibbonBackdrop : Control
                 _coreBrush[r][l] = LightBrush(size.Width, stops);
                 _haloBrush[r][l] = LightBrush(size.Width, stops);
                 var main = across[l] == -1;
-                _haloPen[r][l] = new Pen(_haloBrush[r][l], main ? 8 : 5, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+                _haloPen[r][l] = new Pen(_haloBrush[r][l], main ? (dark ? 8 : 14) : (dark ? 5 : 9), lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
                 _corePen[r][l] = new Pen(_coreBrush[r][l], main ? 1.6 : 1.0, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
             }
 
@@ -557,7 +518,9 @@ internal sealed class RibbonBackdrop : Control
     // Soft dots: for each size, a few brightness steps of a round glow tinted by the accent.
     private void BuildDotBrushes(bool dark)
     {
-        var tint = Mix(_accent, Colors.White, dark ? 0.8 : 0.9);
+        var tint = Mix(_accent, Colors.White, dark ? 0.8 : 1);
+        // In light, a faint deeper accent ring around the white core, so a glint reads on the pale page.
+        var halo = Mix(_accent, Colors.Black, 0.1);
         _dotBrushes = new IBrush[DotSizes.Length][];
         for (var s = 0; s < DotSizes.Length; s++)
         {
@@ -565,20 +528,32 @@ internal sealed class RibbonBackdrop : Control
             for (var i = 0; i < Levels; i++)
             {
                 var share = (i + 1.0) / Levels;
-                Color With(double alpha) => Color.FromArgb((byte)Math.Round(255 * alpha), tint.R, tint.G, tint.B);
+                Color With(Color c, double alpha) => Color.FromArgb((byte)Math.Round(255 * alpha), c.R, c.G, c.B);
                 _dotBrushes[s][i] = new RadialGradientBrush
                 {
                     Center = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
                     GradientOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
                     RadiusX = RelativeScalar.Parse("50%"),
                     RadiusY = RelativeScalar.Parse("50%"),
-                    GradientStops = { new GradientStop(With(share * 0.9), 0), new GradientStop(With(share * 0.45), 0.4), new GradientStop(With(0), 1) },
+                    GradientStops = dark
+                        ? [new GradientStop(With(tint, share * 0.9), 0), new GradientStop(With(tint, share * 0.45), 0.4), new GradientStop(With(tint, 0), 1)]
+                        : [new GradientStop(With(tint, share * 0.95), 0), new GradientStop(With(tint, share * 0.7), 0.3), new GradientStop(With(halo, share * 0.4), 0.65), new GradientStop(With(halo, 0), 1)],
                 }.ToImmutable();
             }
         }
     }
 
     // The ribbon colour pairs: the accent blended with neutrals (toward white in light, toward the text colour in dark).
+    // In light, the bands are the accent, a little deeper from ribbon to ribbon, drawn with normal
+    // alpha over the page, so they read as soft colour and overlaps deepen (a light tint added over a light page
+    // would only converge on white).
+    private Color LightBand(int tint) => tint switch
+    {
+        0 => Mix(_accent, Colors.Black, 0.12),
+        1 => Mix(_accent, Colors.Black, 0.25),
+        _ => Mix(_accent, Colors.Black, 0.38),
+    };
+
     private (Color A, Color B)[] Tints()
     {
         var dark = Luma(_region) < 0.5;

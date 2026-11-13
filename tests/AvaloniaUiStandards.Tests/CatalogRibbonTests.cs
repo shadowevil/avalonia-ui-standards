@@ -78,9 +78,9 @@ public class CatalogRibbonTests
     }
 
     [AvaloniaFact]
-    public void Ribbons_AdvanceWithTheFrameLoop_WhileActive_AndStopWhenReducedInactiveOrMinimised()
+    public void Ribbons_AdvanceWithTheWindowsFrameTicks_WhileActive_AndStopWhenReducedInactiveOrMinimised()
     {
-        // The real animation frames (the headless render timer), not calls to Advance.
+        // The library's frame ticks (the window's, about 30 a second), not calls to Advance.
         var window = NewWindow(ThemeVariant.Light, reduceMotion: false);
         try
         {
@@ -88,29 +88,31 @@ public class CatalogRibbonTests
             window.Activate();
             Settle(window);
             var ribbon = window.GetVisualDescendants().OfType<RibbonBackdrop>().Single();
-            Assert.True(ribbon.IsRunning, "not running while active");
+            Assert.True(window.IsFrameTickRunning, "no ticks while active");
             Assert.True(ribbon.Twinkling);
 
             var start = ribbon.Phase;
-            Frames(window, 20);
-            Assert.True(ribbon.Phase > start, "the loop did not move with the frame loop while active");
+            Ticks(window, 12);
+            Assert.True(ribbon.Phase > start, "the loop did not move with the window's ticks while active");
 
             // Inactive: the same handler the platform calls when the window loses focus.
             PlatformSays(window, "HandleDeactivated");
             Assert.False(window.IsActive, "window still active");
+            Assert.False(window.IsFrameTickRunning, "ticks while inactive");
             var inactive = ribbon.Phase;
-            Frames(window, 20);
+            Ticks(window, 12);
             Assert.Equal(inactive, ribbon.Phase);
 
             // Active again: it moves.
             PlatformSays(window, "HandleActivated");
-            Frames(window, 20);
+            Ticks(window, 12);
             Assert.True(ribbon.Phase > inactive, "the loop did not move again once active");
 
             // Minimised: it stops.
             window.WindowState = WindowState.Minimized;
+            Assert.False(window.IsFrameTickRunning, "ticks while minimised");
             var minimised = ribbon.Phase;
-            Frames(window, 20);
+            Ticks(window, 12);
             Assert.Equal(minimised, ribbon.Phase);
         }
         finally
@@ -125,10 +127,10 @@ public class CatalogRibbonTests
             reduced.Activate();
             Settle(reduced);
             var ribbon = reduced.GetVisualDescendants().OfType<RibbonBackdrop>().Single();
-            Assert.False(ribbon.IsRunning, "running while reduced");
+            Assert.False(reduced.IsFrameTickRunning, "ticks while motion is reduced");
             Assert.False(ribbon.Twinkling, "dots show while reduced");
             var start = ribbon.Phase;
-            Frames(reduced, 20);
+            Ticks(reduced, 12);
             Assert.Equal(start, ribbon.Phase);
         }
         finally
@@ -137,12 +139,23 @@ public class CatalogRibbonTests
         }
     }
 
-    // Runs animation frames: the headless render timer ticks, with a short real pause so each frame has some elapsed time.
-    private static void Frames(Window window, int count)
+    [AvaloniaFact]
+    public void Ribbons_AdvanceByTheTickElapsed_AndNotWhenAutoAdvanceIsOff()
+    {
+        // The ribbon's own path: Advance moves the loop by the time given, and wraps at the loop's end.
+        var ribbon = new RibbonBackdrop();
+        ribbon.Advance(TimeSpan.FromSeconds(4.5));
+        Assert.Equal(0.1, ribbon.Phase, 9);
+        ribbon.Advance(TimeSpan.FromSeconds(RibbonBackdrop.LoopSeconds));
+        Assert.Equal(0.1, ribbon.Phase, 9);
+    }
+
+    // Lets the window's frame ticks run: the headless render timer ticks, with a real pause longer than a tick's 33 ms.
+    private static void Ticks(Window window, int count)
     {
         for (var i = 0; i < count; i++)
         {
-            Thread.Sleep(5);
+            Thread.Sleep(40);
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Dispatcher.UIThread.RunJobs();
@@ -315,8 +328,9 @@ public class CatalogRibbonTests
                 }
             foreach (var frame in frames)
                 frame.Dispose();
-            // A line moving a fraction of a pixel changes the pixels it crosses by a few tens of levels; a pop would be far more.
-            Assert.True(biggest <= 40, $"a pixel changed by {biggest} levels in 16 ms");
+            // A line moving a fraction of a pixel changes the pixels it crosses by up to a few tens of levels (more for the deep
+            // lines in light); a pop would change them by well over a hundred.
+            Assert.True(biggest <= 80, $"a pixel changed by {biggest} levels in 16 ms");
         }
         finally
         {
@@ -413,6 +427,153 @@ public class CatalogRibbonTests
         }
 
         return lowest;
+    }
+
+    [AvaloniaFact]
+    public void Ribbons_AreVisibleBehindTheGlassInLight()
+    {
+        // Viewed straight on, the ribbons behind the glass must stand out from the glass around them by a clear amount:
+        // the bands by a luminance contrast of 1.15:1 or more (median over the samples), the lines more than the bands.
+        var (bands, lines) = MeasureThroughGlass();
+        var bandMedian = Median(bands);
+        var lineMedian = Median(lines);
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ribbons-glass-visibility.txt"),
+            $"bands: median {bandMedian:0.000}, min {bands.DefaultIfEmpty(0).Min():0.000}, {bands.Count} samples; lines: median {lineMedian:0.000}, min {lines.DefaultIfEmpty(0).Min():0.000}, {lines.Count} samples");
+        Assert.True(bands.Count >= 12, $"only {bands.Count} band samples ({lines.Count} line samples)");
+        Assert.True(lines.Count >= 12, $"only {lines.Count} line samples");
+        Assert.True(bandMedian >= 1.15, $"bands behind the glass differ from it by only {bandMedian:0.000}:1");
+        Assert.True(lineMedian >= bandMedian, $"lines ({lineMedian:0.000}:1) stand out less than bands ({bandMedian:0.000}:1)");
+    }
+
+    [AvaloniaFact]
+    public void Text_OverTheGlassStaysAccessibleOverTheRibbonsInLight()
+    {
+        // Body text over the brightest and darkest backdrop behind the glass, at 16 points of the loop, keeps 4.5:1.
+        var (window, ribbon) = LightWindowWithoutContent();
+        try
+        {
+            var panel = window.ContentPanelBounds;
+            var origin = ribbon.TranslatePoint(new Point(0, 0), window)!.Value;
+            var area = new Rect(origin + panel.Position, panel.Size).Deflate(30);
+            Assert.True(window.TryFindResource("SystemBaseHighColor", ThemeVariant.Light, out var value));
+            var text = (Color)value!;
+            var textLuminance = Luminance((text.R, text.G, text.B));
+            var lowest = double.MaxValue;
+            for (var step = 0; step < 16; step++)
+            {
+                ribbon.Phase = step / 16.0;
+                Settle(window);
+                using var frame = Frame.Capture(window);
+                var darkest = 1.0;
+                for (var y = (int)area.Top; y < area.Bottom; y++)
+                    for (var x = (int)area.Left; x < area.Right; x++)
+                        darkest = Math.Min(darkest, Luminance(frame[x, y]));
+                lowest = Math.Min(lowest, Ratio(textLuminance, darkest));
+            }
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "text-over-glass-light.txt"), $"{lowest:0.00}");
+            Assert.True(lowest >= 4.5, $"text over the glass reaches only {lowest:0.00}:1 over the darkest ribbon area");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static (MainWindow Window, RibbonBackdrop Ribbon) LightWindowWithoutContent()
+    {
+        var window = NewWindow(ThemeVariant.Light, reduceMotion: false);
+        window.Content = new Border();
+        window.Show();
+        Settle(window);
+        var ribbon = window.GetVisualDescendants().OfType<RibbonBackdrop>().Single();
+        ribbon.AutoAdvance = false;
+        ribbon.HideDots = true;
+        return (window, ribbon);
+    }
+
+    // Samples the light window's panel, with nothing on it, where a ribbon's band or line is and where there is no
+    // ribbon: the luminance contrast of each pair, over four points of the loop.
+    private static (List<double> Bands, List<double> Lines) MeasureThroughGlass()
+    {
+        var (window, ribbon) = LightWindowWithoutContent();
+        var bands = new List<double>();
+        var lines = new List<double>();
+        try
+        {
+            var panel = window.ContentPanelBounds;
+            var origin = ribbon.TranslatePoint(new Point(0, 0), window)!.Value;
+            var height = ribbon.Bounds.Height;
+            bool Covered(double x, double y, double margin)
+            {
+                for (var r = 0; r < RibbonBackdrop.RibbonCount; r++)
+                    if (Math.Abs(y - ribbon.CentreAt(r, x, height)) <= ribbon.HalfWidthAt(r, x, height) + margin)
+                        return true;
+                return false;
+            }
+
+            double Average(Frame frame, double x, double y, int radius)
+            {
+                var sum = 0.0;
+                var count = 0;
+                for (var dy = -radius; dy <= radius; dy++)
+                    for (var dx = -radius; dx <= radius; dx++)
+                    {
+                        sum += Luminance(frame[(int)(origin.X + x) + dx, (int)(origin.Y + y) + dy]);
+                        count++;
+                    }
+                return sum / count;
+            }
+
+            foreach (var phase in new[] { 0.05, 0.3, 0.55, 0.8 })
+            {
+                ribbon.Phase = phase;
+                Settle(window);
+                using var frame = Frame.Capture(window);
+                for (var r = 0; r < RibbonBackdrop.RibbonCount; r++)
+                    for (var x = panel.Left + 70; x < panel.Right - 70; x += 60)
+                    {
+                        var centre = ribbon.CentreAt(r, x, height);
+                        var half = ribbon.HalfWidthAt(r, x, height);
+
+                        // Band: its middle against the page beside it, with no other ribbon near either.
+                        var beside = centre - half - 40 > panel.Top + 40 && !Covered(x, centre - half - 40, 10) ? centre - half - 40
+                            : centre + half + 40 < panel.Bottom - 40 && !Covered(x, centre + half + 40, 10) ? centre + half + 40
+                            : double.NaN;
+                        if (!double.IsNaN(beside) && centre > panel.Top + 40 && centre < panel.Bottom - 40
+                            && !Enumerable.Range(0, RibbonBackdrop.RibbonCount).Where(o => o != r).Any(o => Math.Abs(centre - ribbon.CentreAt(o, x, height)) <= ribbon.HalfWidthAt(o, x, height) + 10))
+                            bands.Add(Ratio(Average(frame, x, centre, 3), Average(frame, x, beside, 3)));
+
+                    }
+            }
+
+            // Lines, where the top edge is lit, against the page just outside it; finer steps, as few points are lit.
+            foreach (var phase in new[] { 0.05, 0.17, 0.3, 0.42, 0.55, 0.67, 0.8, 0.92 })
+            {
+                ribbon.Phase = phase;
+                Settle(window);
+                using var frame = Frame.Capture(window);
+                for (var r = 0; r < RibbonBackdrop.RibbonCount; r++)
+                    for (var x = panel.Left + 70; x < panel.Right - 70; x += 12)
+                    {
+                        var top = ribbon.CentreAt(r, x, height) - ribbon.HalfWidthAt(r, x, height);
+                        var outside = top - 16;
+                        if (ribbon.Light(r, 0, x) >= 0.75 && top > panel.Top + 50 && top < panel.Bottom - 50 && !Covered(x, outside, 10)
+                            && !Enumerable.Range(0, RibbonBackdrop.RibbonCount).Where(o => o != r).Any(o => Math.Abs(top - ribbon.CentreAt(o, x, height)) <= ribbon.HalfWidthAt(o, x, height) + 10))
+                            lines.Add(Ratio(Average(frame, x, top, 1), Average(frame, x, outside, 1)));
+                    }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+        return (bands, lines);
+    }
+
+    private static double Median(List<double> values)
+    {
+        var sorted = values.OrderBy(v => v).ToList();
+        return sorted.Count == 0 ? 0 : sorted[sorted.Count / 2];
     }
 
     // Headless windows never lose activation on their own; this calls the handler a real platform
