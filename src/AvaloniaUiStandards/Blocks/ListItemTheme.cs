@@ -17,8 +17,8 @@ namespace AvaloniaUiStandards.Blocks;
 /// The list item themes (ListBoxItem, ComboBoxItem) and the ListBox theme. Items are squircle
 /// pills inset from the list edges, transparent at rest, with Fluent's neutral fills on hover
 /// (list medium) and press (base medium-low), the accent fill with white text when selected,
-/// density heights, and the focus ring. The ListBox is transparent and shows no focus visual of
-/// its own: its items carry the ring.
+/// density heights, the focus ring and the optional accent flag (<see cref="AccentFlag"/>). The
+/// ListBox is transparent and shows no focus visual of its own: its items carry the ring.
 /// </summary>
 internal static class ListItemTheme
 {
@@ -48,6 +48,7 @@ internal static class ListItemTheme
             hover: new("AccentFillColorPointerOver", Brushes.Transparent, "AccentButtonForeground"),
             pressed: new("AccentFillColorPressed", Brushes.Transparent, "AccentButtonForeground"),
             disabled: new("AccentButtonBackgroundDisabled", Brushes.Transparent, "AccentButtonForegroundDisabled")));
+        AccentFlag.AddTo(theme);
         return theme;
     }
 
@@ -71,7 +72,7 @@ internal static class ListItemTheme
         var chrome = CreateChrome(presenter);
         chrome.RegisterInNameScope(scope);
         presenter.RegisterInNameScope(scope);
-        return FocusRing.Wrap(chrome, scope);
+        return FocusRing.Wrap(AccentFlag.Add(chrome, scope), scope);
     }
 
     /// <summary>

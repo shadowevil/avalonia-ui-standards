@@ -154,7 +154,7 @@ internal static class SidebarTheme
         chrome.RegisterInNameScope(scope);
         label.RegisterInNameScope(scope);
         icon.RegisterInNameScope(scope);
-        return FocusRing.Wrap(chrome, scope);
+        return FocusRing.Wrap(AccentFlag.Add(chrome, scope), scope);
     }
 
     private static Control BuildHeader(SidebarHeader header, INameScope scope)

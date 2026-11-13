@@ -40,6 +40,9 @@ internal sealed class TreeViewPage : UserControl
         var lines = new ToggleSwitch { IsChecked = TreeViewOptions.GetShowLines(tree) };
         lines.IsCheckedChanged += (_, _) => TreeViewOptions.SetShowLines(tree, lines.IsChecked == true);
         AddOption(options, 2, "Lines", lines);
+        var flag = new ToggleSwitch { IsChecked = SelectionOptions.GetAccentFlag(tree) };
+        flag.IsCheckedChanged += (_, _) => SelectionOptions.SetAccentFlag(tree, flag.IsChecked == true);
+        AddOption(options, 3, "Accent flag", flag);
         return new StackPanel
         {
             Spacing = 12,
