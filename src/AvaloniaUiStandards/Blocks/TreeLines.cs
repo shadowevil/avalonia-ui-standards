@@ -12,13 +12,15 @@ namespace AvaloniaUiStandards.Blocks;
 /// <summary>
 /// The node lines of one tree item (<see cref="TreeViewOptions.ShowLinesProperty"/>), drawn under
 /// its row and its children's rows, over the item's whole height, beside the content pills. An
-/// expanded item with lines on draws a stub down from below its caret to the bottom of its row. An
-/// item with lines on whose parent item has them on draws its elbow: down its parent's caret column
-/// from its top, a rounded elbow into its row's centre, and a level line ending before its caret (or
-/// before its pill on a leaf). Unless it is its parent's last child, the parent's column carries on
-/// to its bottom, past its own children, whenever the parent has lines on. The parent redraws the
-/// children whose last-child status its item changes may alter. So the stub and the branches of consecutive children join into one
-/// line per expanded parent. Lines are 1 px in the border colour, snapped to device pixels.
+/// expanded item with lines on draws a stub down from below its caret to the bottom of its row,
+/// when at least one of its children has lines on. An item with lines on whose parent item has them
+/// on draws its elbow: down its parent's caret column from its top, a rounded elbow into its row's
+/// centre, and a level line ending before its caret (or before its pill on a leaf). Unless no later
+/// sibling has lines on, the parent's column carries on to the item's bottom, past its own
+/// children, whenever the parent has lines on. So the stub and the elbows of consecutive children
+/// join into one line per expanded parent, ending at the last child that shows its elbow. The
+/// parent redraws its children when its own item changes which of them is last. Lines are 1 px in
+/// the border colour, snapped to device pixels.
 /// </summary>
 internal sealed class TreeLines : Control
 {
@@ -80,14 +82,29 @@ internal sealed class TreeLines : Control
 
     private bool ParentIsOn => _parent is { } parent && parent.GetValue(TreeViewOptions.ShowLinesProperty);
 
-    /// <summary>Whether this item's stub shows: lines on, expanded, with children.</summary>
-    internal bool HasStub => IsOn && _item.IsExpanded && _item.ItemCount > 0;
+    /// <summary>Whether this item's stub shows: lines on, expanded, with at least one child that has lines on.</summary>
+    internal bool HasStub => IsOn && _item.IsExpanded && Enumerable.Range(0, _item.ItemCount).Any(i => ChildIsOn(_item, i));
 
     /// <summary>Whether this item's elbow shows: lines on for it and for its parent item.</summary>
-    internal bool HasBranch => IsOn && ParentIsOn;
+    internal bool HasElbow => IsOn && ParentIsOn;
 
-    /// <summary>Whether the parent's column carries on past this item (it is not the last child).</summary>
-    internal bool Continues => _parent is { } parent && parent.IndexFromContainer(_item) < parent.ItemCount - 1;
+    /// <summary>Whether the parent's column carries on past this item (a later sibling has lines on).</summary>
+    internal bool Continues
+    {
+        get
+        {
+            if (_parent is not { } parent)
+                return false;
+            for (var i = parent.IndexFromContainer(_item) + 1; i < parent.ItemCount; i++)
+                if (ChildIsOn(parent, i))
+                    return true;
+            return false;
+        }
+    }
+
+    // A child's lines value; an item without a container yet takes its parent's, which it inherits.
+    private static bool ChildIsOn(TreeViewItem parent, int index) =>
+        (parent.ContainerFromIndex(index) as TreeViewItem ?? parent).GetValue(TreeViewOptions.ShowLinesProperty);
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -120,6 +137,13 @@ internal sealed class TreeLines : Control
             // The children's columns and elbows follow this item's value, even where a child overrides its own.
             for (var i = 0; i < _item.ItemCount; i++)
                 ChildLayer(i)?.Redraw();
+            // The parent's stub and the earlier siblings' columns depend on which children have lines on.
+            if (_parent is { } parent && Layers.TryGetValue(parent, out var parentLayer))
+            {
+                parentLayer.Redraw();
+                for (var i = 0; i < parent.ItemCount; i++)
+                    parentLayer.ChildLayer(i)?.Redraw();
+            }
         }
     }
 
@@ -171,9 +195,9 @@ internal sealed class TreeLines : Control
     public override void Render(DrawingContext context)
     {
         // The parent's column passes through this item whenever the parent has lines on, even if this item has them off.
-        var (stub, branch) = (HasStub, HasBranch);
+        var (stub, elbow) = (HasStub, HasElbow);
         var column = ParentIsOn && Continues;
-        if (!stub && !branch && !column || Stroke is not { } stroke)
+        if (!stub && !elbow && !column || Stroke is not { } stroke)
             return;
 
         var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
@@ -210,7 +234,7 @@ internal sealed class TreeLines : Control
                 g.LineTo(new Point(x, Edge(Bounds.Height)));
                 g.EndFigure(false);
             }
-            if (branch)
+            if (elbow)
             {
                 var y = Line(centre.Y);
                 var caretLeft = centre.X - size.Width / 2;
