@@ -540,6 +540,12 @@ public class SidebarTests
             Assert.Equal(248, sidebar.GetValue(Sidebar.LayoutWidthProperty));
             Assert.Equal(SidebarStage.Compact, sidebar.Stage);
 
+            // Past MotionNormal it has reached the rail, and the labels have faded out.
+            Elapse(window, TimeSpan.FromMilliseconds(400));
+            Assert.Equal(56, sidebar.GetValue(Sidebar.LayoutWidthProperty));
+            Assert.Equal(56, sidebar.Bounds.Width);
+            Assert.All(Rows(sidebar), row => Assert.Equal(0, Label(row).Opacity));
+
             // Crossing a threshold applies at once, with the transitions kept for the next toggle.
             window.Width = Narrow;
             Pump(window);
@@ -561,6 +567,123 @@ public class SidebarTests
         finally
         {
             reduced.Close();
+        }
+    }
+
+    // --- Focus -------------------------------------------------------------------------------
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FirstOverlay_InAFreshHiddenSidebar_FocusesTheSelectedRow(bool reduceMotion)
+    {
+        var (window, sidebar) = Show(Narrow, reduceMotion: reduceMotion);
+        try
+        {
+            sidebar.SelectedIndex = 3;
+            sidebar.Toggle();
+            Assert.Same(sidebar.Items[3], Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Overlay_WithNoSelection_FocusesTheFirstRow_PastAHeader()
+    {
+        var (window, sidebar) = Show(Narrow, reduceMotion: false);
+        try
+        {
+            Assert.Equal(-1, sidebar.SelectedIndex);
+            Assert.IsType<SidebarHeader>(sidebar.Items[0]);
+            sidebar.Toggle();
+            Assert.Same(Rows(sidebar)[0], Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    public static TheoryData<string> CloseWays() => new() { "Escape", "Outside click", "Button" };
+
+    [AvaloniaTheory]
+    [MemberData(nameof(CloseWays))]
+    public void ClosingTheOverlay_GivesFocusBackToTheButton(string way)
+    {
+        var (window, sidebar) = Show(Narrow, reduceMotion: false);
+        try
+        {
+            var toggle = Part<Button>(window, StandardsWindowTheme.SidebarTogglePart);
+            Assert.True(toggle.Focusable, "The sidebar button is a Tab stop.");
+            toggle.Focus(NavigationMethod.Tab);
+            window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            Pump(window);
+            Assert.True(sidebar.IsOverlayOpen);
+            Assert.IsType<SidebarItem>(Focused(window));
+
+            switch (way)
+            {
+                case "Escape":
+                    window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                    break;
+                case "Outside click":
+                    var outside = new Point(window.Bounds.Width - 60, window.Bounds.Height / 2);
+                    window.MouseDown(outside, MouseButton.Left);
+                    window.MouseUp(outside, MouseButton.Left);
+                    break;
+                default:
+                    var centre = toggle.TranslatePoint(new Point(toggle.Bounds.Width / 2, toggle.Bounds.Height / 2), window)!.Value;
+                    window.MouseDown(centre, MouseButton.Left);
+                    window.MouseUp(centre, MouseButton.Left);
+                    break;
+            }
+            Pump(window);
+            Assert.False(sidebar.IsOverlayOpen);
+            Assert.Same(toggle, Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Narrow, true)]
+    [InlineData(Medium, false)]
+    public void ChoosingARow_KeepsFocusOnTheRailRow_OrGivesItBackWhenHidden(double width, bool backToButton)
+    {
+        var (window, sidebar) = Show(width);
+        try
+        {
+            var toggle = Part<Button>(window, StandardsWindowTheme.SidebarTogglePart);
+            toggle.Focus(NavigationMethod.Tab);
+            sidebar.Toggle();
+            Pump(window);
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            Pump(window);
+            Assert.False(sidebar.IsOverlayOpen);
+            Assert.Same(backToButton ? toggle : sidebar.SelectedItem, Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static object? Focused(Window window) => window.FocusManager!.GetFocusedElement();
+
+    // Lets transitions run for about the given time: the headless render timer ticks, with real pauses.
+    private static void Elapse(Window window, TimeSpan time)
+    {
+        for (var elapsed = TimeSpan.Zero; elapsed < time; elapsed += TimeSpan.FromMilliseconds(40))
+        {
+            Thread.Sleep(40);
+            Pump(window);
         }
     }
 

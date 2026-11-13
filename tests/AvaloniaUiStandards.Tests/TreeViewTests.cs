@@ -186,6 +186,41 @@ public class TreeViewTests
     }
 
     [AvaloniaFact]
+    public void EnterAndDoubleClick_ToggleAnItem()
+    {
+        var (window, tree) = Show();
+        try
+        {
+            var shape = Items(tree)[1];
+            tree.SelectedItem = shape;
+            shape.Focus(NavigationMethod.Tab);
+            Pump(window);
+            Assert.False(shape.IsExpanded);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            Pump(window);
+            Assert.True(shape.IsExpanded);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            Pump(window);
+            Assert.False(shape.IsExpanded);
+
+            // A double-click on the header (not the caret) toggles too.
+            var header = Header(shape);
+            var point = header.TranslatePoint(new Point(10, header.Bounds.Height / 2), window)!.Value;
+            for (var i = 0; i < 2; i++)
+            {
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
+            }
+            Pump(window);
+            Assert.True(shape.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void HoverAndPress_AreTheRowsOwn_NotTheParents()
     {
         var (window, tree) = Show();

@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaUiStandards.Style;
 
@@ -93,6 +94,8 @@ public class Sidebar : ListBox
     private TopLevel? _topLevel;
     private Control? _surface;
     private Control? _scroller;
+    private double _paneTarget = SidebarTheme.EdgeGap + SidebarTheme.ExpandedWidth;
+    private Control? _focusBeforeOpen;
 
     static Sidebar()
     {
@@ -141,7 +144,7 @@ public class Sidebar : ListBox
     public void Toggle()
     {
         if (IsOverlayOpen)
-            SetOverlay(false);
+            SetOverlay(false, restoreFocus: true);
         else if (Stage == SidebarStage.Expanded)
         {
             _userStage = SidebarStage.Compact;
@@ -221,7 +224,7 @@ public class Sidebar : ListBox
         if (IsOverlayOpen && e.Key is Key.Enter or Key.Space && e.Source is Visual source
             && source.FindAncestorOfType<SidebarItem>(includeSelf: true) is not null)
         {
-            SetOverlay(false);
+            SetOverlay(false, restoreFocus: Stage == SidebarStage.Hidden, focusMethod: NavigationMethod.Tab);
             e.Handled = true;
         }
     }
@@ -271,12 +274,18 @@ public class Sidebar : ListBox
         Apply(animate: false);
     }
 
-    private void SetOverlay(bool open, bool animate = true)
+    // Opens or closes the overlay. Closing with restoreFocus gives the keyboard back to what had
+    // it when the overlay opened (normally the window's sidebar button), by focusMethod.
+    private void SetOverlay(bool open, bool animate = true, bool restoreFocus = false,
+        NavigationMethod focusMethod = NavigationMethod.Unspecified)
     {
         if (open && Stage == SidebarStage.Expanded)
             open = false;
         if (open == IsOverlayOpen)
             return;
+        if (open)
+            _focusBeforeOpen = _topLevel?.FocusManager?.GetFocusedElement() is Control focused
+                               && focused != this && !this.IsVisualAncestorOf(focused) ? focused : null;
         IsOverlayOpen = open;
         if (_topLevel is not null)
         {
@@ -293,9 +302,34 @@ public class Sidebar : ListBox
         }
         Apply(animate);
 
-        // Opened, the keyboard goes to the chosen row (or the first), so arrows move through the rows.
         if (open)
-            (ContainerFromIndex(Math.Max(SelectedIndex, 0)) as SidebarItem)?.Focus();
+            FocusFirstRow();
+        else
+        {
+            var previous = _focusBeforeOpen;
+            _focusBeforeOpen = null;
+            if (restoreFocus && previous is { IsEffectivelyVisible: true, IsEffectivelyEnabled: true })
+                previous.Focus(focusMethod);
+        }
+    }
+
+    // Opened, the keyboard goes to the chosen row, or else the first row, so arrows move through
+    // the rows. The rows show from the overlay's target width on; the row is laid out first (it
+    // may never have been, while the sidebar was hidden).
+    private void FocusFirstRow()
+    {
+        var index = SelectedIndex >= 0 ? SelectedIndex : Items.IndexOf(Items.OfType<SidebarItem>().FirstOrDefault());
+        if (index < 0)
+            return;
+        ScrollIntoView(index);
+        if (ContainerFromIndex(index) is SidebarItem row)
+            row.Focus();
+        else
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (IsOverlayOpen && ContainerFromIndex(index) is SidebarItem late)
+                    late.Focus();
+            }, DispatcherPriority.Loaded);
     }
 
     // Sets the stage and the widths it takes; without animation the widths jump to their values.
@@ -311,6 +345,7 @@ public class Sidebar : ListBox
             _ => 0,
         };
         var pane = IsOverlayOpen ? expanded : layout;
+        _paneTarget = pane;
 
         if (!animate)
             SetValue(TransitionsProperty, null);
@@ -319,6 +354,7 @@ public class Sidebar : ListBox
         if (!animate)
             ClearValue(TransitionsProperty);
         UpdateStates();
+        UpdateParts();
     }
 
     private void UpdateStates()
@@ -331,21 +367,23 @@ public class Sidebar : ListBox
     }
 
     // The glass shows while the sidebar is drawn wider than it lays out (the overlay, and while
-    // it slides back in); the rows are hidden once nothing of them shows, so they take no focus.
+    // it slides back in). The rows show as soon as the target width has room for them (so an
+    // opening overlay can focus a row at once) and hide once nothing of them shows, so a hidden
+    // sidebar takes no focus.
     private void UpdateParts()
     {
         var pane = GetValue(PaneWidthProperty);
         if (_surface is not null)
             _surface.IsVisible = pane > GetValue(LayoutWidthProperty) + 0.5;
         if (_scroller is not null)
-            _scroller.IsVisible = pane > SidebarTheme.EdgeGap + 0.5;
+            _scroller.IsVisible = Math.Max(pane, _paneTarget) > SidebarTheme.EdgeGap + 0.5;
     }
 
     private void OnRowReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (IsOverlayOpen && e.InitialPressMouseButton == MouseButton.Left && e.Source is Visual source
             && source.FindAncestorOfType<SidebarItem>(includeSelf: true) is not null)
-            SetOverlay(false);
+            SetOverlay(false, restoreFocus: Stage == SidebarStage.Hidden, focusMethod: NavigationMethod.Pointer);
     }
 
     // A press outside the overlay closes it and is not passed on, as a light-dismiss popup does.
@@ -355,7 +393,7 @@ public class Sidebar : ListBox
             return;
         if (source.GetSelfAndVisualAncestors().Any(v => v is Control c && c.GetValue(IsToggleProperty)))
             return;
-        SetOverlay(false);
+        SetOverlay(false, restoreFocus: true, focusMethod: NavigationMethod.Pointer);
         e.Handled = true;
     }
 
@@ -363,7 +401,7 @@ public class Sidebar : ListBox
     {
         if (e.Key != Key.Escape)
             return;
-        SetOverlay(false);
+        SetOverlay(false, restoreFocus: true, focusMethod: NavigationMethod.Tab);
         e.Handled = true;
     }
 }

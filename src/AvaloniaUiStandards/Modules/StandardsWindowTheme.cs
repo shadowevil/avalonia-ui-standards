@@ -135,7 +135,10 @@ internal static class StandardsWindowTheme
             // With a Sidebar Module: its button before the title (SpacingL in, so its icon lines up
             // with the rail's icons below); the sidebar draws its own gap from the window's edge,
             // and its overlay over the glass panel.
-            Part<Button>(SidebarTogglePart, null, (Layoutable.MarginProperty, new Thickness(Spacing.L, 0, 0, 0))),
+            Part<Button>(SidebarTogglePart, null,
+                (Layoutable.MarginProperty, new Thickness(Spacing.L, 0, 0, 0)),
+                (Visual.IsVisibleProperty, false)),
+            Part<Button>(SidebarTogglePart, ":sidebar-module", (Visual.IsVisibleProperty, true)),
             Part<Button>(SidebarTogglePart, ":traffic-lights", (Layoutable.MarginProperty, new Thickness(Spacing.M, 0, 0, 0))),
             Part<TextBlock>(TitlePart, ":sidebar-module", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
             Part<ContentPresenter>(SidebarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, Spacing.S))),
@@ -268,10 +271,6 @@ internal static class StandardsWindowTheme
         WindowDecorationProperties.SetElementRole(toggle, WindowDecorationsElementRole.DecorationsElement);
         toggle.Bind(Layoutable.WidthProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
         toggle.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
-        toggle.Bind(Visual.IsVisibleProperty, new TemplateBinding(StandardsWindow.SidebarProperty)
-        {
-            Converter = new FuncValueConverter<object?, bool>(content => content is Sidebar),
-        });
         return toggle;
     }
 

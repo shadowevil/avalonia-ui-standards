@@ -93,7 +93,7 @@ internal static class TreeViewTheme
             new Setter(Control.FocusAdornerProperty, null),
             new Setter(TemplatedControl.PaddingProperty, new Thickness(Spacing.XS)),
             new Setter(TemplatedControl.CornerRadiusProperty, Resource("CornerRadiusControl")),
-            new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<TreeView>(BuildTreeView)),
+            new Setter(TemplatedControl.TemplateProperty, ListItemTheme.ListTemplate),
         },
     };
 
@@ -155,33 +155,6 @@ internal static class TreeViewTheme
     }
 
     private static Selector Caret(Selector item) => item.Template().OfType<ToggleButton>().Name(CaretPart);
-
-    private static Control BuildTreeView(TreeView tree, INameScope scope)
-    {
-        var items = new ItemsPresenter { Name = ItemsPart };
-        items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
-        items.Bind(Layoutable.MarginProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
-
-        var scroller = new ScrollViewer { Name = "PART_ScrollViewer", Content = items };
-        foreach (var property in new AvaloniaProperty[]
-                 {
-                     ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollViewer.VerticalScrollBarVisibilityProperty,
-                     ScrollViewer.IsScrollChainingEnabledProperty, ScrollViewer.AllowAutoHideProperty,
-                     ScrollShadows.IsEnabledProperty,
-                 })
-            scroller.Bind(property, new TemplateBinding(property));
-
-        var border = new SquircleBorder { Name = "border", Child = scroller };
-        border.Bind(SquircleBorder.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
-        border.Bind(SquircleBorder.BorderBrushProperty, new TemplateBinding(TemplatedControl.BorderBrushProperty));
-        border.Bind(SquircleBorder.BorderThicknessProperty, new TemplateBinding(TemplatedControl.BorderThicknessProperty));
-        border.Bind(SquircleBorder.CornerRadiusProperty, new TemplateBinding(TemplatedControl.CornerRadiusProperty));
-
-        border.RegisterInNameScope(scope);
-        scroller.RegisterInNameScope(scope);
-        items.RegisterInNameScope(scope);
-        return border;
-    }
 
     private static Control BuildItem(TreeViewItem item, INameScope scope)
     {

@@ -124,29 +124,15 @@ internal static class SidebarTheme
         },
     };
 
-    // The rows sit EdgeGap in from the window's edge; the glass behind them shows only for the overlay.
+    // The list template shared with ListBox, EdgeGap in from the window's edge; the glass behind it
+    // shows only for the overlay.
     private static Control BuildSidebar(Sidebar sidebar, INameScope scope)
     {
-        var items = new ItemsPresenter { Name = "PART_ItemsPresenter" };
-        items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
-        items.Bind(Layoutable.MarginProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
-
-        var scroller = new ScrollViewer { Name = "PART_ScrollViewer", Content = items, Margin = new Thickness(EdgeGap, 0, 0, 0) };
-        foreach (var property in new AvaloniaProperty[]
-                 {
-                     ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollViewer.VerticalScrollBarVisibilityProperty,
-                     ScrollShadows.IsEnabledProperty,
-                 })
-            scroller.Bind(property, new TemplateBinding(property));
-
+        var list = ListItemTheme.BuildList(sidebar, scope);
+        list.Margin = new Thickness(EdgeGap, 0, 0, 0);
         var surface = new GlassBorder { Name = OverlaySurfacePart, Margin = new Thickness(EdgeGap, 0, 0, 0), IsVisible = false };
-
         surface.RegisterInNameScope(scope);
-        scroller.RegisterInNameScope(scope);
-        items.RegisterInNameScope(scope);
-        var root = new Panel { Children = { surface, scroller } };
-        root.Bind(Panel.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
-        return root;
+        return new Panel { Children = { surface, list } };
     }
 
     // The icon takes the label's colour, so it follows every row state (selected: white).
