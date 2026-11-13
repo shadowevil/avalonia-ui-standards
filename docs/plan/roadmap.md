@@ -16,7 +16,7 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    6. Native window behaviour on macOS: system shadow, native border and chrome roles ([0022](../decisions/0022-window-layout.md)). Windows and Linux are a later step.
    7. TextInput (Fluent `TextBox`).
    8. ComboBox.
-   9. Icon (restyled Fluent `PathIcon`). The Icon set is Phosphor (vector, MIT).
+   9. Icon (restyled Fluent `PathIcon`). The Icon set is Phosphor Regular (vector, MIT; [0026](../decisions/0026-icon.md)). Done.
    10. The sidebar Module with its collapse stages (see M4; needs ListBox and Icon).
    11. CheckBox and ToggleSwitch.
    12. Segmented control (multi-switch): a Block for choosing one of several options for a single setting, with text and/or icon segments. Design per platform best practices, researched and agreed at that step.
@@ -34,7 +34,6 @@ Then the web decision is due ([0002](../decisions/0002-desktop-first.md)).
 
 ## Open questions
 
-- Phosphor weight and icon subset (M3).
 - First Modules beyond the app shell's (M4).
 - Which Screens beyond the app shell (M5).
 
