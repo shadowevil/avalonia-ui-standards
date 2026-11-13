@@ -28,8 +28,14 @@ internal static class CheckBoxTheme
     /// <summary>One state's colours: outline background and border, the checked fill, the mark, the label.</summary>
     private readonly record struct Look(object OutlineBackground, object OutlineBorder, object Fill, object Mark, object Label);
 
-    public static ControlTheme Create()
+    /// <param name="disabled">
+    /// When the disabled look applies; null is <c>:disabled</c>. The DataGrid's cell check boxes pass
+    /// their own condition: the check boxes a check column shows outside editing are disabled
+    /// controls that keep the enabled look.
+    /// </param>
+    public static ControlTheme Create(Func<Selector, Selector>? disabled = null)
     {
+        disabled ??= x => x.Class(":disabled");
         var theme = new ControlTheme(typeof(CheckBox));
         AddRowSetters(theme);
         theme.Setters.Add(new Setter(TemplatedControl.CornerRadiusProperty, new DynamicResourceExtension(BoxRadiusKey)));
@@ -40,13 +46,13 @@ internal static class CheckBoxTheme
         Look UncheckedLook(string state) => new(
             Unchecked("CheckBackgroundFill", state), Unchecked("CheckBackgroundStroke", state), "AccentFillColor",
             "CheckBoxCheckGlyphForegroundChecked", Unchecked("Foreground", state));
-        AddGroup(theme, x => x.Nesting(), opacities: (0, 0, 0),
+        AddGroup(theme, x => x.Nesting(), disabled, opacities: (0, 0, 0),
             UncheckedLook(""), UncheckedLook("PointerOver"), UncheckedLook("Pressed"), UncheckedLook("Disabled"));
 
         foreach (var (pseudoClass, name, opacities) in new[] { (":checked", "Checked", (1d, 1d, 0d)), (":indeterminate", "Indeterminate", (1d, 0d, 1d)) })
         {
             Look Filled(string fill, string state) => new(Brushes.Transparent, fill, fill, $"CheckBoxCheckGlyphForeground{name}{state}", $"CheckBoxForeground{name}{state}");
-            AddGroup(theme, x => x.Nesting().Class(pseudoClass), opacities,
+            AddGroup(theme, x => x.Nesting().Class(pseudoClass), disabled, opacities,
                 Filled("AccentFillColor", ""), Filled("AccentFillColorPointerOver", "PointerOver"), Filled("AccentFillColorPressed", "Pressed"),
                 Filled("AccentButtonBackgroundDisabled", "Disabled") with { Mark = "AccentButtonForegroundDisabled" });
         }
@@ -54,8 +60,8 @@ internal static class CheckBoxTheme
     }
 
     /// <summary>A checked state's group: its rest look and mark opacities, then hover, pressed and disabled.</summary>
-    private static void AddGroup(ControlTheme theme, Func<Selector?, Selector> activate, (double Fill, double Check, double Dash) opacities,
-        Look rest, Look hover, Look pressed, Look disabled)
+    private static void AddGroup(ControlTheme theme, Func<Selector?, Selector> activate, Func<Selector, Selector> disabledState,
+        (double Fill, double Check, double Dash) opacities, Look rest, Look hover, Look pressed, Look disabled)
     {
         var group = new Avalonia.Styling.Style(x => activate(x))
         {
@@ -67,7 +73,7 @@ internal static class CheckBoxTheme
                     (DashPart, Visual.OpacityProperty, opacities.Dash)]),
                 Colours(x => x.Nesting().Class(":pointerover"), Setters(hover)),
                 Colours(x => x.Nesting().Class(":pressed"), Setters(pressed)),
-                Colours(x => x.Nesting().Class(":disabled"), Setters(disabled)),
+                Colours(x => disabledState(x.Nesting()), Setters(disabled)),
             },
         };
         theme.Children.Add(group);

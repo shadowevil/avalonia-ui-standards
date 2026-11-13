@@ -15,7 +15,7 @@ namespace AvaloniaUiStandards;
 /// The library theme, used in place of <c>FluentTheme</c>, and the entry point that assembles
 /// every tier: Fluent with the neutral palettes and the accent, the Style tier resources (type,
 /// spacing, shape, motion, glass, danger) and the Blocks tier control themes, including those of
-/// the ColorPicker package's controls over that package's Fluent styles. Light or dark
+/// the DataGrid and ColorPicker packages' controls over those packages' Fluent styles. Light or dark
 /// follows the application's <c>RequestedThemeVariant</c>, which follows the OS by default.
 /// </summary>
 public class StandardsTheme : Styles
@@ -67,7 +67,11 @@ public class StandardsTheme : Styles
     private static readonly TimeSpan MotionSlow = TimeSpan.FromMilliseconds(300);
     private static readonly Easing MotionEasing = new CubicEaseOut();
 
+    /// <summary>The DataGrid package's Fluent theme (<c>Avalonia.Controls.DataGrid</c>).</summary>
+    internal static readonly Uri DataGridFluentSource = new("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml");
+
     private readonly FluentTheme _fluent;
+    private readonly StyleInclude _dataGrid;
     private readonly ColorPaletteResources _light;
     private readonly ColorPaletteResources _dark;
     private readonly OsAccessibility.Settings _os;
@@ -96,8 +100,10 @@ public class StandardsTheme : Styles
         _fluent.Palettes[ThemeVariant.Light] = _light;
         _fluent.Palettes[ThemeVariant.Dark] = _dark;
         Add(_fluent);
-        // The ColorPicker package's Fluent styles, after Fluent's, as Fluent's own are included;
-        // the Blocks themes below restyle its controls.
+        // The DataGrid and ColorPicker packages' Fluent styles, after Fluent's, as Fluent's own are
+        // included; the Blocks themes below restyle their controls.
+        _dataGrid = new StyleInclude(new Uri("avares://AvaloniaUiStandards/")) { Source = DataGridFluentSource };
+        Add(_dataGrid);
         Add(new StyleInclude(new Uri("avares://AvaloniaUiStandards/"))
         {
             Source = new Uri("avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml"),
@@ -112,7 +118,10 @@ public class StandardsTheme : Styles
         UpdateMotion();
 
         // The Blocks tier control themes (Fluent overrides, 0004).
-        Blocks.BlocksThemes.AddTo(Resources, type => _fluent.TryGetResource(type, null, out var fluentTheme) ? fluentTheme as ControlTheme : null);
+        Blocks.BlocksThemes.AddTo(Resources, type =>
+            _fluent.TryGetResource(type, null, out var fluentTheme) || _dataGrid.TryGetResource(type, null, out fluentTheme)
+                ? fluentTheme as ControlTheme
+                : null);
         Blocks.BlocksThemes.ApplyDensity(Resources, _fluent.DensityStyle);
         foreach (var style in Blocks.BlocksThemes.Styles())
             Add(style);

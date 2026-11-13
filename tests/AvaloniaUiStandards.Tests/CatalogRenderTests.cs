@@ -270,9 +270,9 @@ public class CatalogRenderTests
         }
     }
 
-    // True when the control is below a scroller other than the page scroller.
+    // True when the control is below a scroller other than the page scroller (a ScrollViewer, or a DataGrid, which scrolls its own rows and columns).
     private static bool InNestedScroller(Control control, ScrollViewer host) =>
-        control.GetVisualAncestors().TakeWhile(a => a != host).OfType<ScrollViewer>().Any();
+        control.GetVisualAncestors().TakeWhile(a => a != host).Any(a => a is ScrollViewer or DataGrid);
 
     private static string Describe(Control c) => c is TextBlock { Text: { } t } ? $"\"{t}\"" : c.GetType().Name;
 
