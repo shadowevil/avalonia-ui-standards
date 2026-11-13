@@ -47,11 +47,23 @@ internal sealed class ListBoxPage : UserControl
         multiple.SelectedItems?.Add(Names[1]);
         multiple.SelectedItems?.Add(Names[3]);
 
+        // The accent flag option, on all three lists.
+        var flag = new ToggleSwitch { IsChecked = false };
+        flag.IsCheckedChanged += (_, _) =>
+        {
+            foreach (var list in new[] { withIcons, text, multiple })
+                SelectionOptions.SetAccentFlag(list, flag.IsChecked == true);
+        };
+        var options = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto"), ColumnSpacing = 12, RowDefinitions = new RowDefinitions("Auto") };
+        Ui.Place(options, Ui.Body("Accent flag"), 0, 0);
+        Ui.Place(options, flag, 0, 1);
+
         return new StackPanel
         {
             Spacing = 12,
             Children =
             {
+                options,
                 new WrapPanel
                 {
                     ItemSpacing = 24,
