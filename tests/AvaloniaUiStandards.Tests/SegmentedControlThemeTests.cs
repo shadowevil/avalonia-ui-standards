@@ -208,6 +208,63 @@ public class SegmentedControlThemeTests
         }
     }
 
+    // Each removal of the selected segment raises exactly one selection change, straight to the
+    // nearest segment (never passing through the first), with no dispatcher turn in between.
+    [AvaloniaFact]
+    public void Selection_OneChangePerRemoval_AndBackToBackRemovals()
+    {
+        var items = new System.Collections.ObjectModel.ObservableCollection<string>(["A", "B", "C", "D", "E"]);
+        var (window, control, _, _) = Show(new SegmentedControl { ItemsSource = items }, selected: 2);
+        try
+        {
+            var changes = new List<object?>();
+            control.SelectionChanged += (_, e) => changes.Add(e.AddedItems.Count > 0 ? e.AddedItems[0] : null);
+
+            items.RemoveAt(2); // C, selected: D takes its place
+            Assert.Equal("D", control.SelectedItem);
+            Assert.Equal(["D"], changes);
+
+            items.RemoveAt(0); // A, not selected: D stays, no change
+            Assert.Equal("D", control.SelectedItem);
+            Assert.Equal(["D"], changes);
+
+            items.RemoveAt(items.Count - 1); // E, not selected
+            items.RemoveAt(items.Count - 1); // D, selected and last: B, the new last
+            Assert.Equal("B", control.SelectedItem);
+            Assert.Equal(["D", "B"], changes);
+            Pump(window);
+            AssertPillOn(control, 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Replacing the selected item keeps its index, with one selection change to the new item.
+    [AvaloniaFact]
+    public void Selection_ReplacingTheSelectedItemKeepsItsIndex()
+    {
+        var items = new System.Collections.ObjectModel.ObservableCollection<string>(["Day", "Week", "Month"]);
+        var (window, control, _, _) = Show(new SegmentedControl { ItemsSource = items }, selected: 1);
+        try
+        {
+            var changes = 0;
+            control.SelectionChanged += (_, _) => changes++;
+            items[1] = "Fortnight";
+            Assert.Equal(1, control.SelectedIndex);
+            Assert.Equal("Fortnight", control.SelectedItem);
+            Assert.Equal(1, changes);
+            items[0] = "Hour";
+            Assert.Equal(1, control.SelectedIndex);
+            Assert.Equal(1, changes);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // The pill stays on its segment as segments are added or removed around it.
     [AvaloniaFact]
     public void Pill_FollowsItsSegment_WhenItemsChange()

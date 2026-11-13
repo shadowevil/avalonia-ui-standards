@@ -8,7 +8,8 @@
     - **Why:** It keeps the list's items, data binding, selection model and automation, and the list's single Tab stop. A setting always has a value, so the selection is kept.
   - Selection rules:
     - A click selects its segment whatever the modifier keys: Ctrl, Cmd and Shift are ignored, so a click never clears or extends the selection.
-    - Removing the selected segment selects the nearest remaining one: the segment that takes its place, or the new last one when it was last. Removing any other segment keeps the selection.
+    - Removing the selected segment selects the nearest remaining one: the segment that takes its place, or the new last one when it was last. Removing any other segment keeps the selection. Each removal raises one selection change, straight to that segment.
+    - Replacing the selected item (`items[i] = x`) keeps index `i` selected, now holding the new item.
     - Selecting never scrolls the page around the control (the list's scroll-to-selection is off).
     - **Why:** The list's toggle click and its fallback to the first item after a removal would make the value jump to an unrelated option. Every segment is always in view, so there is nothing to scroll to.
   - Keyboard:

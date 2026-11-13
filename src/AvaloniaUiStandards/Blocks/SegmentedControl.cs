@@ -2,8 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using System.Collections.Specialized;
 using Avalonia.Input;
+using Avalonia.Controls.Selection;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
 
 namespace AvaloniaUiStandards.Blocks;
 
@@ -13,8 +13,8 @@ namespace AvaloniaUiStandards.Blocks;
 /// that is always kept, so it has one Tab stop and its items, selection and data binding work as
 /// in a list. Left and Right (and Up and Down) move to the previous or next enabled segment and
 /// select it, stopping at the ends; Home and End select the first and last. A click selects its
-/// segment whatever the modifier keys, and removing the selected segment selects the nearest
-/// remaining one. The selected segment
+/// segment whatever the modifier keys; removing the selected segment selects the nearest
+/// remaining one, and replacing it keeps its index. The selected segment
 /// is shown by one pill that slides between segments. Icon-only segments carry a
 /// <see cref="ToolTip"/> and an automation name, as the icon alone does not name the option.
 /// </summary>
@@ -27,9 +27,33 @@ public class SegmentedControl : ListBox
         AutoScrollToSelectedItemProperty.OverrideDefaultValue<SegmentedControl>(false);
     }
 
+    // The segment to select when the selection model loses its selection to the collection change
+    // in progress; null when that change does not touch the selected segment.
+    private int? _reselect;
+    private ISelectionModel? _model;
+
     public SegmentedControl()
     {
         ItemsView.CollectionChanged += OnItemsChanged;
+        Watch(Selection);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == SelectionProperty)
+            Watch(Selection);
+    }
+
+    // Subscribed after the list's own handler, so the reselection here comes last.
+    private void Watch(ISelectionModel model)
+    {
+        if (ReferenceEquals(model, _model))
+            return;
+        if (_model is not null)
+            _model.LostSelection -= OnLostSelection;
+        _model = model;
+        model.LostSelection += OnLostSelection;
     }
 
     /// <summary>
@@ -46,20 +70,25 @@ public class SegmentedControl : ListBox
     }
 
     // Removing the selected segment selects the nearest remaining one (the one that takes its
-    // place, or the new last one), instead of the first. The control hears of the removal while
-    // the old selection still stands; the selection model then reselects the first segment, so
-    // the nearest one is selected right after, before the next layout.
+    // place, or the new last one); replacing it keeps its index. The control hears of the change
+    // while the old selection still stands, so the target is recorded here; the selection model
+    // then reports the lost selection, and the target is selected there instead of the first.
     private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         var selected = SelectedIndex;
-        if (e.Action is not NotifyCollectionChangedAction.Remove || selected < e.OldStartingIndex
-            || selected >= e.OldStartingIndex + (e.OldItems?.Count ?? 0))
+        _reselect = e.Action is NotifyCollectionChangedAction.Remove or NotifyCollectionChangedAction.Replace
+            && selected >= e.OldStartingIndex && selected < e.OldStartingIndex + (e.OldItems?.Count ?? 0)
+            ? e.Action == NotifyCollectionChangedAction.Replace ? selected : e.OldStartingIndex
+            : null;
+    }
+
+    private void OnLostSelection(object? sender, EventArgs e)
+    {
+        if (_reselect is not { } index)
             return;
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (ItemCount > 0)
-                SelectedIndex = Math.Min(e.OldStartingIndex, ItemCount - 1);
-        }, DispatcherPriority.Send);
+        _reselect = null;
+        if (ItemCount > 0)
+            SelectedIndex = Math.Min(index, ItemCount - 1);
     }
 
     protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) => new SegmentedControlItem();
