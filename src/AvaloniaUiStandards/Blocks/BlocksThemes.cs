@@ -29,6 +29,12 @@ internal static class BlocksThemes
         resources[typeof(DropDownButton)] = DropDownButtonTheme.Create();
         resources[typeof(SplitButton)] = SplitButtonTheme.Create();
         resources[typeof(Icon)] = IconTheme.Create();
+        var pickerItem = PickerThemes.Item();
+        var pickerStep = PickerThemes.StepButton();
+        resources[typeof(DatePicker)] = PickerThemes.DatePicker(fluentTheme(typeof(DatePicker)));
+        resources[typeof(TimePicker)] = PickerThemes.TimePicker(fluentTheme(typeof(TimePicker)));
+        resources[typeof(DatePickerPresenter)] = PickerThemes.Presenter(typeof(DatePickerPresenter), fluentTheme(typeof(DatePickerPresenter)), pickerItem, pickerStep);
+        resources[typeof(TimePickerPresenter)] = PickerThemes.Presenter(typeof(TimePickerPresenter), fluentTheme(typeof(TimePickerPresenter)), pickerItem, pickerStep);
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -53,5 +59,7 @@ internal static class BlocksThemes
         resources[ButtonParts.PaddingKey] = sizes.Padding;
         resources[ButtonParts.GlyphMarginKey] = new Thickness(0, 0, sizes.Padding.Right, 0);
         resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        FieldParts.ApplyDensity(resources, density);
+        PickerThemes.ApplyDensity(resources, density);
     }
 }

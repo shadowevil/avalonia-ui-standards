@@ -303,12 +303,11 @@ public class ButtonThemeTests
     // Fluent controls whose templates hold button-family controls keep Fluent's look for them
     // (0007): their plain Buttons set an explicit theme, and the subclasses they use either set
     // one too or have theme keys of their own. The ListBox, ListBoxItem, ComboBoxItem and
-    // ScrollViewer restyles apply to every instance, inside Fluent templates as well; the picker
-    // presenters' item containers have theme keys of their own and keep Fluent's look.
+    // ScrollViewer restyles apply to every instance, inside Fluent templates as well. The
+    // DatePicker and TimePicker are restyled and use the library's Buttons (0038).
     public static TheoryData<string> FluentControlsWithButtons => new()
     {
-        nameof(CalendarDatePicker), nameof(Calendar), nameof(DatePicker), nameof(TimePicker),
-        nameof(DatePickerPresenter), nameof(TimePickerPresenter), nameof(NumericUpDown), nameof(ButtonSpinner),
+        nameof(CalendarDatePicker), nameof(Calendar), nameof(NumericUpDown), nameof(ButtonSpinner),
         nameof(Expander), nameof(ComboBox), nameof(ScrollBar), nameof(Slider), nameof(TreeView),
     };
 
@@ -320,10 +319,6 @@ public class ButtonThemeTests
         {
             nameof(CalendarDatePicker) => new CalendarDatePicker(),
             nameof(Calendar) => new Calendar(),
-            nameof(DatePicker) => new DatePicker(),
-            nameof(TimePicker) => new TimePicker(),
-            nameof(DatePickerPresenter) => new DatePickerPresenter(),
-            nameof(TimePickerPresenter) => new TimePickerPresenter(),
             nameof(NumericUpDown) => new NumericUpDown(),
             nameof(ButtonSpinner) => new ButtonSpinner { Content = "Spin" },
             nameof(Expander) => new Expander { Header = "Header", Content = "Content" },

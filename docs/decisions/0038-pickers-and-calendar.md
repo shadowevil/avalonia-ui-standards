@@ -1,0 +1,40 @@
+# 0038 — DatePicker, TimePicker, Calendar and CalendarDatePicker
+
+- **Status:** Proposed, 2026-11-13
+- **Decision:**
+  - All four are Fluent's controls restyled ([0003](0003-restyle-fluent.md)): Fluent's templates are kept and extended, so their parts, behaviour and keyboard handling stay Fluent's.
+    - **Why:** The pickers' code drives many named parts (selectors, step buttons, segments, day cells); keeping Fluent's templates keeps every behaviour while the look changes.
+  - **The field.** DatePicker, TimePicker and CalendarDatePicker are drawn as fields with TextInput's values ([0027](0027-text-input.md)): height 32 at Normal and 24 at Compact, `CornerRadiusControl` 8, Fluent's TextControl colours per state, a 1 px border that turns accent while focus is anywhere inside, and the focus ring ([0019](0019-focus-ring.md)) around the whole field while a part of it has keyboard focus. The field chrome is drawn behind Fluent's flyout button or text box, which keep no chrome of their own.
+    - **Why:** Pickers sit in forms next to text fields; the same height, fill, border and focus cues make them line up and read as one family.
+  - DatePicker and TimePicker keep Fluent's segments (day, month, year; hour, minute, period) and their 1 px dividers. Segment text is centred in the field height; the month segment starts at the density's side padding (12, or 8 at Compact). Fluent's off-grid paddings (3 above, 6 below, 9 before the month) are dropped.
+    - **Why:** The dividers show which part opens which selector; the paddings follow [0013](0013-spacing-and-density.md).
+  - CalendarDatePicker's calendar button is a field button (24 px, or 20 at Compact, the Subtle look; [0027](0027-text-input.md)) showing `Icons.CalendarBlank`. The text box inside it draws no chrome of its own.
+    - **Why:** The same trailing button as the other fields, and no field inside a field.
+  - **The overlays.** The DatePicker and TimePicker flyouts and the CalendarDatePicker drop-down are glass ([0015](0015-glass.md)) with `CornerRadiusOverlay` 16, opened in the window's overlay layer. The drop-down sits `SpacingXS` below the field; the flyouts keep Fluent's placement over the field.
+    - **Why:** Glass on overlays is the set look. `GlassBorder` blurs what is behind it in the same window; a popup in its own OS window has nothing behind it to blur. **Accepted consequence:** these overlays cannot extend past the window's edges; Avalonia flips or shifts them to fit.
+  - The flyout is inset by `SpacingXS`, as the drop-down of [0024](0024-lists-and-scrolling.md). Its selectors scroll inside a squircle concentric with the glass: radius 12 (16 less the inset). This fixes the known overrun of rows past the rounded corners, and a test checks that no row shows outside that curve.
+    - **Why:** Fluent's rows ran to the overlay's edges and were cut by its corners. Inside a concentric curve, a row scrolled to an edge is cut by a curve that matches the glass, and the row pills fit inside it.
+  - Selector rows use the list item design ([0024](0024-lists-and-scrolling.md)): height 32 at Normal and 24 at Compact, squircle hover (`ListMedium`) and press (`BaseMediumLow`) fills. A selector shows 7 rows with the selected row in the middle.
+    - **Why:** One row design for every list. Seven rows show three choices either side; an odd count centres the selection. Fluent shows about nine rows of 40 px, which makes a much taller overlay.
+  - The selected row is one squircle pill in the accent fill (`AccentFillColor`, radius 8) across all columns, with white text (`AccentButtonForeground`). Fluent's column dividers are hidden in the flyout.
+    - **Why:** It matches list selection and reads as one chosen value (a date, a time); dividers would cut through the pill.
+  - The looping selectors show no scroll-edge shadow.
+    - **Why:** A looping list always has more content in both directions, so the shadow would never go away and would not signal anything.
+  - The step buttons over the top and bottom row (shown while the pointer is over a selector, as in Fluent) are one row high, squircle, opaque in the glass tint colour (`GlassTintColor`) with the list item hover and press fills, and show `Icons.CaretUp` and `Icons.CaretDown` in secondary text. They do not take focus, as in Fluent.
+    - **Why:** Opaque, so the row under them does not show through; the same shape and fills as the rows they scroll.
+  - Accept and dismiss are the library's Buttons ([0018](0018-button.md)) side by side, `SpacingXS` apart, at the density height: Accent with `Icons.Check` and Standard with `Icons.X`. Fluent's divider line above them is hidden.
+    - **Why:** Committing is the primary action and dismissing the secondary, as in Fluent 2 dialogs; the button chrome separates them from the selectors without a line.
+  - **The Calendar.** The Calendar is a panel: a squircle with `CornerRadiusOverlay` 16, the card colour (`ChromeMediumLow`), a 1 px `BaseLow` hairline and `SpacingXS` padding. In the CalendarDatePicker drop-down it has no fill or border of its own and sits on the glass. Text is Body (Fluent uses 20 px). Fluent's grey band behind the days and its fixed sizes are dropped: the Calendar is seven cells wide, and the year and decade views keep the month view's size.
+    - **Why:** A calendar is a surface, so it takes the panel radius ([0014](0014-shape.md)) and the solid card of [0015](0015-glass.md); Body text matches every other Block; a fixed size keeps the drop-down from jumping when the view changes.
+  - The header has the month and year as a Subtle Button in Body strong on the left, and `Icons.CaretLeft` and `Icons.CaretRight` as square Subtle icon buttons (32, or 24 at Compact) on the right.
+    - **Why:** The title stays a button (it switches to the year and decade views, as in Fluent); the order matches WinUI's CalendarView and macOS.
+  - Day cells are squircle pills of the density height (32 × 32, or 24 × 24 at Compact) with `CornerRadiusControl` 8, 4 px apart, with the list item hover and press fills. Month and year cells are pills of the density height as wide as their column. Weekday headings are Caption size in secondary text.
+    - **Why:** The list item shape and fills, at the control height, so the grid lines up with the rest of the library.
+  - Selected days, months and years use the accent fill with white text, darker on hover and press (`AccentFill*`). Days outside the shown month use secondary text (`BaseMedium`); unavailable (blackout) and disabled days use disabled text (`BaseMediumLow`).
+    - **Why:** The same selection as lists and selector rows; secondary text keeps the neighbouring months readable but quieter.
+  - Today is accent text (`AccentTextColor`) in Body strong, not a ring or a fill. Selected today shows the selected look.
+    - **Why:** The focus ring is a 2 px accent ring, so a today ring would read as keyboard focus; an accent fill (WinUI) would read as selection. `AccentTextColor` meets 4.5:1 on every surface ([0011](0011-colour.md)), and accent text for today matches macOS.
+  - Keyboard handling is Fluent's (the arrow keys, Page Up and Page Down, Home and End). Focus stays on the cell it arrived at while the arrows move Fluent's keyboard cursor, so the focus ring follows that cursor (`:dayfocused`, `:btnfocused`) while focus inside the Calendar came from the keyboard, and shows nowhere after pointer focus.
+    - **Why:** The ring marks where the keys act, as on every Block, without changing Fluent's behaviour.
+  - Motion: the field chrome, rows and cells fade over `MotionFast` with the fixed transitions, none under reduce motion ([0016](0016-motion.md)). The overlays open and close without animation, as in Fluent.
+- **Why:** Pickers that line up with the field Blocks, overlays in the set glass with rows that stay inside its curves, and a calendar that uses the list design, the accent selection and the focus ring of the rest of the library.

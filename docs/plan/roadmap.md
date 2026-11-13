@@ -36,7 +36,3 @@ Then the web decision is due ([0002](../decisions/0002-desktop-first.md)).
 
 - First Modules beyond the app shell's (M4).
 - Which Screens beyond the app shell (M5).
-
-## Known items for later steps
-
-- The DatePicker and TimePicker flyout items overrun their rounded corners ([0024](../decisions/0024-lists-and-scrolling.md)).

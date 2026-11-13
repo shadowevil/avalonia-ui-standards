@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using AvaloniaUiStandards.Style;
@@ -59,6 +60,51 @@ internal static class FocusRing
         theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting())) { Setters = { new Setter(Visual.IsVisibleProperty, false) } });
         theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting().Class(":focus-visible"))) { Setters = { new Setter(Visual.IsVisibleProperty, true) } });
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":focus-visible")) { Setters = { new Setter(Visual.ZIndexProperty, 1) } });
+    }
+
+    /// <summary>
+    /// Set on a composite field (ComboBox, ButtonSpinner) while one of its parts (an inner TextBox,
+    /// a spin button) has keyboard focus, so the field shows the ring around itself.
+    /// </summary>
+    public static readonly AttachedProperty<bool> IsVisibleWithinProperty =
+        AvaloniaProperty.RegisterAttached<Control, bool>("IsVisibleWithin", typeof(FocusRing));
+
+    private static readonly HashSet<Type> Tracked = [];
+
+    /// <summary>
+    /// Keeps <see cref="IsVisibleWithinProperty"/> on every <paramref name="type"/> control: true
+    /// while the element focused inside it got focus from the keyboard (as <c>:focus-visible</c>),
+    /// false once focus leaves it or arrives by pointer. Focus events bubble from the focused part.
+    /// </summary>
+    public static void TrackWithin(Type type)
+    {
+        lock (Tracked)
+            if (!Tracked.Add(type))
+                return;
+        InputElement.GotFocusEvent.AddClassHandler(type, (sender, e) =>
+        {
+            if (sender is Control control)
+                control.SetValue(IsVisibleWithinProperty, e is FocusChangedEventArgs { NavigationMethod: NavigationMethod.Tab or NavigationMethod.Directional });
+        }, handledEventsToo: true);
+        InputElement.LostFocusEvent.AddClassHandler(type, (sender, _) => (sender as Control)?.SetValue(IsVisibleWithinProperty, false),
+            handledEventsToo: true);
+    }
+
+    /// <summary>
+    /// Adds the ring's states to a composite field's theme whose template is wrapped with
+    /// <see cref="Wrap"/>: shown on its own keyboard focus or on a part's (<see cref="TrackWithin"/>).
+    /// </summary>
+    public static void AddWithinTo(ControlTheme theme)
+    {
+        AddTo(theme);
+        theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting().PropertyEquals(IsVisibleWithinProperty, true)))
+        {
+            Setters = { new Setter(Visual.IsVisibleProperty, true) },
+        });
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().PropertyEquals(IsVisibleWithinProperty, true))
+        {
+            Setters = { new Setter(Visual.ZIndexProperty, 1) },
+        });
     }
 
     private static Selector Ring(Selector state) => state.Template().OfType<SquircleBorder>().Name(Part);
