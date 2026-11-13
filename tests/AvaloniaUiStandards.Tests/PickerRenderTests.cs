@@ -16,7 +16,7 @@ using Xunit;
 
 namespace AvaloniaUiStandards.Tests;
 
-/// <summary>Renders the DatePicker, TimePicker and Calendar sheets (2x, labelled), closed and open.</summary>
+/// <summary>Renders the DatePicker, TimePicker, Calendar and CalendarDatePicker sheets (2x, labelled), closed and open.</summary>
 public class PickerRenderTests
 {
     private enum FieldState { Rest, Hover, Focused, Disabled }
@@ -92,6 +92,29 @@ public class PickerRenderTests
         sheet.Save("m3-calendar.png");
     }
 
+    [AvaloniaFact]
+    public void CalendarDatePicker_Renders()
+    {
+        using var sheet = new Sheet("CalendarDatePicker: the field with a calendar button, and the Calendar in a glass drop-down");
+        foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
+        {
+            sheet.AddSection($"{themeLabel}: field on the glass panel", FieldColumns,
+            [
+                ("Empty", FieldStates.Select(s => FieldCell(sheet, theme, new CalendarDatePicker { Width = 200 }, s)).ToList()),
+                ("With a date", FieldStates.Select(s => FieldCell(sheet, theme, new CalendarDatePicker { Width = 200, SelectedDate = Today(14) }, s)).ToList()),
+                ("Compact", FieldStates.Select(s => FieldCell(sheet, theme, new CalendarDatePicker { Width = 200, SelectedDate = Today(14) }, s, compact: true)).ToList()),
+            ]);
+            sheet.AddSection($"{themeLabel}: drop-down open", ["Normal", "Compact"],
+            [
+                ("Over the window", [
+                    OpenCell(sheet, theme, new CalendarDatePicker { Width = 200, SelectedDate = Today(14), IsTodayHighlighted = true }, p => ((CalendarDatePicker)p).IsDropDownOpen = true, new Size(320, 380)),
+                    OpenCell(sheet, theme, new CalendarDatePicker { Width = 200, SelectedDate = Today(14), IsTodayHighlighted = true }, p => ((CalendarDatePicker)p).IsDropDownOpen = true, new Size(320, 320), compact: true),
+                ]),
+            ]);
+        }
+        sheet.Save("m3-calendardatepicker.png");
+    }
+
     /// <summary>A day of the current month (so today is shown), clamped to its length.</summary>
     internal static DateTime Today(int day)
     {
@@ -129,8 +152,11 @@ public class PickerRenderTests
     }
 
     /// <summary>The part of a picker that takes keyboard focus.</summary>
-    internal static InputElement FocusTarget(Control picker) =>
-        picker.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_FlyoutButton");
+    internal static InputElement FocusTarget(Control picker) => picker switch
+    {
+        CalendarDatePicker => picker.GetVisualDescendants().OfType<TextBox>().First(),
+        _ => picker.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_FlyoutButton"),
+    };
 
     internal static void OpenFlyout(Control picker) =>
         picker.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_FlyoutButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

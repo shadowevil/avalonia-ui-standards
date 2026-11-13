@@ -3,7 +3,7 @@ using Avalonia.Controls;
 
 namespace Catalog.Pages;
 
-/// <summary>DatePicker, TimePicker, their flyouts and the Calendar.</summary>
+/// <summary>DatePicker, TimePicker, CalendarDatePicker, their flyouts and the Calendar.</summary>
 internal sealed class PickersPage : UserControl
 {
     private static readonly DateTime Sample = DateTime.Today;
@@ -18,6 +18,11 @@ internal sealed class PickersPage : UserControl
         [
             ("12-hour", () => new TimePicker { SelectedTime = new TimeSpan(9, 41, 0) }),
             ("24-hour", () => new TimePicker { SelectedTime = new TimeSpan(21, 41, 0), ClockIdentifier = "24HourClock" }),
+        ])),
+        Ui.Section("CalendarDatePicker", StateGrid.Build(
+        [
+            ("Empty", () => new CalendarDatePicker { Width = 200, IsTodayHighlighted = true }),
+            ("With a date", () => new CalendarDatePicker { Width = 200, SelectedDate = Sample, IsTodayHighlighted = true }),
         ])),
         Ui.Section("Flyouts (shown inline)", Row(
             Labelled("DatePicker", new DatePickerPresenter { Date = Sample }),

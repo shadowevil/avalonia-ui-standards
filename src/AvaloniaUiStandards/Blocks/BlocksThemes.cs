@@ -39,6 +39,7 @@ internal static class BlocksThemes
         resources[typeof(CalendarItem)] = CalendarThemes.Item(fluentTheme(typeof(CalendarItem)));
         resources[typeof(CalendarDayButton)] = CalendarThemes.DayButton();
         resources[typeof(CalendarButton)] = CalendarThemes.MonthButton();
+        resources[typeof(CalendarDatePicker)] = CalendarDatePickerTheme.Create(fluentTheme(typeof(CalendarDatePicker)), FieldParts.ButtonTheme());
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);

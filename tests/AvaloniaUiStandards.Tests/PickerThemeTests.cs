@@ -18,15 +18,16 @@ using static AvaloniaUiStandards.Tests.PickerHost;
 
 namespace AvaloniaUiStandards.Tests;
 
-/// <summary>DatePicker and TimePicker: the field, and the flyouts and their clip.</summary>
+/// <summary>DatePicker, TimePicker and CalendarDatePicker: the field, the flyouts and their clip, and the drop-down.</summary>
 public class PickerThemeTests
 {
-    public static TheoryData<string> Fields => new() { nameof(DatePicker), nameof(TimePicker) };
+    public static TheoryData<string> Fields => new() { nameof(DatePicker), nameof(TimePicker), nameof(CalendarDatePicker) };
 
     private static Control CreateField(string name) => name switch
     {
         nameof(DatePicker) => new DatePicker(),
-        _ => new TimePicker(),
+        nameof(TimePicker) => new TimePicker(),
+        _ => new CalendarDatePicker { Width = 200 },
     };
 
     // --- The field -----------------------------------------------------------------------------
@@ -56,6 +57,8 @@ public class PickerThemeTests
     [InlineData(nameof(DatePicker), "Compact", 24)]
     [InlineData(nameof(TimePicker), "Normal", 32)]
     [InlineData(nameof(TimePicker), "Compact", 24)]
+    [InlineData(nameof(CalendarDatePicker), "Normal", 32)]
+    [InlineData(nameof(CalendarDatePicker), "Compact", 24)]
     public void FieldHeight_FollowsDensity(string name, string density, double height)
     {
         var (window, field) = Show(CreateField(name), theme: density == "Compact" ? PickerRenderTests.Compact() : null);
@@ -73,7 +76,7 @@ public class PickerThemeTests
     public static TheoryData<string, string, string, string> FieldStates()
     {
         var data = new TheoryData<string, string, string, string>();
-        foreach (var name in new[] { nameof(DatePicker), nameof(TimePicker) })
+        foreach (var name in new[] { nameof(DatePicker), nameof(TimePicker), nameof(CalendarDatePicker) })
         {
             data.Add(name, "rest", "TextControlBackground", "TextControlBorderBrush");
             data.Add(name, ":pointerover", "TextControlBackgroundPointerOver", "TextControlBorderBrushPointerOver");
@@ -135,6 +138,24 @@ public class PickerThemeTests
             PickerRenderTests.FocusTarget(field).Focus(NavigationMethod.Pointer);
             Pump(window);
             Assert.False(field.GetVisualDescendants().OfType<SquircleBorder>().Single(b => b.Name == FocusRing.Part).IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CalendarDatePicker_ButtonIsAFieldButtonWithTheCalendarIcon()
+    {
+        var (window, field) = Show(new CalendarDatePicker { Width = 200 });
+        try
+        {
+            var button = field.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Button");
+            var icon = Assert.IsType<Icon>(button.Content);
+            Assert.Same(Icons.CalendarBlank, icon.Data);
+            Assert.Equal(24, button.Bounds.Width);
+            Assert.Equal(24, button.Bounds.Height);
         }
         finally
         {
@@ -361,6 +382,41 @@ public class PickerThemeTests
                             red++;
                     }
             return red;
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CalendarDatePicker_DropDownIsGlassBelowTheField()
+    {
+        var picker = new CalendarDatePicker { Width = 200, SelectedDate = PickerRenderTests.Date };
+        var (window, _) = Show(picker, height: 500);
+        try
+        {
+            picker.IsDropDownOpen = true;
+            Pump(window);
+            var popup = picker.GetVisualDescendants().OfType<Popup>().Single();
+            Assert.True(popup.IsUsingOverlayLayer);
+            var glass = Assert.IsType<GlassBorder>(popup.Child);
+            var calendar = Assert.IsType<Calendar>(glass.Child);
+            Assert.Equal(Colors.Transparent, Effective(calendar.Background));
+            Assert.Equal(default, calendar.BorderThickness);
+            var top = glass.TranslatePoint(default, window)!.Value.Y;
+            var fieldBottom = picker.TranslatePoint(new Point(0, picker.Bounds.Height), window)!.Value.Y;
+            Assert.Equal(fieldBottom + Spacing.XS, top, 0.5);
+
+            // Choosing a day closes it and sets the date, as in Fluent.
+            var day = calendar.GetVisualDescendants().OfType<CalendarDayButton>().First(d => d.Content?.ToString() == "20" && !d.Classes.Contains(":inactive"));
+            var centre = day.TranslatePoint(new Point(day.Bounds.Width / 2, day.Bounds.Height / 2), window)!.Value;
+            window.MouseMove(centre);
+            window.MouseDown(centre, MouseButton.Left);
+            window.MouseUp(centre, MouseButton.Left);
+            Pump(window);
+            Assert.False(popup.IsOpen);
+            Assert.Equal(new DateTime(2026, 3, 20), picker.SelectedDate);
         }
         finally
         {
