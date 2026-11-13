@@ -6,7 +6,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using System.Runtime.InteropServices;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Transformation;
@@ -28,7 +27,7 @@ public class TreeViewTests
     private static readonly string[] RowStateLabels = ["Rest", "Hover", "Pressed", "Selected", "Selected + hover", "Disabled", "Focused"];
 
     [AvaloniaFact]
-    public void Theme_GivesFullWidthListItemRows()
+    public void Theme_GivesFullWidthRows_WithAPillFromTheContentToTheRightEdge()
     {
         var (window, tree) = Show();
         try
@@ -39,14 +38,21 @@ public class TreeViewTests
             var root = Items(tree)[0];
             var child = Items(tree)[1];
             Assert.Equal(1, child.Level);
-            // Every row, at any level, is a squircle inset 4 from the tree's edges, the tree's full width.
+            // Every row, at any level, is inset 4 from the tree's edges, the tree's full width. Its pill
+            // is a squircle from the end of the caret to the row's right edge, so the right edges align.
             foreach (var item in new[] { root, child })
             {
+                var row = Row(item);
+                Assert.Equal(4, row.TranslatePoint(default, tree)!.Value.X);
+                Assert.Equal(tree.Bounds.Width - 8, row.Bounds.Width);
                 var chrome = Chrome(item);
+                var caret = Caret(item);
+                var caretRight = ((Visual)caret.GetVisualParent()!).TranslatePoint(default, tree)!.Value.X + caret.Bounds.Right;
                 Assert.Equal(new CornerRadius(8), chrome.CornerRadius);
-                Assert.Equal(4, chrome.TranslatePoint(default, tree)!.Value.X);
-                Assert.Equal(tree.Bounds.Width - 8, chrome.Bounds.Width);
+                Assert.Equal(caretRight, chrome.TranslatePoint(default, tree)!.Value.X, 1);
+                Assert.Equal(tree.Bounds.Width - 4, chrome.TranslatePoint(default, tree)!.Value.X + chrome.Bounds.Width, 1);
                 Assert.Equal(32, chrome.Bounds.Height);
+                Assert.Equal(32, row.Bounds.Height);
             }
         }
         finally
@@ -254,9 +260,9 @@ public class TreeViewTests
         try
         {
             var shape = Items(tree)[1];
-            // Points on the header text and on the empty row beyond it, apart from each other, so a click
-            // never continues the click sequence of the one before.
-            var points = new[] { RowPoint(window, shape, 28), RowPoint(window, shape, 40), RowPoint(window, shape, 150), RowPoint(window, shape, 180) };
+            // Points on the indent outside the pill, on the header text and on the empty pill beyond it, apart
+            // from each other, so a click never continues the click sequence of the one before.
+            var points = new[] { RowPoint(window, shape, -10), RowPoint(window, shape, 32), RowPoint(window, shape, 44), RowPoint(window, shape, 150), RowPoint(window, shape, 180) };
             var next = 0;
             Point Fresh() => points[next++ % points.Length];
 
@@ -358,6 +364,32 @@ public class TreeViewTests
     }
 
     [AvaloniaFact]
+    public void RowClicks_IgnoreClicksTheContentHandles()
+    {
+        var button = new Button { Content = "Go" };
+        var item = new TreeViewItem { Header = button, ItemsSource = new[] { "Child" } };
+        var tree = new TreeView { Width = 260, ItemsSource = new[] { item } };
+        TreeViewOptions.SetExpandOn(tree, Both);
+        TreeViewOptions.SetCollapseOn(tree, Both);
+        var window = new Window { Width = 400, Height = 400, Content = tree };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Show();
+        Pump(window);
+        try
+        {
+            var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            Click(window, point, 1);
+            Assert.False(item.IsExpanded);
+            Click(window, point, 2);
+            Assert.False(item.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void RowClicks_IgnoreClicksExtendingASelection()
     {
         var (window, tree) = Show(configure: t =>
@@ -437,20 +469,26 @@ public class TreeViewTests
         {
             var items = Items(tree);
             var child = items[1];
+            // Hovering the row outside the pill (its indent) lights the pill.
+            window.MouseMove(Row(child).TranslatePoint(new Point(6, 16), window)!.Value);
+            Pump(window);
+            Assert.Contains(":pointerover", Row(child).Classes);
+            Assert.NotEqual(Colors.Transparent, Fill(child));
+
             var point = Chrome(child).TranslatePoint(new Point(60, 16), window)!.Value;
             window.MouseMove(point);
             Pump(window);
-            Assert.Contains(":pointerover", Chrome(child).Classes);
+            Assert.Contains(":pointerover", Row(child).Classes);
             Assert.Equal(Colors.Transparent, Fill(items[0]));
             Assert.NotEqual(Colors.Transparent, Fill(child));
 
             window.MouseDown(point, MouseButton.Left);
             Pump(window);
-            Assert.Contains(":pressed", Chrome(child).Classes);
-            Assert.DoesNotContain(":pressed", Chrome(items[0]).Classes);
+            Assert.Contains(":pressed", Row(child).Classes);
+            Assert.DoesNotContain(":pressed", Row(items[0]).Classes);
             window.MouseUp(point, MouseButton.Left);
             Pump(window);
-            Assert.DoesNotContain(":pressed", Chrome(child).Classes);
+            Assert.DoesNotContain(":pressed", Row(child).Classes);
             Assert.Same(child, tree.SelectedItem);
             // Selected: the accent fill and white text, on this row only.
             Assert.Equal(Colors.White, ((ISolidColorBrush)Header(child).Foreground!).Color);
@@ -465,9 +503,9 @@ public class TreeViewTests
     // --- Node lines --------------------------------------------------------------------------
 
     [AvaloniaFact]
-    public void Lines_AreOffByDefault_AndDrawnOnlyWhenOn()
+    public void Lines_AreOnByDefault_AndDrawnOnlyWhenOn()
     {
-        Assert.False(TreeViewOptions.GetShowLines(new TreeView()));
+        Assert.True(TreeViewOptions.GetShowLines(new TreeView()));
         foreach (var on in new[] { false, true })
         {
             var (window, tree) = ShowLines(1, on);
@@ -590,18 +628,68 @@ public class TreeViewTests
     }
 
     [AvaloniaFact]
-    public void Lines_LieUnderTheSelectionPill()
+    public void Lines_StayVisibleBesideSelectedAndHoveredRows()
     {
         var (window, tree) = ShowLines(1, true);
         try
         {
             var items = Items(tree);
             tree.SelectedItem = items[2];
+            ((IPseudoClasses)Row(items[3]).Classes).Set(":pointerover", true);
             Pump(window);
             using var frame = Frame.Capture(window);
-            var y = (int)RowY(window, items[2], 3);
-            var column = Column(window, items[0]);
-            Assert.Equal(frame[(int)column - 4, y], frame[(int)column, y]);
+            Assert.Single(LinePixels(frame, Column(window, items[0]), RowY(window, items[2], 3), 1));
+            Assert.Single(LinePixels(frame, Column(window, items[1]), RowY(window, items[3], 3), 1));
+            // The elbows end before the pills.
+            Assert.True(Chrome(items[2]).TranslatePoint(default, window)!.Value.X > Column(window, items[0]) + TreeLines.Radius + TreeLines.Gap);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Lines_FollowAddedAndRemovedItems()
+    {
+        var children = new System.Collections.ObjectModel.ObservableCollection<string> { "One", "Two" };
+        var parent = new TreeViewItem { Header = "Parent", IsExpanded = true, ItemsSource = children };
+        var tree = new TreeView { Width = 260, ItemsSource = new[] { parent } };
+        var window = new Window { Width = 400, Height = 400, Content = tree, Background = Brushes.White, RequestedThemeVariant = ThemeVariant.Light };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Show();
+        Pump(window);
+        try
+        {
+            TreeViewItem Child(int i) => (TreeViewItem)parent.ContainerFromIndex(i)!;
+            bool Below(int i)
+            {
+                using var frame = Frame.Capture(window);
+                return LinePixels(frame, Column(window, parent), RowY(window, Child(i), -3), 1).Count == 1;
+            }
+            Assert.True(Lines(Child(0)).Continues);
+            Assert.False(Lines(Child(1)).Continues);
+            Assert.True(Below(0));
+            Assert.False(Below(1));
+
+            children.Add("Three");
+            Pump(window);
+            Assert.True(Below(1));
+            Assert.False(Below(2));
+
+            children.RemoveAt(2);
+            Pump(window);
+            Assert.False(Below(1));
+
+            // A move changes which child is last without changing the count.
+            children.Move(1, 0);
+            Pump(window);
+            Assert.Equal("One", Child(1).Header);
+            Assert.True(Below(0));
+            Assert.False(Below(1));
+            children[1] = "Replaced";
+            Pump(window);
+            Assert.False(Below(1));
         }
         finally
         {
@@ -634,7 +722,7 @@ public class TreeViewTests
     [AvaloniaFact]
     public void TreeView_Renders()
     {
-        using var sheet = new Sheet("TreeView: list item rows, a caret that turns down, one caret width of indent per level, lines off");
+        using var sheet = new Sheet("TreeView: content pills, a caret that turns down, one caret width of indent per level, node lines");
         foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
         {
             sheet.AddSection(themeLabel + ": row states", RowStateLabels,
@@ -661,38 +749,36 @@ public class TreeViewTests
                 ("Compact", [LinesCell(sheet, theme, DensityStyle.Compact, false), LinesCell(sheet, theme, DensityStyle.Compact, true)]),
             ]);
         }
-        sheet.AddSection("Lines under the hover and selection pills (as built), or clipped by them", ["Under", "Clipped"],
-            ButtonRenderTests.Themes.Select(t => (t.Label, (IReadOnlyList<Control>)[LinesCell(sheet, t.Variant, DensityStyle.Normal, true), ClippedCell(sheet, t.Variant)])).ToList());
         sheet.Save("m3-treeview-lines.png");
     }
 
-    private static Control LinesCell(Sheet sheet, ThemeVariant theme, DensityStyle density, bool lines)
+    [AvaloniaFact]
+    public void TreeView_Pill_Render()
     {
-        using var capture = CaptureLines(theme, density, lines, out _);
+        using var sheet = new Sheet("TreeView pill, lines on: Colour selected (level 1), Squircle hovered (level 2); the pill to the row's right edge (built) or hugging the label");
+        foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
+        {
+            sheet.AddSection(themeLabel, ["To the right edge (built)", "Hugging the label", "Right edge, keyboard focus", "Hugging, keyboard focus"],
+            [.. new[] { ("Normal", DensityStyle.Normal), ("Compact", DensityStyle.Compact) }.Select(d => (d.Item1, (IReadOnlyList<Control>)
+            [
+                LinesCell(sheet, theme, d.Item2, true),
+                LinesCell(sheet, theme, d.Item2, true, hug: true),
+                LinesCell(sheet, theme, d.Item2, true, focus: true),
+                LinesCell(sheet, theme, d.Item2, true, hug: true, focus: true),
+            ]))]);
+        }
+        sheet.Save("m3-treeview-pill.png");
+    }
+
+    // The test tree on the glass panel at 2x, Shape expanded, Colour selected and Squircle hovered (or Colour focused).
+    // hug: each pill as wide as its content and padding, instead of reaching the row's right edge.
+    private static Control LinesCell(Sheet sheet, ThemeVariant theme, DensityStyle density, bool lines, bool hug = false, bool focus = false)
+    {
+        using var capture = CaptureLines(theme, density, lines, hug, focus);
         return sheet.Image(capture);
     }
 
-    // The clipped look, composited from real renders: the lines-on render with the lit rows taken from the lines-off render.
-    private static Control ClippedCell(Sheet sheet, ThemeVariant theme)
-    {
-        using var on = CaptureLines(theme, DensityStyle.Normal, true, out var lit);
-        using var off = CaptureLines(theme, DensityStyle.Normal, false, out _);
-        using (var target = on.Lock())
-        using (var source = off.Lock())
-        {
-            var row = new byte[target.RowBytes];
-            foreach (var rect in lit)
-                for (var y = rect.Y; y < rect.Bottom; y++)
-                {
-                    Marshal.Copy(source.Address + y * source.RowBytes + rect.X * 4, row, 0, rect.Width * 4);
-                    Marshal.Copy(row, 0, target.Address + y * target.RowBytes + rect.X * 4, rect.Width * 4);
-                }
-        }
-        return sheet.Image(on);
-    }
-
-    // The test tree on the glass panel at 2x, Shape expanded, Colour selected and Squircle hovered; lit: their rows in pixels.
-    private static WriteableBitmap CaptureLines(ThemeVariant theme, DensityStyle density, bool lines, out List<PixelRect> lit)
+    private static WriteableBitmap CaptureLines(ThemeVariant theme, DensityStyle density, bool lines, bool hug, bool focus)
     {
         var tree = NewTree();
         tree.Width = 220;
@@ -708,16 +794,15 @@ public class TreeViewTests
         var items = Items(tree);
         items[1].IsExpanded = true;
         window.UpdateLayout();
+        if (hug)
+            foreach (var item in items)
+                ((Control)Chrome(item).GetVisualParent()!).HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
         tree.SelectedItem = items[2];
-        ((IPseudoClasses)Chrome(items[3]).Classes).Set(":pointerover", true);
+        if (focus)
+            items[2].Focus(NavigationMethod.Tab);
+        else
+            ((IPseudoClasses)Row(items[3]).Classes).Set(":pointerover", true);
         Pump(window);
-        lit = [.. new[] { items[2], items[3] }.Select(i =>
-        {
-            var chrome = Chrome(i);
-            var origin = chrome.TranslatePoint(default, window)!.Value;
-            return new PixelRect((int)Math.Round(origin.X * Sheet.Scale), (int)Math.Round(origin.Y * Sheet.Scale),
-                (int)Math.Round(chrome.Bounds.Width * Sheet.Scale), (int)Math.Round(chrome.Bounds.Height * Sheet.Scale));
-        })];
         var capture = window.CaptureRenderedFrame()!;
         window.Close();
         return capture;
@@ -730,13 +815,13 @@ public class TreeViewTests
         return sheet.Cell(ListBoxRenderTests.OnSurface(tree, ListBoxRenderTests.Surface.GlassPanel), theme, afterShow: w =>
         {
             w.UpdateLayout();
-            var chrome = Chrome(item);
+            var row = Row(item);
             if (state is RowState.Selected or RowState.SelectedHover)
                 item.IsSelected = true;
             if (state is RowState.Hover or RowState.SelectedHover)
-                ((IPseudoClasses)chrome.Classes).Set(":pointerover", true);
+                ((IPseudoClasses)row.Classes).Set(":pointerover", true);
             if (state == RowState.Pressed)
-                ((IPseudoClasses)chrome.Classes).Set(":pressed", true);
+                ((IPseudoClasses)row.Classes).Set(":pressed", true);
             if (state == RowState.Disabled)
                 item.IsEnabled = false;
             if (state == RowState.Focused)
@@ -757,7 +842,7 @@ public class TreeViewTests
                 items[1].IsExpanded = true;
                 w.UpdateLayout();
                 tree.SelectedItem = Items(tree).First(i => Equals(i.Header, "Shape"));
-                ((IPseudoClasses)Chrome(Items(tree).First(i => Equals(i.Header, "Motion"))).Classes).Set(":pointerover", true);
+                ((IPseudoClasses)Row(Items(tree).First(i => Equals(i.Header, "Motion"))).Classes).Set(":pointerover", true);
             });
     }
 
@@ -812,9 +897,11 @@ public class TreeViewTests
 
     private static SquircleBorder Chrome(TreeViewItem item) => Part<SquircleBorder>(item, ButtonParts.ChromePart);
 
+    private static Border Row(TreeViewItem item) => Part<Border>(item, TreeViewTheme.RowPart);
+
     private static ToggleButton Caret(TreeViewItem item) => Part<ToggleButton>(item, TreeViewTheme.CaretPart);
 
-    private static ContentPresenter Header(TreeViewItem item) => Part<ContentPresenter>(item, TreeViewTheme.HeaderPresenterPart);
+    private static ContentPresenter Header(TreeViewItem item) => Part<ContentPresenter>(item, TreeViewTheme.HeaderContentPart);
 
     private static ItemsPresenter Children(TreeViewItem item) => Part<ItemsPresenter>(item, TreeViewTheme.ItemsPart);
 
@@ -868,9 +955,9 @@ public class TreeViewTests
         return [.. Enumerable.Range(from, (int)(8 * scale)).Where(px => frame[px, row] != background)];
     }
 
-    // A point on the row, x in from where its caret starts (past the caret from 20 on).
+    // A point on the row, x in from where its caret starts (the pill from 20 on, the indent before 0).
     private static Point RowPoint(Window window, TreeViewItem item, double x) =>
-        Chrome(item).TranslatePoint(new Point(x + Chrome(item).Padding.Left + item.Level * TreeViewTheme.Normal.Indent, Chrome(item).Bounds.Height / 2), window)!.Value;
+        Row(item).TranslatePoint(new Point(x + Row(item).Padding.Left + item.Level * TreeViewTheme.Normal.Indent, Row(item).Bounds.Height / 2), window)!.Value;
 
     // Clicks count times at point.
     private static void Click(Window window, Point point, int count)

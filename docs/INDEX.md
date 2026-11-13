@@ -35,7 +35,7 @@
 - [0032 — Segmented control](decisions/0032-segmented-control.md) — the SegmentedControl Block: base, keyboard, shape, sliding pill, colours and focus ring
 - [0033 — TabControl, TabStrip and Expander](decisions/0033-tabs-and-expander.md) — the tab headers, sliding underline and content area, and the Expander card, caret and reveal
 - [0034 — Sidebar](decisions/0034-sidebar.md) — the Sidebar Module: rows, headers, the collapse stages and thresholds, the title band button, the overlay and motion
-- [0035 — TreeView](decisions/0035-treeview.md) — the TreeView Block: list item rows, indentation, the expand caret, keyboard, the click modes and the node lines option
+- [0035 — TreeView](decisions/0035-treeview.md) — the TreeView Block: rows and the content pill, indentation, the expand caret, keyboard, the click modes and the node lines
 - [0036 — Menus and flyouts](decisions/0036-menus-and-flyouts.md) — the glass menu and flyout overlays, menu item columns and states, the menu bar and the open fade
 - [0037 — ToolTip and notification cards](decisions/0037-tooltip-and-notifications.md) — the solid tooltip card, the glass notification card, its type icons and the status colours
 - [0038 — DatePicker, TimePicker, Calendar and CalendarDatePicker](decisions/0038-pickers-and-calendar.md) — the picker fields, the glass flyouts and drop-down and how their rows stay inside the corners, and the Calendar's cells, today, selection and keyboard ring

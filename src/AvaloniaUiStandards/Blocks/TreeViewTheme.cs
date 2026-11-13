@@ -13,39 +13,39 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
-using Avalonia.VisualTree;
 using AvaloniaUiStandards.Style;
 using static AvaloniaUiStandards.Blocks.ButtonParts;
 
 namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
-/// The TreeView and TreeViewItem themes. Each item's row is the list item design (a squircle
-/// pill inset from the tree's edges, list-medium hover, base-medium-low press, accent selection
-/// with white text, density heights, the focus ring), full width at every level. The row holds
-/// the indent (one caret width per level), a caret that turns from right to down as the item
-/// expands, and the header. Node lines, when on, lie under the rows (<see cref="TreeLines"/>).
+/// The TreeView and TreeViewItem themes. Each item's row spans the tree's width and holds the
+/// indent (one caret width per level), a caret that turns from right to down as the item expands,
+/// and the content pill: the list item design (a squircle pill, list-medium hover, base-medium-low
+/// press, accent selection with white text, density heights, the focus ring) from the content's
+/// start to the row's right edge, so the carets and the node lines (<see cref="TreeLines"/>) stay
+/// visible beside it. Hover and press are the whole row's, shown on the pill.
 /// Keyboard and selection are Fluent's; clicks on the row expand and collapse it as
 /// <see cref="TreeViewOptions"/> sets (<see cref="RowClicks"/>).
 /// </summary>
 internal static class TreeViewTheme
 {
+    /// <summary>The whole row: it takes the pointer (hover, press, clicks) for the pill.</summary>
+    public const string RowPart = "PART_Row";
     public const string HeaderPart = "PART_Header";
     // Not Fluent's PART_HeaderPresenter: Fluent toggles on a double tap there, and RowClicks owns
     // the row's clicks instead.
-    public const string HeaderPresenterPart = "PART_HeaderContent";
+    public const string HeaderContentPart = "PART_HeaderContent";
     public const string CaretPart = "PART_ExpandCollapseChevron";
     public const string ItemsPart = "PART_ItemsPresenter";
 
-    /// <summary>The gap between the caret and the header (<c>SpacingXS</c>).</summary>
-    public const double HeaderGap = Spacing.XS;
-
     /// <summary>
-    /// Normal and Compact density: the indent per level (the caret's width, the icon size) and the
-    /// row padding. The left padding is small because the caret's own box already insets its glyph.
+    /// Normal and Compact density: the indent per level (the caret's width, the icon size), the
+    /// row's inset before the indent, and the pill's padding (the item's <c>Padding</c>). The inset
+    /// is small because the caret's own box already insets its glyph.
     /// </summary>
-    public static readonly (double Indent, Thickness Padding) Normal = (IconTheme.Normal, new Thickness(Spacing.XS, Spacing.XS, Spacing.M, Spacing.XS));
-    public static readonly (double Indent, Thickness Padding) Compact = (IconTheme.Compact, new Thickness(2, 2, Spacing.S, 2));
+    public static readonly (double Indent, double Inset, Thickness Padding) Normal = (IconTheme.Normal, Spacing.XS, new Thickness(Spacing.S, Spacing.XS, Spacing.M, Spacing.XS));
+    public static readonly (double Indent, double Inset, Thickness Padding) Compact = (IconTheme.Compact, 2, new Thickness(Spacing.S, 2, Spacing.S, 2));
 
     /// <summary>The caret's turn when expanded.</summary>
     private static readonly ITransform Collapsed = TransformOperations.Parse("rotate(0deg)");
@@ -53,7 +53,8 @@ internal static class TreeViewTheme
 
     // Density values and the caret's transitions, under non-public keys.
     internal static readonly object IndentKey = new();
-    internal static readonly object RowPaddingKey = new();
+    internal static readonly object RowInsetKey = new();
+    internal static readonly object PillPaddingKey = new();
     internal static readonly object CaretTransitionsKey = new();
 
     // The caret button: only the icon, no chrome, never a Tab stop (the row has the keyboard).
@@ -79,7 +80,8 @@ internal static class TreeViewTheme
     {
         var sizes = compact ? Compact : Normal;
         resources[IndentKey] = sizes.Indent;
-        resources[RowPaddingKey] = sizes.Padding;
+        resources[RowInsetKey] = new Thickness(sizes.Inset, 0, 0, 0);
+        resources[PillPaddingKey] = sizes.Padding;
     }
 
     /// <summary>The caret's turn over <paramref name="duration"/> (<c>MotionNormal</c>), or none when it is zero (reduce motion).</summary>
@@ -106,7 +108,7 @@ internal static class TreeViewTheme
     {
         var theme = new ControlTheme(typeof(TreeViewItem));
         theme.Setters.Add(new Setter(TemplatedControl.CornerRadiusProperty, Resource("CornerRadiusControl")));
-        theme.Setters.Add(new Setter(TemplatedControl.PaddingProperty, new DynamicResourceExtension(RowPaddingKey)));
+        theme.Setters.Add(new Setter(TemplatedControl.PaddingProperty, new DynamicResourceExtension(PillPaddingKey)));
         theme.Setters.Add(new Setter(Layoutable.MinHeightProperty, new DynamicResourceExtension(MinHeightKey)));
         theme.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
         theme.Setters.Add(new Setter(TemplatedControl.BorderBrushProperty, Brushes.Transparent));
@@ -115,7 +117,7 @@ internal static class TreeViewTheme
         FocusRing.AddTo(theme);
         theme.Children.Add(ChromeMotion());
 
-        // States are the row's own (its chrome's), not the item's: an item's bounds include its children's rows.
+        // States are the row's own, shown on its pill, not the item's: an item's bounds include its children's rows.
         theme.Children.Add(RowState(x => x, ":pointerover", "SystemControlHighlightListMediumBrush", null));
         theme.Children.Add(RowState(x => x, ":pressed", "SystemControlHighlightBaseMediumLowBrush", null));
         theme.Children.Add(RowState(x => x.Class(":selected"), null, "AccentFillColor", "AccentButtonForeground"));
@@ -123,6 +125,11 @@ internal static class TreeViewTheme
         theme.Children.Add(RowState(x => x.Class(":selected"), ":pressed", "AccentFillColorPressed", "AccentButtonForeground"));
         theme.Children.Add(RowState(x => x.Class(":disabled"), null, Brushes.Transparent, "SystemControlDisabledBaseMediumLowBrush"));
         theme.Children.Add(RowState(x => x.Class(":selected").Class(":disabled"), null, "AccentButtonBackgroundDisabled", "AccentButtonForegroundDisabled"));
+        // The caret lies outside the pill: it dims with a disabled row itself.
+        theme.Children.Add(new Avalonia.Styling.Style(x => Caret(x.Nesting().Class(":disabled")))
+        {
+            Setters = { new Setter(TemplatedControl.ForegroundProperty, Resource("SystemControlDisabledBaseMediumLowBrush")) },
+        });
 
         // The caret turns down when expanded, and leaves its room empty on items with no children.
         theme.Children.Add(new Avalonia.Styling.Style(x => Caret(x.Nesting()))
@@ -145,14 +152,13 @@ internal static class TreeViewTheme
         return theme;
     }
 
-    /// <summary>A row state: fill on the chrome, and the text colour (null: inherited) for the caret and header.</summary>
+    /// <summary>A row state (the item's, and the row's own pointer class): fill on the pill, and the text colour (null: inherited) for the header.</summary>
     private static Avalonia.Styling.Style RowState(Func<Selector, Selector> item, string? rowClass, object background, object? foreground)
     {
-        var style = new Avalonia.Styling.Style(x =>
-        {
-            var chrome = Chrome(item(x.Nesting()));
-            return rowClass is null ? chrome : chrome.Class(rowClass);
-        });
+        var style = new Avalonia.Styling.Style(x => rowClass is null
+            ? Chrome(item(x.Nesting()))
+            : item(x.Nesting()).Template().OfType<Border>().Name(RowPart).Class(rowClass)
+                .Descendant().OfType<SquircleBorder>().Name(ChromePart));
         style.Setters.Add(new Setter(SquircleBorder.BackgroundProperty, Value(background)));
         if (foreground is not null)
             style.Setters.Add(new Setter(TextElement.ForegroundProperty, Value(foreground)));
@@ -173,79 +179,87 @@ internal static class TreeViewTheme
 
         var header = new ContentPresenter
         {
-            Name = HeaderPresenterPart,
-            Margin = new Thickness(HeaderGap, 0, 0, 0),
+            Name = HeaderContentPart,
             VerticalContentAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
         header.Bind(ContentPresenter.ContentProperty, new TemplateBinding(HeaderedItemsControl.HeaderProperty));
         header.Bind(ContentPresenter.ContentTemplateProperty, new TemplateBinding(HeaderedItemsControl.HeaderTemplateProperty));
-        Grid.SetColumn(header, 2);
 
-        var row = new Grid { Name = HeaderPart, ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*"), Children = { indent, caret, header } };
-
-        var chrome = new SquircleBorder { Name = ChromePart, Child = row };
+        // The pill: from the content's start (after the caret) to the row's right edge.
+        var chrome = new SquircleBorder { Name = ChromePart, Child = header };
         chrome.Bind(SquircleBorder.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
         chrome.Bind(SquircleBorder.BorderBrushProperty, new TemplateBinding(TemplatedControl.BorderBrushProperty));
         chrome.Bind(SquircleBorder.BorderThicknessProperty, new TemplateBinding(TemplatedControl.BorderThicknessProperty));
         chrome.Bind(SquircleBorder.CornerRadiusProperty, new TemplateBinding(TemplatedControl.CornerRadiusProperty));
         chrome.Bind(Decorator.PaddingProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
         chrome.Bind(Layoutable.MinHeightProperty, new TemplateBinding(Layoutable.MinHeightProperty));
-        TrackPress(chrome);
-        RowClicks.Attach(item, chrome, caret);
+        var pill = FocusRing.Wrap(chrome, scope);
+        Grid.SetColumn(pill, 2);
+
+        var grid = new Grid { Name = HeaderPart, ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*"), Children = { indent, caret, pill } };
+
+        // The whole row takes the pointer, so a click anywhere on it selects and counts for the click modes.
+        var row = new Border { Name = RowPart, Background = Brushes.Transparent, Child = grid };
+        row.Bind(Decorator.PaddingProperty, new DynamicResourceExtension(RowInsetKey));
+        TrackPress(row);
+        RowClicks.Attach(item, row);
 
         var items = new ItemsPresenter { Name = ItemsPart };
         items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
         items.Bind(Visual.IsVisibleProperty, new TemplateBinding(TreeViewItem.IsExpandedProperty));
 
-        // The node lines lie under the row and the children's rows (TreeViewOptions.ShowLines).
-        var lines = new TreeLines(item, chrome, caret, header);
+        // The node lines lie under the rows (TreeViewOptions.ShowLines), beside the pills.
+        var lines = new TreeLines(item, row, caret, chrome);
         lines.Bind(TreeLines.StrokeProperty, Resource("SystemControlForegroundBaseLowBrush"));
 
-        foreach (var part in new Control[] { caret, header, row, chrome, items, lines })
+        foreach (var part in new Control[] { caret, header, grid, chrome, row, items, lines })
             part.RegisterInNameScope(scope);
-        return new Panel { Children = { lines, new StackPanel { Children = { FocusRing.Wrap(chrome, scope), items } } } };
+        return new Panel { Children = { lines, new StackPanel { Children = { row, items } } } };
     }
 
     // The row shows :pressed while the left button is held on it (the item has no pressed state of its own).
-    private static void TrackPress(SquircleBorder chrome)
+    private static void TrackPress(Border row)
     {
-        void Set(bool pressed) => ((IPseudoClasses)chrome.Classes).Set(":pressed", pressed);
-        chrome.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+        void Set(bool pressed) => ((IPseudoClasses)row.Classes).Set(":pressed", pressed);
+        row.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
         {
-            if (e.GetCurrentPoint(chrome).Properties.IsLeftButtonPressed)
+            if (e.GetCurrentPoint(row).Properties.IsLeftButtonPressed)
                 Set(true);
         }, handledEventsToo: true);
-        chrome.AddHandler(InputElement.PointerReleasedEvent, (_, _) => Set(false), handledEventsToo: true);
-        chrome.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Set(false), handledEventsToo: true);
-        chrome.AddHandler(InputElement.PointerExitedEvent, (_, _) => Set(false), handledEventsToo: true);
+        row.AddHandler(InputElement.PointerReleasedEvent, (_, _) => Set(false), handledEventsToo: true);
+        row.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Set(false), handledEventsToo: true);
+        row.AddHandler(InputElement.PointerExitedEvent, (_, _) => Set(false), handledEventsToo: true);
     }
 }
 
 /// <summary>
 /// Expands and collapses a row on the clicks <see cref="TreeViewOptions.ExpandOnProperty"/> and
-/// <see cref="TreeViewOptions.CollapseOnProperty"/> set. A click anywhere on the row counts except
-/// on the caret, which toggles on every click of its own. Rows without children, clicks with a
-/// modifier key (extending a selection) and clicks the row's content handles are ignored. One
-/// gesture toggles at most once: when the first click of a double click toggled the row, the
-/// double click does nothing.
+/// <see cref="TreeViewOptions.CollapseOnProperty"/> set. A click anywhere on the row counts, inside
+/// the pill or not, except where the press was handled inside the row: the caret (which toggles on
+/// every click of its own) and content such as a button in the header. Rows without children and
+/// clicks with a modifier key (extending a selection) are ignored too. One gesture toggles at most
+/// once: when the first click of a double click toggled the row, the double click does nothing.
 /// </summary>
 internal static class RowClicks
 {
     private const KeyModifiers Selecting = KeyModifiers.Control | KeyModifiers.Shift | KeyModifiers.Meta;
 
-    public static void Attach(TreeViewItem item, Control row, Control caret)
+    public static void Attach(TreeViewItem item, Control row)
     {
         // Whether the first click of the current click sequence toggled the row.
         var toggledByClick = false;
+        // Whether the latest press was handled inside the row (Tapped and DoubleTapped follow even a handled press).
+        var pressHandled = false;
         row.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
         {
+            pressHandled = e.Handled;
             if (e.ClickCount % 2 == 1)
                 toggledByClick = false;
         }, handledEventsToo: true);
         row.AddHandler(InputElement.TappedEvent, (_, e) =>
         {
-            if (Toggle(item, caret, e, TreeViewClickAction.SingleClick))
+            if (!pressHandled && Toggle(item, e, TreeViewClickAction.SingleClick))
                 toggledByClick = true;
         });
         row.AddHandler(InputElement.DoubleTappedEvent, (_, e) =>
@@ -257,14 +271,14 @@ internal static class RowClicks
                 e.Handled = true;
                 return;
             }
-            Toggle(item, caret, e, TreeViewClickAction.DoubleClick);
+            if (!pressHandled)
+                Toggle(item, e, TreeViewClickAction.DoubleClick);
         });
     }
 
-    private static bool Toggle(TreeViewItem item, Control caret, TappedEventArgs e, TreeViewClickAction click)
+    private static bool Toggle(TreeViewItem item, TappedEventArgs e, TreeViewClickAction click)
     {
-        if (item.ItemCount == 0 || (e.KeyModifiers & Selecting) != 0
-            || (e.Source is Visual source && (source == caret || caret.IsVisualAncestorOf(source))))
+        if (item.ItemCount == 0 || (e.KeyModifiers & Selecting) != 0)
             return false;
         var actions = item.GetValue(item.IsExpanded ? TreeViewOptions.CollapseOnProperty : TreeViewOptions.ExpandOnProperty);
         if ((actions & click) == 0)

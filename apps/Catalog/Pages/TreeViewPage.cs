@@ -94,11 +94,11 @@ internal sealed class TreeViewPage : UserControl
         return panel;
     }
 
-    // A row state is its chrome's own pseudo-class.
+    // A row state is its row part's own pseudo-class.
     private static void Row(TreeViewItem item, string pseudoClass)
     {
-        if (item.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c.Name == "PART_Chrome") is { } chrome)
-            ((IPseudoClasses)chrome.Classes).Set(pseudoClass, true);
+        if (item.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c.Name == "PART_Row") is { } row)
+            ((IPseudoClasses)row.Classes).Set(pseudoClass, true);
     }
 
     private static TreeViewItem[] Sample() =>

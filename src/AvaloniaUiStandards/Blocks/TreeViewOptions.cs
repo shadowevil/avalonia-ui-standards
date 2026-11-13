@@ -40,10 +40,10 @@ public static class TreeViewOptions
             defaultValue: TreeViewClickAction.DoubleClick, inherits: true);
 
     /// <summary>
-    /// Whether an expanded item draws hairline lines from its caret to its children. Default false.
+    /// Whether an expanded item draws hairline lines from its caret to its children. Default true.
     /// </summary>
     public static readonly AttachedProperty<bool> ShowLinesProperty =
-        AvaloniaProperty.RegisterAttached<Control, bool>("ShowLines", typeof(TreeViewOptions), inherits: true);
+        AvaloniaProperty.RegisterAttached<Control, bool>("ShowLines", typeof(TreeViewOptions), defaultValue: true, inherits: true);
 
     public static TreeViewClickAction GetExpandOn(Control control) => control.GetValue(ExpandOnProperty);
 
