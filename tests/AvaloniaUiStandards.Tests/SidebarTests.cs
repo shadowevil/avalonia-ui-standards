@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -304,6 +305,61 @@ public class SidebarTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ToggleButton_StartsNoDragOrDoubleClick_AndIsAnInteractiveChromeElement(bool nativeFrame)
+    {
+        var (window, sidebar) = Show(Medium, nativeFrame: nativeFrame);
+        try
+        {
+            var toggle = Part<Button>(window, StandardsWindowTheme.SidebarTogglePart);
+            var band = Part<Control>(window, StandardsWindowTheme.TitleBandPart);
+            // The window's band handler (drag, double-click action) takes only unhandled presses.
+            // Presses on the button bubble to the band from the button, so if they arrive handled
+            // that handler never runs. Every press reaching the band is recorded with its state.
+            var bandPresses = new List<(bool FromToggle, bool Handled)>();
+            band.AddHandler(InputElement.PointerPressedEvent, (_, e) => bandPresses.Add(
+                (e.Source is Visual s && (s == toggle || toggle.IsVisualAncestorOf(s)), e.Handled)), handledEventsToo: true);
+            // Not the title band's drag role: the OS passes input on it through to the button.
+            Assert.Equal(WindowDecorationsElementRole.DecorationsElement, WindowDecorationProperties.GetElementRole(toggle));
+            var centre = toggle.TranslatePoint(new Point(toggle.Bounds.Width / 2, toggle.Bounds.Height / 2), window)!.Value;
+            // The nearest role above the hit element is the button's, not the band's.
+            Assert.Equal(WindowDecorationsElementRole.DecorationsElement, RoleAt(window, centre));
+            var bandPoint = band.TranslatePoint(new Point(band.Bounds.Width / 2, band.Bounds.Height / 2), window)!.Value;
+            Assert.Equal(WindowDecorationsElementRole.TitleBar, RoleAt(window, bandPoint));
+
+            // A double-click on it: both presses reach the band already handled by the button, so
+            // no drag and no double-click action; it toggles twice and leaves the window as it was.
+            for (var i = 0; i < 2; i++)
+            {
+                window.MouseDown(centre, MouseButton.Left);
+                window.MouseUp(centre, MouseButton.Left);
+            }
+            Pump(window);
+            Assert.Equal([(true, true), (true, true)], bandPresses);
+            Assert.Equal(WindowState.Normal, window.WindowState);
+            Assert.False(sidebar.IsOverlayOpen);
+
+            // A double-click on the band itself still maximises (the recorder sees those presses too).
+            Thread.Sleep(window.GetPlatformSettings()!.GetDoubleTapTime(PointerType.Mouse) + TimeSpan.FromMilliseconds(100));
+            bandPresses.Clear();
+            for (var i = 0; i < 2; i++)
+            {
+                window.MouseDown(bandPoint, MouseButton.Left);
+                window.MouseUp(bandPoint, MouseButton.Left);
+            }
+            Pump(window);
+            Assert.Equal(2, bandPresses.Count(p => !p.FromToggle));
+            if (!nativeFrame)
+                Assert.Equal(WindowState.Maximized, window.WindowState);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Rows ------------------------------------------------------------------------------
 
     [AvaloniaTheory]
@@ -540,27 +596,31 @@ public class SidebarTests
     public void TrafficLights_Render()
     {
         // The button follows the traffic lights on macOS, before the title.
-        using var sheet = new Sheet("Sidebar button in the title band: after the traffic lights, and first with caption buttons");
+        using var sheet = new Sheet("Sidebar button in the title band: after the traffic lights, and first with caption buttons; drawn and native macOS frame");
         foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
             sheet.AddSection(themeLabel, ["Traffic lights", "Caption buttons"],
             [
-                ("Expanded", [
+                ("Drawn frame", [
                     StageCell(sheet, theme, Wide, overlay: false, buttons: WindowButtonStyle.TrafficLights),
                     StageCell(sheet, theme, Wide, overlay: false, buttons: WindowButtonStyle.CaptionButtons),
+                ]),
+                ("Native frame", [
+                    StageCell(sheet, theme, Wide, overlay: false, buttons: WindowButtonStyle.TrafficLights, nativeFrame: true),
+                    StageCell(sheet, theme, Wide, overlay: false, buttons: WindowButtonStyle.CaptionButtons, nativeFrame: true),
                 ]),
             ]);
         sheet.Save("m3-sidebar-title-band.png");
     }
 
     private static Control StageCell(Sheet sheet, ThemeVariant theme, double width, bool overlay,
-        DensityStyle density = DensityStyle.Normal, WindowButtonStyle buttons = WindowButtonStyle.CaptionButtons)
+        DensityStyle density = DensityStyle.Normal, WindowButtonStyle buttons = WindowButtonStyle.CaptionButtons, bool nativeFrame = false)
     {
         var content = new StackPanel { Spacing = 8 };
         var heading = new TextBlock { Text = "Type", FontSize = 28, FontWeight = FontWeight.SemiBold };
         content.Children.Add(heading);
         foreach (var line in new[] { "Inter, on the type ramp:", "Caption 12, Body 14, Subtitle 20,", "Title 28, Large title 40, Display 68." })
             content.Children.Add(new TextBlock { Text = line });
-        var (window, sidebar) = Show(width, theme, density: density, content: content, buttons: buttons, height: 420);
+        var (window, sidebar) = Show(width, theme, density: density, content: content, buttons: buttons, height: 420, nativeFrame: nativeFrame);
         try
         {
             window.SetRenderScaling(Sheet.Scale);
@@ -601,10 +661,10 @@ public class SidebarTests
 
     private static (StandardsWindow Window, Sidebar Sidebar) Show(double width, ThemeVariant? theme = null, bool reduceMotion = true,
         DensityStyle density = DensityStyle.Normal, Control? content = null, WindowButtonStyle buttons = WindowButtonStyle.CaptionButtons,
-        double height = 520)
+        double height = 520, bool nativeFrame = false, Action<StandardsWindow>? beforeShow = null)
     {
         var sidebar = NewSidebar();
-        var window = new StandardsWindow
+        var window = new StandardsWindow(nativeFrame)
         {
             Title = "Sidebar",
             Width = width,
@@ -616,10 +676,21 @@ public class SidebarTests
             Background = new SolidColorBrush(Avalonia.Media.Color.Parse(theme == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
         window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
+        beforeShow?.Invoke(window);
         window.Show();
         window.Activate();
         Pump(window);
         return (window, sidebar);
+    }
+
+    // The first chrome role (other than None) on the hit element or above it.
+    private static WindowDecorationsElementRole RoleAt(Window window, Point point)
+    {
+        using (window.CaptureRenderedFrame()) { }
+        for (var v = window.InputHitTest(point) as Visual; v is not null; v = v.GetVisualParent())
+            if (v is Control c && WindowDecorationProperties.GetElementRole(c) is var role and not WindowDecorationsElementRole.None)
+                return role;
+        return WindowDecorationsElementRole.None;
     }
 
     // The rows are their own containers.

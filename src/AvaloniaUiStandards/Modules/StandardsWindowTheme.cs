@@ -249,7 +249,10 @@ internal static class StandardsWindowTheme
     }
 
     // The sidebar's show/hide button: a subtle square button with the sidebar icon, shown while
-    // the window's Sidebar is a Sidebar Module.
+    // the window's Sidebar is a Sidebar Module. It is an interactive element of the chrome: where
+    // the client area extends under the title bar, the OS passes its input through to it instead
+    // of treating it as part of the title band's drag area. Pressing it is handled by the button,
+    // so the band starts no drag and no double-click action.
     private static Button SidebarToggle()
     {
         var toggle = new Button
@@ -262,6 +265,7 @@ internal static class StandardsWindowTheme
         toggle.Classes.Add("subtle");
         toggle.SetValue(Sidebar.IsToggleProperty, true);
         toggle.SetValue(Avalonia.Automation.AutomationProperties.NameProperty, "Toggle sidebar");
+        WindowDecorationProperties.SetElementRole(toggle, WindowDecorationsElementRole.DecorationsElement);
         toggle.Bind(Layoutable.WidthProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
         toggle.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
         toggle.Bind(Visual.IsVisibleProperty, new TemplateBinding(StandardsWindow.SidebarProperty)
