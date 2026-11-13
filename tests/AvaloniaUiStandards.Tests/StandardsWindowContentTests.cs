@@ -171,8 +171,9 @@ public class StandardsWindowContentTests
             scroller.Offset = new Vector(0, 400);
             Pump(window);
             using var scrolled = Frame.Capture(window);
-            Assert.True(IsRed(scrolled[x, (int)inner.Top]), "Scrolled, the content does not reach the panel's top edge.");
-            Assert.True(IsRed(scrolled[x, (int)inner.Bottom - 1]), "The content does not reach the panel's bottom edge.");
+            // Just inside the rim's hairline: the faint glow beyond it leaves the content still red.
+            Assert.True(IsRed(scrolled[x, (int)inner.Top + 2]), "Scrolled, the content does not reach the panel's top edge.");
+            Assert.True(IsRed(scrolled[x, (int)inner.Bottom - 3]), "The content does not reach the panel's bottom edge.");
         }
         finally
         {

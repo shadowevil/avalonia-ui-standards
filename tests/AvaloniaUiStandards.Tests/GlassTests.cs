@@ -90,6 +90,8 @@ public class GlassTests
             BorderBrush = Avalonia.Media.Brushes.Blue,
             Child = new Border { Background = Avalonia.Media.Brushes.Red },
         };
+        // The fixed border is the solid fallback's (on glass the rim replaces it, see GlassRimTests).
+        glass.SetValue(GlassBorder.ReduceTransparencyProperty, true);
         var window = new Window
         {
             Width = 240, Height = 160,
@@ -112,6 +114,8 @@ public class GlassTests
             BorderBrush = Avalonia.Media.Brushes.Blue,
             Child = new Border { Background = Avalonia.Media.Brushes.Red },
         };
+        // The fixed border is the solid fallback's (on glass the rim replaces it, see GlassRimTests).
+        glass.SetValue(GlassBorder.ReduceTransparencyProperty, true);
         var window = new Window
         {
             Width = 240, Height = 160,

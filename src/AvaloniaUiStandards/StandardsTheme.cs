@@ -111,7 +111,8 @@ public class StandardsTheme : Styles
                 new Setter(GlassBorder.RefractionEdgeProperty, new DynamicResourceExtension("GlassRefractionEdge")),
                 new Setter(GlassBorder.ChromaticDispersionProperty, new DynamicResourceExtension("GlassChromaticDispersion")),
                 new Setter(GlassBorder.RimAbsorptionProperty, new DynamicResourceExtension(GlassBorder.RimAbsorptionKey)),
-                new Setter(GlassBorder.RimColorProperty, new DynamicResourceExtension(GlassBorder.RimColorKey)),
+                new Setter(GlassBorder.RimLightenProperty, new DynamicResourceExtension(GlassBorder.RimLightenKey)),
+                new Setter(GlassBorder.RimSpreadWhiteProperty, new DynamicResourceExtension(GlassBorder.RimSpreadWhiteKey)),
                 new Setter(GlassBorder.SmoothingProperty, new DynamicResourceExtension("CornerSmoothing")),
                 new Setter(GlassBorder.ReduceTransparencyProperty, this.GetObservable(IsTransparencyReducedProperty).ToBinding()),
             },
@@ -239,14 +240,16 @@ public class StandardsTheme : Styles
             ["GlassTintColor"] = GlassBorder.DefaultTintLight,
             ["GlassTintOpacity"] = GlassBorder.DefaultTintOpacity,
             ["GlassBorderBrush"] = new SolidColorBrush(GlassBorder.DefaultBorderLight),
-            [GlassBorder.RimColorKey] = GlassBorder.DefaultRimLight,
+            [GlassBorder.RimLightenKey] = GlassBorder.DefaultRimLightenLight,
+            [GlassBorder.RimSpreadWhiteKey] = GlassBorder.DefaultRimSpreadWhiteLight,
         };
         r.ThemeDictionaries[ThemeVariant.Dark] = new ResourceDictionary
         {
             ["GlassTintColor"] = GlassBorder.DefaultTintDark,
             ["GlassTintOpacity"] = GlassBorder.DefaultTintOpacity,
             ["GlassBorderBrush"] = new SolidColorBrush(GlassBorder.DefaultBorderDark),
-            [GlassBorder.RimColorKey] = GlassBorder.DefaultRimDark,
+            [GlassBorder.RimLightenKey] = GlassBorder.DefaultRimLightenDark,
+            [GlassBorder.RimSpreadWhiteKey] = GlassBorder.DefaultRimSpreadWhiteDark,
         };
     }
 

@@ -73,7 +73,7 @@ public class StyleResourceTests
         { "GlassRefractionStrength", 28d },
         { "GlassRefractionEdge", 28d },
         { "GlassChromaticDispersion", 0.35 },
-        { "GlassTintOpacity", 0.6 },
+        { "GlassTintOpacity", 0.68 },
     };
 
     [AvaloniaTheory]
