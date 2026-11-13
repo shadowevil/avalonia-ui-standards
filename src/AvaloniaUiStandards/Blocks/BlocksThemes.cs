@@ -17,6 +17,8 @@ internal static class BlocksThemes
         resources[typeof(ListBox)] = ListItemTheme.ListBox(fluentTheme(typeof(ListBox)));
         resources[typeof(ListBoxItem)] = ListItemTheme.Item(typeof(ListBoxItem));
         resources[typeof(ComboBoxItem)] = ListItemTheme.Item(typeof(ComboBoxItem));
+        resources[typeof(TreeView)] = TreeViewTheme.TreeView(fluentTheme(typeof(TreeView)));
+        resources[typeof(TreeViewItem)] = TreeViewTheme.Item();
         resources[typeof(ComboBox)] = ComboBoxTheme.Create(fluentTheme(typeof(ComboBox)));
         resources[typeof(ScrollViewer)] = ScrollViewerTheme.Create(fluentTheme(typeof(ScrollViewer)));
         ScrollViewerTheme.AddResources(resources);
@@ -40,6 +42,12 @@ internal static class BlocksThemes
         resources[typeof(NotificationCard)] = NotificationTheme.Card();
         resources[typeof(Separator)] = SeparatorTheme.Create();
         resources[typeof(GridSplitter)] = GridSplitterTheme.Create();
+        resources[typeof(CheckBox)] = CheckBoxTheme.Create();
+        resources[typeof(RadioButton)] = RadioButtonTheme.Create();
+        resources[typeof(ToggleSwitch)] = ToggleSwitchTheme.Create();
+        resources[typeof(Slider)] = SliderTheme.Create();
+        resources[typeof(ProgressBar)] = ProgressBarTheme.Create();
+        resources[typeof(ProgressRing)] = ProgressRingTheme.Create();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -50,9 +58,10 @@ internal static class BlocksThemes
 
     /// <summary>
     /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
-    /// is <c>MotionFast</c> and <paramref name="slow"/> <c>MotionSlow</c>, both zero under reduce motion (no transitions).
+    /// is <c>MotionFast</c>, <paramref name="normal"/> is <c>MotionNormal</c> and <paramref name="slow"/>
+    /// is <c>MotionSlow</c>, or all zero under reduce motion (no transitions).
     /// </summary>
-    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, TimeSpan slow, Easing easing)
+    public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, TimeSpan normal, TimeSpan slow, Easing easing)
     {
         resources[OverlayParts.FadeInFastKey] = OverlayParts.FadeIn(fast, easing);
         resources[OverlayParts.FadeInSlowKey] = OverlayParts.FadeIn(slow, easing);
@@ -60,6 +69,9 @@ internal static class BlocksThemes
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
+        resources[ToggleParts.PartTransitionsKey] = ToggleParts.PartTransitions(fast, normal, easing);
+        resources[ToggleParts.KnobTransitionsKey] = ToggleParts.KnobTransitions(normal, easing);
+        resources[TreeViewTheme.CaretTransitionsKey] = TreeViewTheme.CaretTransitions(normal, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>
@@ -70,5 +82,8 @@ internal static class BlocksThemes
         resources[ButtonParts.PaddingKey] = sizes.Padding;
         resources[ButtonParts.GlyphMarginKey] = new Thickness(0, 0, sizes.Padding.Right, 0);
         resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        ToggleParts.ApplyDensity(resources, density == DensityStyle.Compact ? ToggleParts.Compact : ToggleParts.Normal);
+        RangeParts.ApplyDensity(resources, density == DensityStyle.Compact ? RangeParts.Compact : RangeParts.Normal);
+        TreeViewTheme.ApplyDensity(resources, density == DensityStyle.Compact);
     }
 }

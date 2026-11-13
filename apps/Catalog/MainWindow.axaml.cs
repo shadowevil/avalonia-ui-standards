@@ -13,7 +13,7 @@ public partial class MainWindow : StandardsWindow
         var version = typeof(StandardsTheme).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         StatusVersion.Text = $"AvaloniaUiStandards {version.Split('+')[0]}";
 
-        PageList.ItemsSource = CatalogPages.All.Select(p => p.Title).ToList();
+        PageList.ItemsSource = CatalogPages.All.Select(p => new SidebarItem { Icon = p.Icon, Content = p.Title }).ToList();
         PageList.SelectionChanged += (_, _) =>
         {
             if (PageList.SelectedIndex < 0)
