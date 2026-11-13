@@ -18,6 +18,8 @@
 - [0015 — Glass](decisions/0015-glass.md) — the GlassBorder material, where it is used and its fallback
 - [0016 — Motion](decisions/0016-motion.md) — the durations, easing and the reduce-motion rule
 - [0017 — How apps use the library](decisions/0017-app-usage.md) — the theme and builder entry points and the naming of Style tier keys
+- [0018 — Button](decisions/0018-button.md) — the Button variants, size, chrome and state colours
+- [0019 — Focus ring](decisions/0019-focus-ring.md) — how keyboard focus is shown on every Block
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

@@ -13,7 +13,7 @@ namespace AvaloniaUiStandards.Style;
 /// </summary>
 /// <remarks>
 /// Falls back to a solid fill in <see cref="TintColor"/> with the same border when
-/// transparency is reduced (<see cref="StandardsTheme.ReduceTransparency"/>) or Skia is not
+/// transparency is reduced (<c>StandardsTheme.ReduceTransparency</c>) or Skia is not
 /// available. Without Skia runtime effects it keeps the blur and drops refraction.
 /// The 1 px border is counted in layout, so the child sits inside it, and is drawn above the
 /// child, so a child with a background does not cover it at the corners.

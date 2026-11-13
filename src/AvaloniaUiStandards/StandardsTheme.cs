@@ -6,14 +6,15 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
+using AvaloniaUiStandards.Style;
 
-namespace AvaloniaUiStandards.Style;
+namespace AvaloniaUiStandards;
 
 /// <summary>
-/// The library theme, used in place of <c>FluentTheme</c>. It wraps Fluent with the
-/// neutral palettes, the accent, and the Style tier resources (type, spacing, shape,
-/// motion, glass). Light or dark follows the application's <c>RequestedThemeVariant</c>,
-/// which follows the OS by default.
+/// The library theme, used in place of <c>FluentTheme</c>, and the entry point that assembles
+/// every tier: Fluent with the neutral palettes and the accent, the Style tier resources (type,
+/// spacing, shape, motion, glass, danger) and the Blocks tier control themes. Light or dark
+/// follows the application's <c>RequestedThemeVariant</c>, which follows the OS by default.
 /// </summary>
 public class StandardsTheme : Styles
 {
@@ -40,6 +41,9 @@ public class StandardsTheme : Styles
     internal static readonly DirectProperty<StandardsTheme, bool> IsTransparencyReducedProperty =
         AvaloniaProperty.RegisterDirect<StandardsTheme, bool>(
             nameof(IsTransparencyReduced), o => o.IsTransparencyReduced);
+
+    /// <summary>The danger colour, for destructive actions, with white text on it.</summary>
+    private static readonly Color Danger = Color.FromRgb(0xE1, 0x33, 0x2A);
 
     private static readonly TimeSpan MotionFast = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan MotionNormal = TimeSpan.FromMilliseconds(200);
@@ -74,7 +78,13 @@ public class StandardsTheme : Styles
         Add(_fluent);
 
         AddResources(Resources);
+        AddDanger(Resources, Danger);
+        AddFills(Resources, "AccentFillColor", _accent);
         UpdateMotion();
+
+        // The Blocks tier control themes (Fluent overrides, 0004).
+        Blocks.BlocksThemes.AddTo(Resources);
+        Blocks.BlocksThemes.ApplyDensity(Resources, _fluent.DensityStyle);
 
         Add(new Avalonia.Styling.Style(x => x.OfType<SquircleBorder>())
         {
@@ -105,7 +115,10 @@ public class StandardsTheme : Styles
         set
         {
             if (SetAndRaise(AccentProperty, ref _accent, value))
+            {
                 _light.Accent = _dark.Accent = value;
+                AddFills(Resources, "AccentFillColor", value);
+            }
         }
     }
 
@@ -119,6 +132,7 @@ public class StandardsTheme : Styles
             if (old == value)
                 return;
             _fluent.DensityStyle = value;
+            Blocks.BlocksThemes.ApplyDensity(Resources, value);
             RaisePropertyChanged(DensityProperty, old, value);
         }
     }
@@ -181,13 +195,13 @@ public class StandardsTheme : Styles
         r["FontWeightDisplay"] = FontWeight.SemiBold;
 
         // Spacing, on a 4 px grid
-        r["SpacingXS"] = 4d;
-        r["SpacingS"] = 8d;
-        r["SpacingM"] = 12d;
-        r["SpacingL"] = 16d;
-        r["SpacingXL"] = 24d;
-        r["SpacingXXL"] = 32d;
-        r["SpacingXXXL"] = 48d;
+        r["SpacingXS"] = Spacing.XS;
+        r["SpacingS"] = Spacing.S;
+        r["SpacingM"] = Spacing.M;
+        r["SpacingL"] = Spacing.L;
+        r["SpacingXL"] = Spacing.XL;
+        r["SpacingXXL"] = Spacing.XXL;
+        r["SpacingXXXL"] = Spacing.XXXL;
 
         // Shape
         r["CornerRadiusControl"] = new CornerRadius(8);
@@ -216,6 +230,28 @@ public class StandardsTheme : Styles
             ["GlassTintOpacity"] = GlassBorder.DefaultTintOpacity,
             ["GlassBorderBrush"] = new SolidColorBrush(GlassBorder.DefaultBorderDark),
         };
+    }
+
+    /// <summary>
+    /// Sets <c>DangerColor</c>, <c>DangerForeground</c> (the text on it) and the AA danger fills.
+    /// </summary>
+    private static void AddDanger(IResourceDictionary r, Color danger)
+    {
+        r["DangerColor"] = danger;
+        r["DangerForeground"] = Colors.White;
+        AddFills(r, "DangerFillColor", danger);
+    }
+
+    /// <summary>
+    /// Sets <c>{key}</c>, <c>{key}PointerOver</c> and <c>{key}Pressed</c>: the WCAG AA fills for
+    /// white text on <paramref name="brand"/> (see <see cref="FillColors"/>).
+    /// </summary>
+    private static void AddFills(IResourceDictionary r, string key, Color brand)
+    {
+        var (normal, pointerOver, pressed) = FillColors.ForWhiteText(brand);
+        r[key] = normal;
+        r[key + "PointerOver"] = pointerOver;
+        r[key + "Pressed"] = pressed;
     }
 
     private static ColorPaletteResources LightPalette() => new()

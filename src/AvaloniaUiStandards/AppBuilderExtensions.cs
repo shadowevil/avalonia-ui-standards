@@ -1,6 +1,6 @@
 using Avalonia;
 
-namespace AvaloniaUiStandards.Style;
+namespace AvaloniaUiStandards;
 
 public static class AppBuilderExtensions
 {
