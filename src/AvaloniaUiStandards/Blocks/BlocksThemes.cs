@@ -29,6 +29,10 @@ internal static class BlocksThemes
         resources[typeof(DropDownButton)] = DropDownButtonTheme.Create();
         resources[typeof(SplitButton)] = SplitButtonTheme.Create();
         resources[typeof(Icon)] = IconTheme.Create();
+        var fieldButton = FieldParts.ButtonTheme();
+        resources[typeof(TextBox)] = TextInputTheme.Create(fieldButton);
+        var innerTextBox = TextInputTheme.CreateInner(fieldButton);
+        resources[typeof(CalendarDatePicker)] = TextInputTheme.KeepInnerTextBoxBare(typeof(CalendarDatePicker), fluentTheme(typeof(CalendarDatePicker)), innerTextBox);
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -53,5 +57,6 @@ internal static class BlocksThemes
         resources[ButtonParts.PaddingKey] = sizes.Padding;
         resources[ButtonParts.GlyphMarginKey] = new Thickness(0, 0, sizes.Padding.Right, 0);
         resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
+        FieldParts.ApplyDensity(resources, density);
     }
 }
