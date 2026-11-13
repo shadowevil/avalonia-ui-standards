@@ -34,6 +34,7 @@ internal static class BlocksThemes
         resources[typeof(CalendarDatePicker)] = TextInputTheme.KeepInnerTextBoxBare(typeof(CalendarDatePicker), fluentTheme(typeof(CalendarDatePicker)), innerTextBox);
         resources[typeof(ComboBox)] = ComboBoxTheme.Create(innerTextBox);
         resources[typeof(ButtonSpinner)] = SpinnerThemes.ButtonSpinner(fieldButton);
+        resources[typeof(AutoCompleteBox)] = AutoCompleteBoxTheme.Create(fluentTheme(typeof(AutoCompleteBox)));
         resources[typeof(NumericUpDown)] = SpinnerThemes.NumericUpDown(SpinnerThemes.Template(fieldButton), innerTextBox);
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();

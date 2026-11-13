@@ -12,5 +12,7 @@
     - **Why:** The arrow keys spin from the field, so tab stops on the buttons would only add steps. Taking focus on click makes a NumericUpDown commit typed text before it spins, as Fluent does.
   - A NumericUpDown holds the field states (hover, focus within, error, disabled) and passes its colours to its ButtonSpinner, whose template it shares with a standalone ButtonSpinner.
     - **Why:** Hovering a spin button still counts as hovering the field, and errors and disabled states set on the NumericUpDown reach the chrome.
+  - AutoCompleteBox keeps Fluent's template, with TextInput's density height and padding; its TextBox is a TextInput, so its colours, focus and ring are TextInput's. The suggestions use the ComboBox drop-down of [0024](0024-lists-and-scrolling.md): a `SquircleBorder` (`CornerRadiusOverlay`, Fluent's drop-down background and border) that clips the library ListBox, whose 4 px padding insets the item squircles.
+    - **Why:** It is TextInput with suggestions; the suggestion list matches the ComboBox list.
   - Fades are `MotionFast` cross-fades ([0016](0016-motion.md)), instant under reduce motion.
-- **Why:** The number and spin fields join the field family with the fewest new parts: TextInput's chrome and field buttons.
+- **Why:** The remaining text-entry fields join the field family with the fewest new parts: TextInput's chrome and field buttons, and the ComboBox drop-down.
