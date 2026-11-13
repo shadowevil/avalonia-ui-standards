@@ -32,6 +32,8 @@
 - [0029 — NumericUpDown, ButtonSpinner and AutoCompleteBox](decisions/0029-numeric-and-autocomplete.md) — the spin fields, their spin buttons, and the AutoCompleteBox field and suggestions
 - [0030 — CheckBox, ToggleSwitch and RadioButton](decisions/0030-checkbox-toggleswitch-radiobutton.md) — the toggles' indicator layers, sizes, check glyph, colours, focus ring and motion
 - [0031 — Slider, ProgressBar and ProgressRing](decisions/0031-slider-and-progress.md) — the range controls' shapes, sizes, colours, the added ProgressRing and how indeterminate progress is animated
+- [0032 — Segmented control](decisions/0032-segmented-control.md) — the SegmentedControl Block: base, keyboard, shape, sliding pill, colours and focus ring
+- [0033 — TabControl, TabStrip and Expander](decisions/0033-tabs-and-expander.md) — the tab headers, sliding underline and content area, and the Expander card, caret and reveal
 - [0034 — Sidebar](decisions/0034-sidebar.md) — the Sidebar Module: rows, headers, the collapse stages and thresholds, the title band button, the overlay and motion
 - [0035 — TreeView](decisions/0035-treeview.md) — the TreeView Block: list item rows, indentation, the expand caret, keyboard, no lines
 

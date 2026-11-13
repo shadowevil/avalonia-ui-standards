@@ -41,7 +41,6 @@ internal static class ComboBoxTheme
 
     public static ControlTheme Create(ControlTheme innerTextBox)
     {
-        FocusRing.TrackWithin(typeof(ComboBox));
         var theme = new ControlTheme(typeof(ComboBox));
         FieldParts.AddSizing(theme, PaddingKey);
         theme.Setters.Add(new Setter(ComboBox.MaxDropDownHeightProperty, 504d));
@@ -65,7 +64,7 @@ internal static class ComboBoxTheme
             // placeholder below 4.5:1.
             focus: x => x.Nesting().PropertyEquals(ComboBox.IsEditableProperty, true).Class(":focus-within"));
         theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
-        FocusRing.AddWithinTo(theme);
+        FocusRing.AddWithin(theme);
 
         theme.Children.Add(FieldParts.Part<Icon>(GlyphPart, null, TemplatedControl.ForegroundProperty, Resource("ComboBoxDropDownGlyphForeground")));
         theme.Children.Add(FieldParts.Part<Icon>(GlyphPart, x => x.Class(":disabled"), TemplatedControl.ForegroundProperty, Resource("ComboBoxDropDownGlyphForegroundDisabled")));

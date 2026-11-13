@@ -67,7 +67,7 @@ internal static class FieldGrid
     /// The part of a field that holds its states, and the part that draws its ring. An
     /// AutoCompleteBox's TextBox holds both; a NumericUpDown holds its states and its ButtonSpinner
     /// draws the ring (shown, as when focus is on the inner TextBox, through that part's
-    /// <c>:focus-visible</c>); other fields hold both themselves.
+    /// <c>:focus-visible-within</c>); other fields hold both themselves.
     /// </summary>
     private static (Control States, Control Ring) Targets(Control control) => control switch
     {
@@ -106,7 +106,11 @@ internal static class FieldGrid
                     pseudo.Set(":focus", true);
                     pseudo.Set(":focus-within", true);
                     if (state == FieldSampleState.KeyboardFocus)
+                    {
+                        // :focus-visible lights a TextBox ring, :focus-visible-within a composite field's.
                         ((IPseudoClasses)ring.Classes).Set(":focus-visible", true);
+                        ((IPseudoClasses)ring.Classes).Set(":focus-visible-within", true);
+                    }
                     break;
             }
         });

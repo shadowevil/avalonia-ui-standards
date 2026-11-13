@@ -304,13 +304,14 @@ public class ButtonThemeTests
     // (0007): their plain Buttons set an explicit theme, and the subclasses they use either set
     // one too or have theme keys of their own. The ListBox, ListBoxItem, ComboBoxItem and
     // ScrollViewer restyles apply to every instance, inside Fluent templates as well; the picker
-    // presenters' item containers have theme keys of their own and keep Fluent's look. The field
-    // Blocks (ComboBox, NumericUpDown, ButtonSpinner) are restyled and use field buttons (0029).
+    // presenters' item containers have theme keys of their own and keep Fluent's look. Expander
+    // has the library's own theme (0033), so it is not one of them, nor are the field Blocks
+    // (ComboBox, NumericUpDown, ButtonSpinner), which are restyled and use field buttons (0029).
     public static TheoryData<string> FluentControlsWithButtons => new()
     {
         nameof(CalendarDatePicker), nameof(Calendar), nameof(DatePicker), nameof(TimePicker),
         nameof(DatePickerPresenter), nameof(TimePickerPresenter),
-        nameof(Expander), nameof(ScrollBar), nameof(Slider), nameof(TreeView),
+        nameof(ScrollBar), nameof(Slider), nameof(TreeView),
     };
 
     [AvaloniaTheory]
@@ -325,7 +326,6 @@ public class ButtonThemeTests
             nameof(TimePicker) => new TimePicker(),
             nameof(DatePickerPresenter) => new DatePickerPresenter(),
             nameof(TimePickerPresenter) => new TimePickerPresenter(),
-            nameof(Expander) => new Expander { Header = "Header", Content = "Content" },
             nameof(ScrollBar) => new ScrollBar { Orientation = Avalonia.Layout.Orientation.Vertical, Height = 200, AllowAutoHide = false, ViewportSize = 10, Maximum = 100 },
             nameof(Slider) => new Slider { Width = 200 },
             _ => new TreeView { ItemsSource = new[] { new TreeViewItem { Header = "Parent", IsExpanded = true, ItemsSource = new[] { "Child" } } } },

@@ -23,11 +23,14 @@ internal static class CatalogPages
         new("Button family", Icons.CheckSquare, () => new ButtonFamilyPage()),
         new("Icon", Icons.Bell, () => new IconPage()),
         new("TextInput", Icons.ChatText, () => new TextInputPage()),
-        new("ComboBox", Icons.CaretDown, () => new ComboBoxPage()),
+        new("ComboBox", Icons.ListBullets, () => new ComboBoxPage()),
         new("Toggles", Icons.ToggleRight, () => new TogglesPage()),
+        new("Segmented", Icons.RadioButton, () => new SegmentedControlPage()),
         new("TreeView", Icons.TreeStructure, () => new TreeViewPage()),
         new("Ranges", Icons.SlidersHorizontal, () => new RangesPage()),
         new("NumericUpDown", Icons.Plus, () => new NumericUpDownPage()),
         new("AutoCompleteBox", Icons.MagnifyingGlass, () => new AutoCompleteBoxPage()),
+        new("Tabs", Icons.Tabs, () => new TabsPage()),
+        new("Expander", Icons.CaretDown, () => new ExpanderPage()),
     ];
 }

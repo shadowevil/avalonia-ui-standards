@@ -38,6 +38,14 @@ internal static class BlocksThemes
         resources[typeof(ButtonSpinner)] = SpinnerThemes.ButtonSpinner(fieldButton);
         resources[typeof(AutoCompleteBox)] = AutoCompleteBoxTheme.Create(fluentTheme(typeof(AutoCompleteBox)));
         resources[typeof(NumericUpDown)] = SpinnerThemes.NumericUpDown(SpinnerThemes.Template(fieldButton), innerTextBox);
+        SegmentedControlTheme.AddResources(resources);
+        resources[typeof(SegmentedControl)] = SegmentedControlTheme.Control();
+        resources[typeof(SegmentedControlItem)] = SegmentedControlTheme.Segment();
+        resources[typeof(TabControl)] = TabThemes.TabControl();
+        resources[typeof(TabItem)] = TabThemes.Tab(typeof(TabItem));
+        resources[typeof(TabStrip)] = TabThemes.TabStrip();
+        resources[typeof(TabStripItem)] = TabThemes.Tab(typeof(TabStripItem));
+        resources[typeof(Expander)] = ExpanderTheme.Create();
         resources[typeof(CheckBox)] = CheckBoxTheme.Create();
         resources[typeof(RadioButton)] = RadioButtonTheme.Create();
         resources[typeof(ToggleSwitch)] = ToggleSwitchTheme.Create();
@@ -59,6 +67,10 @@ internal static class BlocksThemes
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
+        resources[SelectionIndicator.TransitionsKey] = SelectionIndicator.Slide(normal, easing);
+        resources[SegmentedControlTheme.TextTransitionsKey] = SegmentedControlTheme.TextTransitions(normal, easing);
+        resources[Reveal.TransitionsKey] = Reveal.Opening(normal, easing);
+        resources[ExpanderTheme.CaretTransitionsKey] = ExpanderTheme.CaretTransitions(normal, easing);
         resources[ToggleParts.PartTransitionsKey] = ToggleParts.PartTransitions(fast, normal, easing);
         resources[ToggleParts.KnobTransitionsKey] = ToggleParts.KnobTransitions(normal, easing);
         resources[TreeViewTheme.CaretTransitionsKey] = TreeViewTheme.CaretTransitions(normal, easing);
@@ -74,6 +86,12 @@ internal static class BlocksThemes
         resources[IconTheme.SizeKey] = density == DensityStyle.Compact ? IconTheme.Compact : IconTheme.Normal;
         FieldParts.ApplyDensity(resources, density);
         resources[ComboBoxTheme.PaddingKey] = ComboBoxTheme.Padding(sizes.Padding);
+        var segment = SegmentedControlTheme.Item(sizes);
+        resources[SegmentedControlTheme.ItemMinHeightKey] = segment.MinHeight;
+        resources[SegmentedControlTheme.ItemPaddingKey] = segment.Padding;
+        var side = sizes.Padding.Left;
+        resources[TabThemes.ContentPaddingKey] = new Thickness(side, Style.Spacing.M);
+        resources[ExpanderTheme.ContentPaddingKey] = new Thickness(side);
         ToggleParts.ApplyDensity(resources, density == DensityStyle.Compact ? ToggleParts.Compact : ToggleParts.Normal);
         RangeParts.ApplyDensity(resources, density == DensityStyle.Compact ? RangeParts.Compact : RangeParts.Normal);
         TreeViewTheme.ApplyDensity(resources, density == DensityStyle.Compact);

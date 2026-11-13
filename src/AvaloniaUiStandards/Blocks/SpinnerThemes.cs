@@ -44,13 +44,12 @@ internal static class SpinnerThemes
     /// </summary>
     public static ControlTheme Template(ControlTheme fieldButton)
     {
-        FocusRing.TrackWithin(typeof(ButtonSpinner));
         var theme = new ControlTheme(typeof(ButtonSpinner));
         theme.Setters.Add(new Setter(ContentControl.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
         theme.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ButtonSpinner>((spinner, scope) => Build(scope, fieldButton))));
         theme.Children.Add(ChromeMotion(FieldParts.ChromePart));
-        FocusRing.AddWithinTo(theme);
+        FocusRing.AddWithin(theme);
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Template().OfType<StackPanel>().Name(SpinnerPanelPart))
         {
             Setters =
