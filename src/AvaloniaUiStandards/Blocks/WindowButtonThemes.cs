@@ -18,8 +18,8 @@ namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
 /// The themes and values of the window buttons. Traffic lights are 12 px dots in the macOS
-/// colours, 8 px apart, with a dark glyph; caption buttons are 48 px wide, as tall as the
-/// title band, with a 10 px glyph, and close turns to the danger fill on hover.
+/// colours, 8 px apart, with a dark glyph; caption buttons are 46 × 32 (Compact 40 × 28), at the top of
+/// the title band, with a 10 px glyph, and close turns to the danger fill on hover.
 /// </summary>
 internal static class WindowButtonThemes
 {
@@ -28,7 +28,10 @@ internal static class WindowButtonThemes
     public const double TrafficLightSize = 12;
     public const double TrafficLightGap = 8;
     public const double TrafficLightGlyphSize = 6;
-    public const double CaptionButtonWidth = 48;
+    public const double CaptionButtonWidth = 46;
+    public const double CaptionButtonHeight = 32;
+    public const double CaptionButtonWidthCompact = 40;
+    public const double CaptionButtonHeightCompact = 28;
     public const double CaptionGlyphSize = 10;
 
     // The macOS traffic light colours (the same in light and dark) and the glyph drawn on them.
@@ -51,6 +54,17 @@ internal static class WindowButtonThemes
     };
 
     internal static readonly object GlyphKey = new();
+
+    // The caption button size, set by ApplyDensity under these non-public keys.
+    internal static readonly object CaptionWidthKey = new();
+    internal static readonly object CaptionHeightKey = new();
+
+    /// <summary>Sets the density-dependent caption button size.</summary>
+    public static void ApplyDensity(IResourceDictionary resources, bool compact)
+    {
+        resources[CaptionWidthKey] = compact ? CaptionButtonWidthCompact : CaptionButtonWidth;
+        resources[CaptionHeightKey] = compact ? CaptionButtonHeightCompact : CaptionButtonHeight;
+    }
 
     private static readonly IValueConverter TrafficLightGlyph =
         new FuncValueConverter<WindowButtonKind, Geometry>(kind => WindowButtonGlyphs.TrafficLight(kind));
@@ -120,8 +134,9 @@ internal static class WindowButtonThemes
     {
         Setters =
         {
-            new Setter(Layoutable.WidthProperty, CaptionButtonWidth),
-            new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Stretch),
+            new Setter(Layoutable.WidthProperty, new DynamicResourceExtension(CaptionWidthKey)),
+            new Setter(Layoutable.HeightProperty, new DynamicResourceExtension(CaptionHeightKey)),
+            new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Top),
             new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent),
             new Setter(TemplatedControl.ForegroundProperty, Resource("ButtonForeground")),
             new Setter(TemplatedControl.BorderThicknessProperty, new Thickness(0)),

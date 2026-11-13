@@ -91,7 +91,7 @@ public class StandardsWindowTests
                          ("Caption: close", WindowButtonKind.Close, false),
                      })
                 rows.Add((label, StateCells.All.Select(s => StateCells.Render(sheet, theme,
-                    new CaptionButton { Kind = kind, IsMaximized = maximized, Height = 48 }, s)).ToList()));
+                    new CaptionButton { Kind = kind, IsMaximized = maximized }, s)).ToList()));
             sheet.AddSection(themeLabel, StateCells.All.Select(s => s == CellState.Hover ? "Hover (group)" : s.ToString()).ToList(), rows);
         }
         sheet.Save("window-buttons.png");
@@ -370,6 +370,80 @@ public class StandardsWindowTests
         }
     }
 
+    // Windows 11 sized caption buttons (46 x 32; Compact 40 x 28), at the top of the title band and
+    // flush right; the band height and the content panel's margin do not change.
+    [AvaloniaTheory]
+    [InlineData("Normal")]
+    [InlineData("Compact")]
+    public void CaptionButtons_AreWindows11SizedAtTheTopOfTheBand(string density)
+    {
+        var compact = density == "Compact";
+        var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        {
+            Density = compact ? DensityStyle.Compact : DensityStyle.Normal,
+        });
+        Show(window);
+        try
+        {
+            var band = Part<Control>(window, StandardsWindowTheme.TitleBandPart);
+            var bandRect = new Rect(band.TranslatePoint(default, window)!.Value, band.Bounds.Size);
+            Assert.Equal(compact ? 40 : 48, bandRect.Height);
+            var buttons = window.GetVisualDescendants().OfType<CaptionButton>().ToList();
+            Assert.Equal(3, buttons.Count);
+            foreach (var button in buttons)
+            {
+                var rect = new Rect(button.TranslatePoint(default, window)!.Value, button.Bounds.Size);
+                Assert.Equal(compact ? 40 : 46, rect.Width);
+                Assert.Equal(compact ? 28 : 32, rect.Height);
+                Assert.Equal(bandRect.Top, rect.Top, 0.01);
+            }
+            var close = buttons.Single(b => b.Kind == WindowButtonKind.Close);
+            Assert.Equal(bandRect.Right, close.TranslatePoint(new Point(close.Bounds.Width, 0), window)!.Value.X, 0.01);
+
+            var panel = Part<Control>(window, StandardsWindowTheme.ContentPanelPart);
+            Assert.Equal(new Thickness(8, 0, 8, 8), panel.Margin);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Renders the title band's right end with a hovered close and a pressed maximise button.
+    [AvaloniaTheory]
+    [InlineData("Light", "Normal")]
+    [InlineData("Light", "Compact")]
+    [InlineData("Dark", "Normal")]
+    [InlineData("Dark", "Compact")]
+    public void CaptionButtons_RenderHoverAndPressed(string theme, string density)
+    {
+        var window = SampleWindow(theme == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        {
+            Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
+        });
+        window.Background = new SolidColorBrush(Color.Parse(theme == "Dark" ? "#3A3D42" : "#C9CDD3"));
+        try
+        {
+            window.SetRenderScaling(Sheet.Scale);
+            window.Show();
+            Pump(window);
+            var captions = window.GetVisualDescendants().OfType<CaptionButton>().ToList();
+            foreach (var part in captions.SelectMany(c => c.GetVisualDescendants().OfType<Avalonia.Animation.Animatable>()))
+                part.Transitions = null;
+            Pseudo(captions.Single(c => c.Kind == WindowButtonKind.Close), ":pointerover");
+            Pseudo(captions.Single(c => c.Kind == WindowButtonKind.Maximize), ":pressed");
+            Pump(window);
+            using var frame = Frame.Capture(window);
+            frame.Save($"window-caption-buttons-{theme.ToLowerInvariant()}-{density.ToLowerInvariant()}.png");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void TitleBandAndStatusBar_FollowDensity()
     {
@@ -497,7 +571,7 @@ public class StandardsWindowTests
     public void InactiveWindow_GreysTrafficLights_AndDimsCaptionGlyphs()
     {
         var lights = new WindowButtons { ButtonStyle = WindowButtonStyle.TrafficLights, IsActive = false };
-        var captions = new WindowButtons { ButtonStyle = WindowButtonStyle.CaptionButtons, IsActive = false, Height = 48 };
+        var captions = new WindowButtons { ButtonStyle = WindowButtonStyle.CaptionButtons, IsActive = false };
         var window = Show(new Window { Width = 400, Height = 120, Content = new StackPanel { Children = { lights, captions } } });
         try
         {

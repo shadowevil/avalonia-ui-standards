@@ -113,6 +113,7 @@ internal static class BlocksThemes
         resources[IconTheme.SizeKey] = iconSize;
         resources[NotificationTheme.CloseMarginKey] = NotificationTheme.CloseMargin(sizes.MinHeight, iconSize);
         FieldParts.ApplyDensity(resources, density);
+        WindowButtonThemes.ApplyDensity(resources, density == DensityStyle.Compact);
         resources[ComboBoxTheme.PaddingKey] = ComboBoxTheme.Padding(sizes.Padding);
         var segment = SegmentedControlTheme.Item(sizes);
         resources[SegmentedControlTheme.ItemMinHeightKey] = segment.MinHeight;
