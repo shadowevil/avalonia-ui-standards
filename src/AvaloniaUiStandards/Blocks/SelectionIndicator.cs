@@ -31,7 +31,7 @@ internal sealed class SelectionIndicator : Panel
 
     private readonly SelectingItemsControl _owner;
     private readonly Control _indicator;
-    private readonly Func<Control, Rect, Rect> _place;
+    private readonly Func<Control, Rect, Size, Rect> _place;
     private Rect? _target;
     private int _targetIndex = -1;
     private Size _lastSize;
@@ -41,8 +41,8 @@ internal sealed class SelectionIndicator : Panel
     /// <param name="owner">The control whose selected container the indicator follows.</param>
     /// <param name="indicator">The indicator, drawn under <paramref name="content"/>.</param>
     /// <param name="content">The items, laid out over the whole panel.</param>
-    /// <param name="place">The indicator's rectangle for a container and its rectangle in the panel.</param>
-    public SelectionIndicator(SelectingItemsControl owner, Control indicator, Control content, Func<Control, Rect, Rect> place)
+    /// <param name="place">The indicator's rectangle for a container, its rectangle in the panel and the panel's size.</param>
+    public SelectionIndicator(SelectingItemsControl owner, Control indicator, Control content, Func<Control, Rect, Size, Rect> place)
     {
         _owner = owner;
         _indicator = indicator;
@@ -108,7 +108,7 @@ internal sealed class SelectionIndicator : Panel
         var index = _owner.SelectedIndex;
         Rect? target = index >= 0 && _owner.ContainerFromIndex(index) is { IsVisible: true } container
             && container.TranslatePoint(default, this) is { } origin
-            ? _place(container, new Rect(origin, container.Bounds.Size))
+            ? _place(container, new Rect(origin, container.Bounds.Size), finalSize)
             : null;
 
         if (target != _target)

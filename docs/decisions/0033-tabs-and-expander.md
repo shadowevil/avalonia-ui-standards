@@ -1,0 +1,28 @@
+# 0033 — TabControl, TabStrip and Expander
+
+- **Status:** Proposed, 2026-11-13
+- **Decision:**
+  - TabControl and TabStrip are restyled Fluent ([0003](0003-restyle-fluent.md)): Fluent's selection, keyboard behaviour (arrows, Home and End, stopping at the ends), content hosts and `PageTransition` are kept.
+  - Tab headers (TabItem, TabStripItem):
+    - Text in Body (14, regular), replacing Fluent's 24 px semilight, with an optional `TabItem.Icon` before it, 8 px apart (`SpacingS`).
+    - Height 32 at Normal density and 24 at Compact, with Button's side padding (12 Normal, 8 Compact) ([0013](0013-spacing-and-density.md), [0018](0018-button.md)).
+    - No fill in any state. The text uses Fluent's tab colours: unselected `TabItemHeaderForegroundUnselected` (secondary text, AA), hover and pressed one step stronger, selected primary text, disabled Fluent's disabled text. All enabled states meet 4.5:1 on the page; this is tested.
+    - The selected header keeps the regular weight.
+    - The focus ring ([0019](0019-focus-ring.md)) around the focused header, on a squircle with `CornerRadiusControl`.
+    - **Why:** Apple HIG keeps tabs for switching content areas and segmented controls for choosing a value, so the two look different: tabs are text with an underline, the segmented control ([0032](0032-segmented-control.md)) a filled track with a pill. Body text matches the rest of the controls; a bolder selected header would change its width and shift the tabs after it.
+  - The selected tab is marked by one accent underline, 3 px thick with fully rounded ends, in Fluent's `TabItemHeaderSelectedPipeFill` (the accent). It spans the header's content (inside its padding) on the edge facing the content, and slides and resizes between headers over `MotionNormal` with the ease-out ([0016](0016-motion.md)), instantly under reduce motion; on a layout change it moves at once. It uses the same sliding element as the segmented control's pill.
+    - **Why:** One sliding indicator shows where the selection went, as the segmented control's pill does, while the thin line keeps tabs light. Spanning the text ties the line to its label.
+  - A 1 px hairline in the line colour (`SystemControlForegroundBaseLowBrush`) runs along the whole strip on the side facing the content; the underline sits on it. TabStrip has the same strip as TabControl.
+    - **Why:** It marks where the tabs end and the content starts, and anchors the underline.
+  - `TabStripPlacement` Left and Right stack the headers vertically, with the underline and hairline on the inner edge.
+  - The content sits directly on the surface below the tabs (no fill or card of its own), padded by the tab's side padding left and right and 12 (`SpacingM`) top and bottom, so it lines up with the header text.
+    - **Why:** The content area is the surface it is placed on ([0015](0015-glass.md): no glass on glass, no extra card).
+  - Expander is restyled Fluent: Fluent's `IsExpanded`, `ExpandDirection` and events are kept; the template is the library's.
+    - One squircle card with `CornerRadiusControl` (8) ([0014](0014-shape.md)), in the card colour (`ExpanderContentBackground`) with a 1 px border in the line colour (`ExpanderContentBorderBrush`), holding the header row and the content. It stretches to its container's width (Fluent: left-aligned).
+    - The header row is a toggle with the list item fills ([0024](0024-lists-and-scrolling.md)): transparent at rest, `ListMedium` on hover, `BaseMediumLow` pressed, Fluent's disabled text. Height 32 Normal and 24 Compact, with Button's side padding. No pressed scale.
+    - A caret (`Icons.CaretDown`, [0026](0026-icon.md)) before the header, 8 px from it, turns towards the content as it opens: right to down when opening downwards, right to up upwards, right to left to the right, left to right to the left. It turns over `MotionNormal`.
+    - The content reveals over `MotionNormal`: its visible length grows from 0 to its full length (clipped), so the layout around the expander moves with it; closing runs back. Under reduce motion both are instant. An expander that starts open shows open at once. Closed content is hidden, so it takes no focus.
+    - A 1 px hairline in the border colour separates the header from the content, revealed with it. The content padding is the header's side padding on every side (12 Normal, 8 Compact), so it lines up with the caret.
+    - The focus ring is drawn around the whole card while the header has keyboard focus.
+    - **Why:** The card groups the header and its content as one object, as Fluent's expander does, with the shared radius and list item fills. The leading caret matches tree rows (TreeView, M3 step 13) and macOS disclosure. A reveal that moves the layout keeps the reader's place better than a jump. Stretching avoids the header changing width when the content opens. The card clips its content to its corners, so a ring around the header alone would be cut off.
+- **Why:** Tabs and the expander join the family's shape, density, type, focus ring and motion, while staying visibly different from the segmented control.

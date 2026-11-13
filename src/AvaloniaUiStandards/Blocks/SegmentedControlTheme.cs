@@ -169,7 +169,7 @@ internal static class SegmentedControlTheme
         var items = new ItemsPresenter { Name = "PART_ItemsPresenter" };
         items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
 
-        var indicator = new SelectionIndicator(control, pill, items, (_, rect) => rect);
+        var indicator = new SelectionIndicator(control, pill, items, (_, rect, _) => rect);
 
         var track = new SquircleBorder { Name = TrackPart, Child = indicator };
         track.Bind(SquircleBorder.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));

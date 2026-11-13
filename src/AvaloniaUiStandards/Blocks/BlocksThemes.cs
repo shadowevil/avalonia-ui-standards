@@ -32,6 +32,11 @@ internal static class BlocksThemes
         SegmentedControlTheme.AddResources(resources);
         resources[typeof(SegmentedControl)] = SegmentedControlTheme.Control();
         resources[typeof(SegmentedControlItem)] = SegmentedControlTheme.Segment();
+        resources[typeof(TabControl)] = TabThemes.TabControl();
+        resources[typeof(TabItem)] = TabThemes.Tab(typeof(TabItem));
+        resources[typeof(TabStrip)] = TabThemes.TabStrip();
+        resources[typeof(TabStripItem)] = TabThemes.Tab(typeof(TabStripItem));
+        resources[typeof(Expander)] = ExpanderTheme.Create();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -49,6 +54,8 @@ internal static class BlocksThemes
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
         resources[SelectionIndicator.TransitionsKey] = SelectionIndicator.Slide(normal, easing);
         resources[SegmentedControlTheme.TextTransitionsKey] = SegmentedControlTheme.TextTransitions(normal, easing);
+        resources[Reveal.TransitionsKey] = Reveal.Opening(normal, easing);
+        resources[ExpanderTheme.CaretTransitionsKey] = ExpanderTheme.CaretTransitions(normal, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>
@@ -62,5 +69,8 @@ internal static class BlocksThemes
         var segment = SegmentedControlTheme.Item(sizes);
         resources[SegmentedControlTheme.ItemMinHeightKey] = segment.MinHeight;
         resources[SegmentedControlTheme.ItemPaddingKey] = segment.Padding;
+        var side = sizes.Padding.Left;
+        resources[TabThemes.ContentPaddingKey] = new Thickness(side, Style.Spacing.M);
+        resources[ExpanderTheme.ContentPaddingKey] = new Thickness(side);
     }
 }

@@ -28,6 +28,7 @@
 - [0025 — Overlay scrollbar](decisions/0025-overlay-scrollbar.md) — the overlay ScrollBar Block: reveal, sizes, colours and motion
 - [0026 — Icon](decisions/0026-icon.md) — the icon set and licence, the Icon Block's design box, sizes and colour, and how icons are added
 - [0032 — Segmented control](decisions/0032-segmented-control.md) — the SegmentedControl Block: base, keyboard, shape, sliding pill, colours and focus ring
+- [0033 — TabControl, TabStrip and Expander](decisions/0033-tabs-and-expander.md) — the tab headers, sliding underline and content area, and the Expander card, caret and reveal
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions
