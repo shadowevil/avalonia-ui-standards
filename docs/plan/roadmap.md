@@ -13,7 +13,7 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    5b. Frame rate: continuous animation at 30 fps by default ([0016](../decisions/0016-motion.md)). Done.
    5c. Glass rim: a hairline that takes a light tint of what's below ([0015](../decisions/0015-glass.md)). Done.
    5d. Overlay scrollbar: nearly invisible until scrolling or the pointer comes near, then it fades in and widens with proximity for easy grabbing; no arrow buttons; the thumb and track are always fully rounded pills; it floats over content ([0024](../decisions/0024-lists-and-scrolling.md), [0025](../decisions/0025-overlay-scrollbar.md)). Done.
-   6. Native window behaviour on macOS: system shadow, native border and chrome roles ([0022](../decisions/0022-window-layout.md)). Windows and Linux are a later step.
+   6. Native window behaviour on macOS: system shadow, native border and chrome roles ([0022](../decisions/0022-window-layout.md)). Done for macOS. Windows and Linux are a later step.
    7. TextInput (Fluent `TextBox`).
    8. ComboBox.
    9. Icon (restyled Fluent `PathIcon`). The Icon set is Phosphor Regular (vector, MIT; [0026](../decisions/0026-icon.md)). Done.
