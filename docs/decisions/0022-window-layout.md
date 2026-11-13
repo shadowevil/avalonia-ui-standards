@@ -6,19 +6,40 @@
     - The library draws its own window frame: a borderless transparent window shaped as a squircle (radius 16, `CornerRadiusOverlay`; [0014](0014-shape.md)) with a soft shadow and a 1 px border.
     - Window buttons are drawn by the library, styled per OS: traffic lights on the left on macOS, caption buttons on the right on Windows and Linux.
     - The library handles drag, resize, minimise, maximise and close.
+  - Adoption:
+    - App windows subclass `StandardsWindow` and fill `Title`, `Toolbar`, `Sidebar`, `Content` (shown in the glass panel) and `StatusBar`.
+    - `WindowButtonStyle` is `Auto`, `TrafficLights` or `CaptionButtons`.
+    - The window buttons (`WindowButtons`, `TrafficLightButton`, `CaptionButton`) are public Blocks, so other layouts can use them.
+  - Values:
+    - Title band 48 high (40 Compact), with the title in Body strong ([0012](0012-type.md)).
+    - Status bar 32 high (24 Compact) with 16 px side padding.
+    - Sidebar 8 px from the left.
+    - Glass panel 8 px from the sides and bottom, with 12 px padding inside.
+    - Frame radius 16 with a 1 px border in Fluent's border colour.
+    - Shadow: blur sigma 8, offset 8 down, black at 25% (light) or 50% (dark).
+    - Resize grips 8 px on the edges and 12 px at the corners; the window buttons take precedence over grips.
+    - The shadow margin (24–32 px around the frame) is part of the OS window. That area is click-through, passing clicks to windows behind, and OS snapping and positions use the frame, like native windows. This needs per-OS work ([roadmap](../plan/roadmap.md), M3 step 4b).
+    - Minimum size 480×320, applied to the frame (the window adds the shadow margin).
+    - When maximised: square corners, no shadow, no grips.
+    - Without OS transparency the frame fills the window square, with no shadow.
+  - Window buttons:
+    - Traffic lights: 12 px dots 8 px apart, 16 px from the left. Close `#FF5F57`, minimise `#FEBC2E`, zoom `#28C840`. Glyphs show on group hover. They are grey with no glyphs when the window is inactive.
+    - Caption buttons: 48 px wide, full band height. Close hover uses `DangerFill*` with `DangerForeground` ([0011](0011-colour.md)). Glyphs dim when the window is inactive.
+    - Window buttons are not Tab stops (as in native windows); the standard OS shortcuts apply instead: macOS Cmd+W closes and Cmd+M minimises; Windows and Linux Alt+F4 closes. There is no maximise or restore shortcut: macOS has no standard one for zoom, and Win+Up/Down or Super+arrows are handled by the OS shell.
+    - When the window is inactive, the traffic lights use the neutral grey `SystemBaseLowColor` and the caption glyphs use the disabled text colour; hover restores the active look. `WindowButtons` has a public `IsActive` property, set by `StandardsWindow`.
   - Tiers ([0004](0004-tier-names.md)):
     - Window buttons (traffic lights, caption buttons) are Blocks.
-    - The window frame (which draws the window background, including the backdrop wash below), title band, sidebar (with its collapse stages), status bar and content panel are Modules.
-    - The app shell Screen assembles them.
+    - `StandardsWindow` is the shell Module. It holds the frame (which draws the window background, including the backdrop wash below), the title band, the glass content panel, the status bar and a sidebar slot. Its parts are internal, so the layout can evolve.
+    - The sidebar Module (with its collapse stages) plugs into the sidebar slot later.
+    - The app shell Screen (M5) is the assembled app shell.
   - Title band: the title and the toolbar share one band at the top (a unified toolbar).
   - Areas on the window background: the title band, an optional sidebar on the left (a plain list, not a panel) and an optional status bar at the bottom.
   - Content panel:
     - The content sits in one inset glass panel (`GlassBorder`, radius 16; [0015](0015-glass.md)), the only element with the panel look. Where cards may be glass is in [0015](0015-glass.md).
     - It fills the remaining space with `SpacingS` and `SpacingM` gaps ([0013](0013-spacing-and-density.md)), and shrinks to fit beside the sidebar.
     - Layouts: sidebar + content, and sidebar + content + inspector.
-  - Window backdrop: the window background carries a gentle wash of accent and neutral across the whole window, with no visible lines or shapes, so the glass panel reads as glass and text outside it stays calm. The exact values are set and shown when it is built.
-  - Contrast: text on the backdrop wash and inside the glass panel meets WCAG AA. The backgrounds that the AA text colours ([0011](0011-colour.md)) are checked against include both the wash's extreme colours and the glass panel's tint laid over those extremes. Both are proven by tests at M5.
-  - Narrow windows collapse in stages: the inspector hides first, then the sidebar collapses to icons, then to a button that opens it as an overlay. There is a minimum window size.
-- **Open until M5:** How apps adopt the window (for example a library window class) is decided at M5, with [0017](0017-app-usage.md) amended then.
+  - Backdrop wash (keys `BackdropWash`, `BackdropWashStartColor`, `BackdropWashEndColor`): the window background carries a gentle wash across the whole window, with no visible lines or shapes, so the glass panel reads as glass and text outside it stays calm. It runs from the page colour with the accent mixed in at the top-left (10% light, 14% dark) to the page colour at the bottom-right, and is recomputed for app accents.
+  - Contrast: text on the backdrop wash and inside the glass panel meets WCAG AA. The backgrounds that the AA text colours ([0011](0011-colour.md)) are checked against include both the wash's extreme colours and the glass panel's tint laid over those extremes. Both are proven by tests.
+  - Narrow windows collapse in stages: the inspector hides first, then the sidebar collapses to icons, then to a button that opens it as an overlay. The minimum window size is in Values.
 - **Accepted consequence:** Native-only extras (for example the Windows snap-layout menu on maximise, and macOS full-screen tiling) need extra work or are not available.
 - **Why:** One recognisable window on every OS, with the squircle and glass carried through to the window itself, and a clear focus on the content.

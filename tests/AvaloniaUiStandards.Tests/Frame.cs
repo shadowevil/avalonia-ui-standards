@@ -31,7 +31,9 @@ internal sealed class Frame : IDisposable
 
     public static Frame Capture(Window window)
     {
-        window.Show();
+        // Shown only if it is not yet: showing a visible window activates it again.
+        if (!window.IsVisible)
+            window.Show();
         return new Frame(window.CaptureRenderedFrame()!);
     }
 

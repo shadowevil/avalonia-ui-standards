@@ -88,6 +88,11 @@ public class StandardsTheme : Styles
         Blocks.BlocksThemes.AddTo(Resources);
         Blocks.BlocksThemes.ApplyDensity(Resources, _fluent.DensityStyle);
 
+        // The Modules tier control themes; StandardsWindow builds on Fluent's Window theme.
+        _fluent.TryGetResource(typeof(Window), null, out var windowTheme);
+        Modules.ModulesThemes.AddTo(Resources, windowTheme as ControlTheme);
+        Modules.ModulesThemes.ApplyDensity(Resources, _fluent.DensityStyle);
+
         Add(new Avalonia.Styling.Style(x => x.OfType<SquircleBorder>())
         {
             Setters = { new Setter(SquircleBorder.SmoothingProperty, new DynamicResourceExtension("CornerSmoothing")) },
@@ -136,6 +141,7 @@ public class StandardsTheme : Styles
                 return;
             _fluent.DensityStyle = value;
             Blocks.BlocksThemes.ApplyDensity(Resources, value);
+            Modules.ModulesThemes.ApplyDensity(Resources, value);
             RaisePropertyChanged(DensityProperty, old, value);
         }
     }
@@ -248,22 +254,59 @@ public class StandardsTheme : Styles
         AddFills(r, "DangerFillColor", danger);
     }
 
+    /// <summary>How much accent the backdrop wash's start colour mixes into the page colour, per theme.</summary>
+    internal const double WashAccentLight = 0.10;
+    internal const double WashAccentDark = 0.14;
+
     /// <summary>
-    /// Sets <c>AccentTextColor</c> and <c>AccentTextColorPressed</c> per theme: accent-hued text
-    /// that meets WCAG AA on that theme's page (<c>RegionColor</c>) and card (<c>ChromeMediumLow</c>)
-    /// colours (see <see cref="AccessibleColors"/>).
+    /// Per theme: the backdrop wash (<c>BackdropWash</c>, a gradient from <c>BackdropWashStartColor</c>,
+    /// the page colour with a little accent mixed in, at the top left, to <c>BackdropWashEndColor</c>,
+    /// the page colour, at the bottom right), and <c>AccentTextColor</c> / <c>AccentTextColorPressed</c>,
+    /// accent-hued text that meets WCAG AA on the page, the card, the wash's two extremes, and the
+    /// glass panel's tint over those extremes (see <see cref="AccessibleColors"/>). The palette's
+    /// secondary text (<c>BaseMedium</c>) is stepped to AA on the same backgrounds.
     /// </summary>
     private void AddAccentText(Color brand)
     {
-        SetAccentText(ThemeVariant.Light, AccessibleColors.ForText(brand, [_light.RegionColor, _light.ChromeMediumLow], onDark: false));
-        SetAccentText(ThemeVariant.Dark, AccessibleColors.ForText(brand, [_dark.RegionColor, _dark.ChromeMediumLow], onDark: true));
+        SetWashAndText(ThemeVariant.Light, _light, brand, WashAccentLight, GlassBorder.DefaultTintLight, SecondaryTextLight, onDark: false);
+        SetWashAndText(ThemeVariant.Dark, _dark, brand, WashAccentDark, GlassBorder.DefaultTintDark, SecondaryTextDark, onDark: true);
     }
 
-    private void SetAccentText(ThemeVariant variant, (Color Normal, Color Pressed) text)
+    // The palette's secondary-text grey (Fluent's BaseMedium) before the AA step.
+    private static readonly Color SecondaryTextLight = Color.FromRgb(0x73, 0x73, 0x73);
+    private static readonly Color SecondaryTextDark = Color.FromRgb(0x9E, 0x9E, 0x9E);
+
+    private void SetWashAndText(ThemeVariant variant, ColorPaletteResources palette, Color brand, double washAccent, Color glassTint,
+        Color secondaryText, bool onDark)
     {
+        var start = Mix(palette.RegionColor, brand, washAccent);
+        var end = palette.RegionColor;
+        Color UnderGlass(Color backdrop) => Mix(backdrop, glassTint, GlassBorder.DefaultTintOpacity);
+        Color[] backgrounds = [palette.RegionColor, palette.ChromeMediumLow, start, end, UnderGlass(start), UnderGlass(end)];
+        var text = AccessibleColors.ForText(brand, backgrounds, onDark);
+
+        // Secondary text (BaseMedium) gets the same AA step, from the palette grey; disabled text
+        // uses BaseMediumLow and is left as it is.
+        palette.BaseMedium = AccessibleColors.ForText(secondaryText, backgrounds, onDark).Normal;
+
         var dictionary = (IResourceDictionary)Resources.ThemeDictionaries[variant];
+        dictionary["BackdropWashStartColor"] = start;
+        dictionary["BackdropWashEndColor"] = end;
+        dictionary["BackdropWash"] = new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
+            GradientStops = { new GradientStop(start, 0), new GradientStop(end, 1) },
+        };
         dictionary["AccentTextColor"] = text.Normal;
         dictionary["AccentTextColorPressed"] = text.Pressed;
+    }
+
+    /// <summary>Colour <paramref name="a"/> with <paramref name="amount"/> of <paramref name="b"/> mixed in.</summary>
+    internal static Color Mix(Color a, Color b, double amount)
+    {
+        byte Channel(byte x, byte y) => (byte)Math.Round(x + (y - x) * amount);
+        return Color.FromRgb(Channel(a.R, b.R), Channel(a.G, b.G), Channel(a.B, b.B));
     }
 
     /// <summary>
@@ -284,7 +327,7 @@ public class StandardsTheme : Styles
         AltHigh = Hex(0xFFFFFF),
         BaseHigh = Hex(0x1A1A1A),
         BaseMediumHigh = Hex(0x404040),
-        BaseMedium = Hex(0x737373),
+        BaseMedium = SecondaryTextLight,
         BaseMediumLow = Hex(0xA6A6A6),
         BaseLow = Hex(0xD4D4D4),
         ChromeLow = Hex(0xE8E8E8),
@@ -301,7 +344,7 @@ public class StandardsTheme : Styles
         AltHigh = Hex(0x1E1E1E),
         BaseHigh = Hex(0xF2F2F2),
         BaseMediumHigh = Hex(0xD9D9D9),
-        BaseMedium = Hex(0x9E9E9E),
+        BaseMedium = SecondaryTextDark,
         BaseMediumLow = Hex(0x6B6B6B),
         BaseLow = Hex(0x454545),
         ChromeLow = Hex(0x2A2A2A),

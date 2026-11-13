@@ -30,8 +30,9 @@ internal static class ButtonParts
     internal static readonly object PaddingKey = new();
     internal static readonly object GlyphMarginKey = new();
 
-    // The chrome transitions, set by BlocksThemes.ApplyMotion under this non-public key.
+    // The chrome and glyph transitions, set by BlocksThemes.ApplyMotion under these non-public keys.
     internal static readonly object ChromeTransitionsKey = new();
+    internal static readonly object GlyphTransitionsKey = new();
 
     /// <summary>Normal density: height 32, SpacingM at the sides and SpacingXS top and bottom (replaces Fluent's 8,5,8,6).</summary>
     public static readonly (double MinHeight, Thickness Padding) Normal = (32, new Thickness(Spacing.M, Spacing.XS));
@@ -115,6 +116,11 @@ internal static class ButtonParts
             new BrushTransition { Property = SquircleBorder.BorderBrushProperty, Duration = duration, Easing = easing },
             new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = duration, Easing = easing },
         ];
+
+    /// <summary>A glyph's opacity fade over <paramref name="duration"/>, or none when it is zero (reduce motion).</summary>
+    public static Transitions GlyphTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
+        ? []
+        : [new DoubleTransition { Property = Visual.OpacityProperty, Duration = duration, Easing = easing }];
 
     /// <summary>Fluent's 0.98 pressed scale, applied to the chrome.</summary>
     public static IStyle PressedScale() => new Avalonia.Styling.Style(x => x.Nesting())

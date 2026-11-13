@@ -17,6 +17,9 @@ internal static class BlocksThemes
         resources[typeof(HyperlinkButton)] = HyperlinkButtonTheme.Create();
         resources[typeof(DropDownButton)] = DropDownButtonTheme.Create();
         resources[typeof(SplitButton)] = SplitButtonTheme.Create();
+        resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
+        resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
+        WindowButtonThemes.AddResources(resources);
     }
 
     /// <summary>
@@ -26,6 +29,7 @@ internal static class BlocksThemes
     public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, Easing easing)
     {
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
+        resources[ButtonParts.GlyphTransitionsKey] = ButtonParts.GlyphTransitions(fast, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>

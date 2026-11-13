@@ -14,13 +14,14 @@
     | Accent | `#0075DD` 4.58:1 | `#006AC9` 5.38:1 | `#0060B4` 6.30:1 |
     | Danger | `#E02F26` 4.56:1 | `#D4271E` 5.11:1 | `#C2231B` 5.92:1 |
 
-  - Link text uses `AccentTextColor` and `AccentTextColorPressed`. The accent's lightness is stepped (darker in light, lighter in dark) until text reaches 4.5:1 on both the page and the card; pressed is one 0.04 step further. It is recomputed for any app accent. Defaults (contrast on page / card):
+  - Link text uses `AccentTextColor` and `AccentTextColorPressed`. The accent's lightness is stepped (darker in light, lighter in dark) until text reaches 4.5:1 on the page, the card, the backdrop wash ends and the glass panel over the wash ends ([0022](0022-window-layout.md)); pressed is one 0.04 step further. It is recomputed for any app accent. Defaults:
 
     | Theme | `AccentTextColor` | Pressed |
     |---|---|---|
-    | Light | `#0070D3` (4.52 / 4.93) | `#0065BF` |
-    | Dark | `#1692FF` (5.23 / 4.50) | `#2B9BFF` |
+    | Light | `#0068C4` (at least 4.50:1; the wash corner is the lowest) | `#005DAF` (at least 5.34:1) |
+    | Dark | `#1692FF` (4.50:1 on the card) | `#2B9BFF` (4.95:1) |
 
+  - Secondary text (`BaseMedium`) is derived the AccessibleColors way: it starts from the palette grey and steps lightness only as far as needed for 4.5:1 on the page, the card, the wash ends and the glass over each. It is recomputed with the accent. Defaults: light `#686868` (from `#737373`), dark `#9E9E9E` (unchanged). `BaseMedium` also feeds Fluent's borders and strokes, so they follow this value. Disabled text (`BaseMediumLow`) is not forced to AA.
   - Neutral greys with no tint, and a dark grey (not black) dark variant. Region and card values are in the table.
   - The full ramps are set through Fluent's `ColorPaletteResources`:
 
@@ -30,8 +31,8 @@
     | `AltHigh` | `#FFFFFF` | `#1E1E1E` |
     | `BaseHigh` (primary text) | `#1A1A1A` | `#F2F2F2` |
     | `BaseMediumHigh` | `#404040` | `#D9D9D9` |
-    | `BaseMedium` (secondary text) | `#737373` | `#9E9E9E` |
-    | `BaseMediumLow` | `#A6A6A6` | `#6B6B6B` |
+    | `BaseMedium` (secondary text; AA-derived, see above) | `#686868` | `#9E9E9E` |
+    | `BaseMediumLow` (disabled text) | `#A6A6A6` | `#6B6B6B` |
     | `BaseLow` (borders, lines) | `#D4D4D4` | `#454545` |
     | `ChromeLow` | `#E8E8E8` | `#2A2A2A` |
     | `ChromeMediumLow` (card) | `#FFFFFF` | `#2A2A2A` |

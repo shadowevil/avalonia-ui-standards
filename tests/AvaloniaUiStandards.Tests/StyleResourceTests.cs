@@ -19,7 +19,7 @@ public class StyleResourceTests
         { "SystemAltHighColor", "#FFFFFF", "#1E1E1E" },
         { "SystemBaseHighColor", "#1A1A1A", "#F2F2F2" },
         { "SystemBaseMediumHighColor", "#404040", "#D9D9D9" },
-        { "SystemBaseMediumColor", "#737373", "#9E9E9E" },
+        { "SystemBaseMediumColor", "#686868", "#9E9E9E" },
         { "SystemBaseMediumLowColor", "#A6A6A6", "#6B6B6B" },
         { "SystemBaseLowColor", "#D4D4D4", "#454545" },
         { "SystemChromeLowColor", "#E8E8E8", "#2A2A2A" },
