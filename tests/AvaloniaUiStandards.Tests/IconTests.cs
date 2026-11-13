@@ -176,7 +176,7 @@ public class IconTests
     }
 
     /// <summary>Every icon in <see cref="Icons"/>, by property name.</summary>
-    internal static IReadOnlyList<(string Name, Geometry Data)> All() =>
+    private static IReadOnlyList<(string Name, Geometry Data)> All() =>
         typeof(Icons).GetProperties(BindingFlags.Public | BindingFlags.Static)
             .Where(p => p.PropertyType == typeof(Geometry))
             .Select(p => (p.Name, (Geometry)p.GetValue(null)!))
