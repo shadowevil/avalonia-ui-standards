@@ -14,7 +14,8 @@ namespace AvaloniaUiStandards;
 /// <summary>
 /// The library theme, used in place of <c>FluentTheme</c>, and the entry point that assembles
 /// every tier: Fluent with the neutral palettes and the accent, the Style tier resources (type,
-/// spacing, shape, motion, glass, danger) and the Blocks tier control themes. Light or dark
+/// spacing, shape, motion, glass, danger) and the Blocks tier control themes, including those of
+/// the DataGrid and ColorPicker packages' controls over those packages' Fluent styles. Light or dark
 /// follows the application's <c>RequestedThemeVariant</c>, which follows the OS by default.
 /// </summary>
 public class StandardsTheme : Styles
@@ -99,9 +100,14 @@ public class StandardsTheme : Styles
         _fluent.Palettes[ThemeVariant.Light] = _light;
         _fluent.Palettes[ThemeVariant.Dark] = _dark;
         Add(_fluent);
-        // The DataGrid package's Fluent theme, which the Blocks tier restyles like Fluent's own.
+        // The DataGrid and ColorPicker packages' Fluent styles, after Fluent's, as Fluent's own are
+        // included; the Blocks themes below restyle their controls.
         _dataGrid = new StyleInclude(new Uri("avares://AvaloniaUiStandards/")) { Source = DataGridFluentSource };
         Add(_dataGrid);
+        Add(new StyleInclude(new Uri("avares://AvaloniaUiStandards/"))
+        {
+            Source = new Uri("avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml"),
+        });
 
         AddResources(Resources);
         AddDanger(Resources, Danger);

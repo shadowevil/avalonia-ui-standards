@@ -37,5 +37,6 @@ internal static class CatalogPages
         new("Pickers", Icons.CalendarBlank, () => new PickersPage()),
         new("Separator and GridSplitter", Icons.ArrowsOutLineHorizontal, () => new SeparatorPage()),
         new("DataGrid", Icons.Table, () => new DataGridPage()),
+        new("ColorPicker", Icons.Eyedropper, () => new ColorPickerPage()),
     ];
 }

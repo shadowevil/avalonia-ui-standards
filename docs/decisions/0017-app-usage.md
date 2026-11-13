@@ -5,6 +5,7 @@
   - Apps replace `<FluentTheme/>` with `<StandardsTheme/>` and call `.UseUiStandards()` on the `AppBuilder`, which registers Inter ([0012](0012-type.md)).
   - Style tier resource keys use plain names in the style of Avalonia's own keys, for example `FontSizeBody`, `SpacingM`, `CornerRadiusControl`, `MotionFast`.
   - Key families: `FontSize*`, `FontWeight*`, `Spacing*`, `CornerRadius*`, `CornerSmoothing`, `Motion*`, `Glass*`, `BackdropWash*`, `AccentFill*`, `AccentText*`, `DangerColor*`, `DangerFill*`, `DangerForeground`, `DangerTextColor`, `Success*`, `Warning*` (the last three in [0037](0037-tooltip-and-notifications.md)).
+  - The string resources `ColorView*Text` and `ColorView*Letter` hold the ColorView's shown and spoken strings with English defaults; an app overrides one by putting its key in its own resources ([0041](0041-colorpicker.md)).
   - App windows subclass `StandardsWindow` ([0022](0022-window-layout.md)), which has a public `Backdrop` content slot (empty by default).
   - The attached property `ScrollShadows.IsEnabled` turns the scroll-edge shadow off per scroller ([0024](0024-lists-and-scrolling.md)).
   - The attached properties `TreeViewOptions.ExpandOn` and `TreeViewOptions.CollapseOn` (`TreeViewClickAction`) set which row clicks expand and collapse a tree's items, and `TreeViewOptions.ShowLines` (default true) shows its node lines, per tree or per item ([0035](0035-treeview.md)).
