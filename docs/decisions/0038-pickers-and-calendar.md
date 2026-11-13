@@ -1,6 +1,6 @@
 # 0038 — DatePicker, TimePicker, Calendar and CalendarDatePicker
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - All four are Fluent's controls restyled ([0003](0003-restyle-fluent.md)): Fluent's templates are kept and extended, so their parts, behaviour and keyboard handling stay Fluent's.
     - **Why:** The pickers' code drives many named parts (selectors, step buttons, segments, day cells); keeping Fluent's templates keeps every behaviour while the look changes.

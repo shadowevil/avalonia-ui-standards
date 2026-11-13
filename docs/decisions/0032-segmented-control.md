@@ -1,6 +1,6 @@
 # 0032 — Segmented control
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - `SegmentedControl` is a new Block ([0004](0004-tier-names.md)), since Fluent has none ([0003](0003-restyle-fluent.md)). It chooses one of a few options of a single setting. Its segments are `SegmentedControlItem`s.
     - **Why:** A row of exclusive options for one setting is a common pattern (macOS and iOS segmented controls) that a ListBox or a group of toggles does not express on its own.

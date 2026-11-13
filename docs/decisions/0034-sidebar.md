@@ -1,6 +1,6 @@
 # 0034 — Sidebar
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - `Sidebar` is a Module ([0004](0004-tier-names.md)) for `StandardsWindow.Sidebar` ([0022](0022-window-layout.md)). It is a `ListBox` subclass holding `SidebarItem` rows (an `Icon` geometry from `Icons` and a label) and optional `SidebarHeader` section headers.
     - **Why:** A navigation list is a list: selection, keyboard navigation (arrows, Home, End) and scrolling stay Fluent's ([0003](0003-restyle-fluent.md)), and one control carries the stages below.

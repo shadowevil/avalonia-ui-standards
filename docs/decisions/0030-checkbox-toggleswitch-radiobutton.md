@@ -1,6 +1,6 @@
 # 0030 — CheckBox, ToggleSwitch and RadioButton
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - The three toggles are restyled Fluent ([0003](0003-restyle-fluent.md)) with templates of their own. Fluent's behaviour, pseudo-classes and named parts that its code uses (`PART_ContentPresenter`; on ToggleSwitch also `PART_SwitchKnob`, `PART_MovingKnobs`, `PART_OnContentPresenter`, `PART_OffContentPresenter`) are kept.
     - **Why:** Keyboard, click, drag and three-state behaviour stay Fluent's; only the look changes.

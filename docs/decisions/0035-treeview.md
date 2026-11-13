@@ -1,6 +1,6 @@
 # 0035 — TreeView
 
-- **Status:** Proposed, 2026-11-13 (click modes, lines and the content pill added)
+- **Status:** Agreed, 2026-11-13 (click modes, lines and the content pill added)
 - **Decision:**
   - TreeView and TreeViewItem are restyled Fluent Blocks ([0003](0003-restyle-fluent.md), [0004](0004-tier-names.md)). Selection and keyboard stay Fluent's: Up and Down move between visible rows; Right expands a collapsed item, then moves to its first child; Left collapses an expanded item, then moves to its parent; Enter toggles.
     - **Why:** Fluent's tree keyboard model is the Windows and macOS outline model; only the look changes.
