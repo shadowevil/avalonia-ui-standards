@@ -27,6 +27,8 @@
 - [0024 — ListBox, ScrollViewer and ComboBox drop-down](decisions/0024-lists-and-scrolling.md) — the shared list item design, the drop-down popup and the scroll-edge shadow
 - [0025 — Overlay scrollbar](decisions/0025-overlay-scrollbar.md) — the overlay ScrollBar Block: reveal, sizes, colours and motion
 - [0026 — Icon](decisions/0026-icon.md) — the icon set and licence, the Icon Block's design box, sizes and colour, and how icons are added
+- [0030 — CheckBox, ToggleSwitch and RadioButton](decisions/0030-checkbox-toggleswitch-radiobutton.md) — the toggles' indicator layers, sizes, check glyph, colours, focus ring and motion
+- [0031 — Slider, ProgressBar and ProgressRing](decisions/0031-slider-and-progress.md) — the range controls' shapes, sizes, colours, the added ProgressRing and how indeterminate progress is animated
 - [0032 — Segmented control](decisions/0032-segmented-control.md) — the SegmentedControl Block: base, keyboard, shape, sliding pill, colours and focus ring
 - [0033 — TabControl, TabStrip and Expander](decisions/0033-tabs-and-expander.md) — the tab headers, sliding underline and content area, and the Expander card, caret and reveal
 

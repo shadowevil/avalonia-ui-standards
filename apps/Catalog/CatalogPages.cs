@@ -20,6 +20,8 @@ internal static class CatalogPages
         new("Button", () => new ButtonPage()),
         new("Button family", () => new ButtonFamilyPage()),
         new("Icon", () => new IconPage()),
+        new("Toggles", () => new TogglesPage()),
+        new("Ranges", () => new RangesPage()),
         new("Segmented", () => new SegmentedControlPage()),
         new("Tabs", () => new TabsPage()),
         new("Expander", () => new ExpanderPage()),

@@ -37,6 +37,12 @@ internal static class BlocksThemes
         resources[typeof(TabStrip)] = TabThemes.TabStrip();
         resources[typeof(TabStripItem)] = TabThemes.Tab(typeof(TabStripItem));
         resources[typeof(Expander)] = ExpanderTheme.Create();
+        resources[typeof(CheckBox)] = CheckBoxTheme.Create();
+        resources[typeof(RadioButton)] = RadioButtonTheme.Create();
+        resources[typeof(ToggleSwitch)] = ToggleSwitchTheme.Create();
+        resources[typeof(Slider)] = SliderTheme.Create();
+        resources[typeof(ProgressBar)] = ProgressBarTheme.Create();
+        resources[typeof(ProgressRing)] = ProgressRingTheme.Create();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -44,8 +50,8 @@ internal static class BlocksThemes
 
     /// <summary>
     /// Sets the transitions of the Blocks themes for the current motion: <paramref name="fast"/>
-    /// is <c>MotionFast</c> and <paramref name="normal"/> is <c>MotionNormal</c>, or zero under
-    /// reduce motion (no transitions).
+    /// is <c>MotionFast</c> and <paramref name="normal"/> is <c>MotionNormal</c>, or both zero
+    /// under reduce motion (no transitions).
     /// </summary>
     public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, TimeSpan normal, Easing easing)
     {
@@ -56,6 +62,8 @@ internal static class BlocksThemes
         resources[SegmentedControlTheme.TextTransitionsKey] = SegmentedControlTheme.TextTransitions(normal, easing);
         resources[Reveal.TransitionsKey] = Reveal.Opening(normal, easing);
         resources[ExpanderTheme.CaretTransitionsKey] = ExpanderTheme.CaretTransitions(normal, easing);
+        resources[ToggleParts.PartTransitionsKey] = ToggleParts.PartTransitions(fast, normal, easing);
+        resources[ToggleParts.KnobTransitionsKey] = ToggleParts.KnobTransitions(normal, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>
@@ -72,5 +80,7 @@ internal static class BlocksThemes
         var side = sizes.Padding.Left;
         resources[TabThemes.ContentPaddingKey] = new Thickness(side, Style.Spacing.M);
         resources[ExpanderTheme.ContentPaddingKey] = new Thickness(side);
+        ToggleParts.ApplyDensity(resources, density == DensityStyle.Compact ? ToggleParts.Compact : ToggleParts.Normal);
+        RangeParts.ApplyDensity(resources, density == DensityStyle.Compact ? RangeParts.Compact : RangeParts.Normal);
     }
 }
