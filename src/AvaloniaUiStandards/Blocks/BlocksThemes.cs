@@ -16,6 +16,8 @@ internal static class BlocksThemes
         resources[typeof(ListBox)] = ListItemTheme.ListBox(fluentTheme(typeof(ListBox)));
         resources[typeof(ListBoxItem)] = ListItemTheme.Item(typeof(ListBoxItem));
         resources[typeof(ComboBoxItem)] = ListItemTheme.Item(typeof(ComboBoxItem));
+        resources[typeof(TreeView)] = TreeViewTheme.TreeView(fluentTheme(typeof(TreeView)));
+        resources[typeof(TreeViewItem)] = TreeViewTheme.Item();
         resources[typeof(ComboBox)] = ComboBoxTheme.Create(fluentTheme(typeof(ComboBox)));
         resources[typeof(ScrollViewer)] = ScrollViewerTheme.Create(fluentTheme(typeof(ScrollViewer)));
         ScrollViewerTheme.AddResources(resources);
@@ -64,6 +66,7 @@ internal static class BlocksThemes
         resources[ExpanderTheme.CaretTransitionsKey] = ExpanderTheme.CaretTransitions(normal, easing);
         resources[ToggleParts.PartTransitionsKey] = ToggleParts.PartTransitions(fast, normal, easing);
         resources[ToggleParts.KnobTransitionsKey] = ToggleParts.KnobTransitions(normal, easing);
+        resources[TreeViewTheme.CaretTransitionsKey] = TreeViewTheme.CaretTransitions(normal, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Blocks themes.</summary>
@@ -82,5 +85,6 @@ internal static class BlocksThemes
         resources[ExpanderTheme.ContentPaddingKey] = new Thickness(side);
         ToggleParts.ApplyDensity(resources, density == DensityStyle.Compact ? ToggleParts.Compact : ToggleParts.Normal);
         RangeParts.ApplyDensity(resources, density == DensityStyle.Compact ? RangeParts.Compact : RangeParts.Normal);
+        TreeViewTheme.ApplyDensity(resources, density == DensityStyle.Compact);
     }
 }

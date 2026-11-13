@@ -46,8 +46,8 @@ internal sealed class Sheet : IDisposable
         return image;
     }
 
-    /// <summary>A cell from an already captured 2x frame (for example a popup's own top level).</summary>
-    public Control Image(WriteableBitmap capture)
+    /// <summary>A cell from an already captured 2x frame (for example a popup's own top level), optionally cropped to <paramref name="crop"/> (in pixels).</summary>
+    public Control Image(WriteableBitmap capture, PixelRect? crop = null)
     {
         // The capture is 192 DPI; drawing it as an image uses its size in pixels as the source
         // rectangle, so it is re-encoded at 96 DPI and stretched into a half-size box instead.
@@ -56,7 +56,9 @@ internal sealed class Sheet : IDisposable
         png.Position = 0;
         var bitmap = new Bitmap(png);
         _bitmaps.Add(bitmap);
-        return new Image { Source = bitmap, Width = bitmap.PixelSize.Width / Scale, Height = bitmap.PixelSize.Height / Scale, Stretch = Stretch.Fill };
+        var area = crop ?? new PixelRect(bitmap.PixelSize);
+        IImage source = crop is null ? bitmap : new CroppedBitmap(bitmap, area);
+        return new Image { Source = source, Width = area.Width / Scale, Height = area.Height / Scale, Stretch = Stretch.Fill };
     }
 
     /// <summary>Adds a labelled grid: a header row, then one labelled row of cells per entry.</summary>

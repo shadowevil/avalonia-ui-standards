@@ -1,3 +1,4 @@
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -12,9 +13,22 @@ internal static class ModulesThemes
     {
         resources[typeof(StandardsWindow)] = StandardsWindowTheme.Create(windowBase);
         StandardsWindowTheme.AddResources(resources);
+        resources[typeof(Sidebar)] = SidebarTheme.Create();
+        resources[typeof(SidebarItem)] = SidebarTheme.Item();
+        resources[typeof(SidebarHeader)] = SidebarTheme.Header();
     }
 
+    /// <summary>
+    /// Sets the transitions of the Modules themes for the current motion: <paramref name="normal"/>
+    /// is <c>MotionNormal</c>, or zero under reduce motion (no transitions).
+    /// </summary>
+    public static void ApplyMotion(IResourceDictionary resources, TimeSpan normal, Easing easing) =>
+        resources[SidebarTheme.WidthTransitionsKey] = SidebarTheme.WidthTransitions(normal, easing);
+
     /// <summary>Sets the density-dependent values of the Modules themes.</summary>
-    public static void ApplyDensity(IResourceDictionary resources, DensityStyle density) =>
+    public static void ApplyDensity(IResourceDictionary resources, DensityStyle density)
+    {
         StandardsWindowTheme.ApplyDensity(resources, density == DensityStyle.Compact);
+        SidebarTheme.ApplyDensity(resources, density == DensityStyle.Compact);
+    }
 }

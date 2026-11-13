@@ -217,6 +217,8 @@ public class StandardsWindow : Window, IFrameTickSource
 
         if (e.NameScope.Find<Control>(StandardsWindowTheme.TitleBandPart) is { } band)
             band.PointerPressed += OnTitleBandPressed;
+        if (e.NameScope.Find<Button>(StandardsWindowTheme.SidebarTogglePart) is { } sidebarToggle)
+            sidebarToggle.Click += (_, _) => (Sidebar as Sidebar)?.Toggle();
         foreach (var edge in Enum.GetValues<WindowEdge>())
             if (e.NameScope.Find<ResizeGrip>(StandardsWindowTheme.ResizePart(edge)) is { } grip)
             {
@@ -233,6 +235,8 @@ public class StandardsWindow : Window, IFrameTickSource
         if (change.Property == WindowStateProperty || change.Property == WindowButtonStyleProperty
             || change.Property == ActualTransparencyLevelProperty || change.Property == IsActiveProperty)
             UpdateStates();
+        if (change.Property == SidebarProperty)
+            PseudoClasses.Set(":sidebar-module", change.NewValue is Sidebar);
         if (change.Property == IsActiveProperty || change.Property == WindowStateProperty
             || change.Property == ReduceMotionProperty || change.Property == HighRefreshRateProperty)
             UpdateTicker();

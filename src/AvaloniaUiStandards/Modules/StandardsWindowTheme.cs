@@ -30,6 +30,7 @@ internal static class StandardsWindowTheme
     public const string ToolbarPart = "PART_Toolbar";
     public const string WindowButtonsPart = "PART_WindowButtons";
     public const string SidebarPart = "PART_Sidebar";
+    public const string SidebarTogglePart = "PART_SidebarToggle";
     public const string ContentPanelPart = "PART_ContentPanel";
     public const string ContentScrollViewerPart = "PART_ContentScrollViewer";
     public const string BackdropPart = "PART_Backdrop";
@@ -130,6 +131,20 @@ internal static class StandardsWindowTheme
             Part<ContentPresenter>(ToolbarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.L, 0, Spacing.S, 0))),
             Part<ContentPresenter>(ToolbarPart, ":traffic-lights", (Layoutable.MarginProperty, new Thickness(Spacing.L, 0, Spacing.L, 0))),
             Part<WindowButtons>(WindowButtonsPart, ":traffic-lights", (Layoutable.MarginProperty, new Thickness(Spacing.L, 0, 0, 0))),
+
+            // With a Sidebar Module: its button before the title (SpacingL in, so its icon lines up
+            // with the rail's icons below); the sidebar draws its own gap from the window's edge,
+            // and its overlay over the glass panel.
+            Part<Button>(SidebarTogglePart, null,
+                (Layoutable.MarginProperty, new Thickness(Spacing.L, 0, 0, 0)),
+                (Visual.IsVisibleProperty, false)),
+            Part<Button>(SidebarTogglePart, ":sidebar-module", (Visual.IsVisibleProperty, true)),
+            Part<Button>(SidebarTogglePart, ":traffic-lights", (Layoutable.MarginProperty, new Thickness(Spacing.M, 0, 0, 0))),
+            Part<TextBlock>(TitlePart, ":sidebar-module", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
+            Part<ContentPresenter>(SidebarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, Spacing.S))),
+            Part<ContentPresenter>(SidebarPart, ":sidebar-module",
+                (Layoutable.MarginProperty, new Thickness(0, 0, 0, Spacing.S)),
+                (Visual.ZIndexProperty, 1)),
         },
     };
 
@@ -162,7 +177,9 @@ internal static class StandardsWindowTheme
         title.Bind(TextBlock.TextProperty, new TemplateBinding(Window.TitleProperty));
         title.Bind(TextBlock.FontWeightProperty, new DynamicResourceExtension("FontWeightBodyStrong"));
         title.Bind(TextBlock.FontSizeProperty, new DynamicResourceExtension("FontSizeBody"));
-        Grid.SetColumn(title, 1);
+        var sidebarToggle = Named(SidebarToggle(), SidebarTogglePart);
+        var heading = new StackPanel { Orientation = Orientation.Horizontal, Children = { sidebarToggle, title } };
+        Grid.SetColumn(heading, 1);
         var toolbar = Named(Slot(StandardsWindow.ToolbarProperty), ToolbarPart);
         toolbar.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(toolbar, 2);
@@ -170,7 +187,7 @@ internal static class StandardsWindowTheme
         {
             Background = Brushes.Transparent,
             ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
-            Children = { buttons, title, toolbar },
+            Children = { buttons, heading, toolbar },
         }, TitleBandPart);
         WindowDecorationProperties.SetElementRole(titleBand, WindowDecorationsElementRole.TitleBar);
         titleBand.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(TitleBandHeightKey));
@@ -184,7 +201,6 @@ internal static class StandardsWindowTheme
         DockPanel.SetDock(statusBar, Dock.Bottom);
 
         var sidebar = Named(Slot(StandardsWindow.SidebarProperty), SidebarPart);
-        sidebar.Margin = new Thickness(Spacing.S, 0, 0, Spacing.S);
         DockPanel.SetDock(sidebar, Dock.Left);
 
         // The panel is the scroll area: the content scrolls edge to edge under its shape, the
@@ -233,6 +249,29 @@ internal static class StandardsWindowTheme
         foreach (var part in parts)
             part.RegisterInNameScope(scope);
         return root;
+    }
+
+    // The sidebar's show/hide button: a subtle square button with the sidebar icon, shown while
+    // the window's Sidebar is a Sidebar Module. It is an interactive element of the chrome: where
+    // the client area extends under the title bar, the OS passes its input through to it instead
+    // of treating it as part of the title band's drag area. Pressing it is handled by the button,
+    // so the band starts no drag and no double-click action.
+    private static Button SidebarToggle()
+    {
+        var toggle = new Button
+        {
+            Content = new Icon { Data = Icons.SidebarSimple },
+            Padding = default,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        toggle.Classes.Add("subtle");
+        toggle.SetValue(Sidebar.IsToggleProperty, true);
+        toggle.SetValue(Avalonia.Automation.AutomationProperties.NameProperty, "Toggle sidebar");
+        WindowDecorationProperties.SetElementRole(toggle, WindowDecorationsElementRole.DecorationsElement);
+        toggle.Bind(Layoutable.WidthProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
+        toggle.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
+        return toggle;
     }
 
     // An optional slot: a presenter for the window's property, shown only when it is set.
