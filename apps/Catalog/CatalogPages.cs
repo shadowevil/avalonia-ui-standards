@@ -1,30 +1,33 @@
 using Avalonia.Controls;
+using Avalonia.Media;
+using AvaloniaUiStandards.Blocks;
 using Catalog.Pages;
 
 namespace Catalog;
 
-/// <summary>A page in the sidebar: its title and how to create it.</summary>
-internal sealed record PageInfo(string Title, Func<Control> Create);
+/// <summary>A page in the sidebar: its title, its sidebar icon (from <see cref="Icons"/>) and how to create it.</summary>
+internal sealed record PageInfo(string Title, Geometry Icon, Func<Control> Create);
 
 /// <summary>The sidebar pages, in order. Adding a page is one line here and one class in Pages/.</summary>
 internal static class CatalogPages
 {
     public static readonly IReadOnlyList<PageInfo> All =
     [
-        new("Colours", () => new ColoursPage()),
-        new("Type", () => new TypePage()),
-        new("Spacing", () => new SpacingPage()),
-        new("Shape", () => new ShapePage()),
-        new("Glass", () => new GlassPage()),
-        new("Motion", () => new MotionPage()),
-        new("Button", () => new ButtonPage()),
-        new("Button family", () => new ButtonFamilyPage()),
-        new("Icon", () => new IconPage()),
-        new("TextInput", () => new TextInputPage()),
-        new("ComboBox", () => new ComboBoxPage()),
-        new("Toggles", () => new TogglesPage()),
-        new("Ranges", () => new RangesPage()),
-        new("NumericUpDown", () => new NumericUpDownPage()),
-        new("AutoCompleteBox", () => new AutoCompleteBoxPage()),
+        new("Colours", Icons.Palette, () => new ColoursPage()),
+        new("Type", Icons.TextAa, () => new TypePage()),
+        new("Spacing", Icons.Ruler, () => new SpacingPage()),
+        new("Shape", Icons.SquaresFour, () => new ShapePage()),
+        new("Glass", Icons.Drop, () => new GlassPage()),
+        new("Motion", Icons.Play, () => new MotionPage()),
+        new("Button", Icons.CursorClick, () => new ButtonPage()),
+        new("Button family", Icons.CheckSquare, () => new ButtonFamilyPage()),
+        new("Icon", Icons.Bell, () => new IconPage()),
+        new("TextInput", Icons.ChatText, () => new TextInputPage()),
+        new("ComboBox", Icons.CaretDown, () => new ComboBoxPage()),
+        new("Toggles", Icons.ToggleRight, () => new TogglesPage()),
+        new("TreeView", Icons.TreeStructure, () => new TreeViewPage()),
+        new("Ranges", Icons.SlidersHorizontal, () => new RangesPage()),
+        new("NumericUpDown", Icons.Plus, () => new NumericUpDownPage()),
+        new("AutoCompleteBox", Icons.MagnifyingGlass, () => new AutoCompleteBoxPage()),
     ];
 }

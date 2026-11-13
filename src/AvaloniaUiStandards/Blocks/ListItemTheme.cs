@@ -61,7 +61,7 @@ internal static class ListItemTheme
             new Setter(Control.FocusAdornerProperty, null),
             new Setter(TemplatedControl.PaddingProperty, new Thickness(Spacing.XS)),
             new Setter(TemplatedControl.CornerRadiusProperty, Resource("CornerRadiusControl")),
-            new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ListBox>(BuildListBox)),
+            new Setter(TemplatedControl.TemplateProperty, ListTemplate),
         },
     };
 
@@ -74,7 +74,13 @@ internal static class ListItemTheme
         return FocusRing.Wrap(chrome, scope);
     }
 
-    private static Control BuildListBox(ListBox list, INameScope scope)
+    /// <summary>
+    /// The list template shared by ListBox, TreeView and the Sidebar: the items, inset by the
+    /// padding, in a scroller (which takes the control's scroll settings) in a squircle.
+    /// </summary>
+    internal static readonly FuncControlTemplate<ItemsControl> ListTemplate = new(BuildList);
+
+    internal static Control BuildList(ItemsControl list, INameScope scope)
     {
         var items = new ItemsPresenter { Name = "PART_ItemsPresenter" };
         items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
