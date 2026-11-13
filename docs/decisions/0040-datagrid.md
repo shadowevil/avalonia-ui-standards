@@ -1,6 +1,6 @@
 # 0040 — DataGrid
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - DataGrid comes from the separate package `Avalonia.Controls.DataGrid`, pinned in `Directory.Packages.props` ([0008](0008-target-versions.md), [0010](0010-solution-layout.md)) at 12.1.2. The package is versioned on its own line, not with Avalonia: there is no 12.1.6, and 12.1.2 is the latest 12.1 release (it needs Avalonia 12.1.0 or later).
     - **Why:** The newest release built for the Avalonia 12.1 line the library pins; upgrading it is a deliberate change, like Avalonia's.

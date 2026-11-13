@@ -1,6 +1,6 @@
 # 0041 — ColorPicker and ColorView
 
-- **Status:** Proposed, 2026-11-13
+- **Status:** Agreed, 2026-11-13
 - **Decision:**
   - The controls come from Avalonia's separate package `Avalonia.Controls.ColorPicker`, pinned at 12.1.6 (the version matching Avalonia 12.1.6) in `Directory.Packages.props` ([0008](0008-target-versions.md), [0010](0010-solution-layout.md)). The library references it, so apps get it with the library.
   - `StandardsTheme` adds the package's Fluent styles (`avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml`) as a child right after `FluentTheme`, as Fluent itself is a child, and the Blocks themes for ColorPicker, ColorView, ColorSpectrum, ColorSlider and ColorPreviewer override the package's ([0017](0017-app-usage.md): no extra step for apps). Apps do not add the package's `Fluent.xaml` include themselves: one added after `StandardsTheme` would put Fluent's look back over the library's.
