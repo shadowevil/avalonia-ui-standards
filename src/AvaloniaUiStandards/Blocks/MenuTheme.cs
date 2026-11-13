@@ -277,6 +277,7 @@ internal static class MenuTheme
             Placement = placement,
             IsLightDismissEnabled = false,
             WindowManagerAddShadowHint = false,
+            ShouldUseOverlayLayer = true,
             Child = surface,
         };
         popup.Bind(Popup.IsOpenProperty, new TemplateBinding(MenuItem.IsSubMenuOpenProperty) { Mode = BindingMode.TwoWay });
@@ -316,6 +317,7 @@ internal static class MenuTheme
             new Setter(TemplatedControl.PaddingProperty, OverlayPadding),
             new Setter(TemplatedControl.CornerRadiusProperty, Resource("CornerRadiusOverlay")),
             new Setter(Control.FocusAdornerProperty, null),
+            new Setter(OverlayParts.InOverlayLayerProperty, true),
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ItemsControl>(BuildMenuOverlay)),
         },
     };
@@ -350,6 +352,7 @@ internal static class MenuTheme
         Setters =
         {
             new Setter(TemplatedControl.PaddingProperty, FlyoutPadding),
+            new Setter(OverlayParts.InOverlayLayerProperty, true),
             new Setter(TemplatedControl.CornerRadiusProperty, Resource("CornerRadiusOverlay")),
             new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<FlyoutPresenter>(BuildFlyout)),
         },

@@ -37,6 +37,7 @@
   - Theme keys: `GlassTintColor`, `GlassTintOpacity`, `GlassBorderBrush`, `GlassBlurSigma`, `GlassRefractionStrength`, `GlassRefractionEdge`, `GlassChromaticDispersion`.
   - It is used on overlays (menus, flyouts, tooltips, dialogs), on the window's content panel ([0022](0022-window-layout.md)), and on cards only where they sit directly on the window backdrop. Cards inside the content panel are solid (card colour), so there is no glass on glass. Sidebars are not glass.
     - Tooltips are solid; see [0037](0037-tooltip-and-notifications.md).
+    - Glass overlays open in the window's overlay layer, so they stay inside the window; see [0036](0036-menus-and-flyouts.md).
   - Fallbacks:
     - Without Skia runtime effects, the blur stays and refraction and dispersion drop.
     - Without Skia, or when "reduce transparency" is on, it is a solid fill in the neutral palette ([0011](0011-colour.md)).

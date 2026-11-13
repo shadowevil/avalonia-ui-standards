@@ -332,6 +332,61 @@ public class MenuThemeTests
         Assert.Null(OverlayParts.FadeIn(TimeSpan.Zero, new Avalonia.Animation.Easings.CubicEaseOut()));
     }
 
+    // Every menu and flyout popup is asked for the window's overlay layer, so its glass blurs the app.
+    [AvaloniaFact]
+    public void MenusAndFlyouts_OpenInTheOverlayLayer()
+    {
+        var (window, menu, _) = ShowContextMenu(ThemeVariant.Light);
+        try
+        {
+            AssertOverlay(Assert.IsType<Popup>(menu.Parent));
+            var sub = Items(menu).ElementAt(1);
+            sub.Open();
+            Overlays.Pump(window);
+            AssertOverlay(Part<Popup>(sub, MenuTheme.PopupPart));
+        }
+        finally
+        {
+            menu.Close();
+            window.Close();
+        }
+
+        var item = new MenuItem { Header = "One" };
+        var content = new TextBlock { Text = "Flyout" };
+        var menuButton = new Button { Content = "Menu", Flyout = new MenuFlyout { ItemsSource = new[] { item } } };
+        var flyoutButton = new Button { Content = "Flyout", Flyout = new Flyout { Content = content } };
+        var file = new MenuItem { Header = "File", ItemsSource = new[] { new MenuItem { Header = "New" } } };
+        var bar = new Menu { ItemsSource = new[] { file } };
+        var host = Overlays.Host(ThemeVariant.Light, new StackPanel { Children = { bar, menuButton, flyoutButton } }, 300, 300);
+        try
+        {
+            menuButton.Flyout!.ShowAt(menuButton);
+            Overlays.Pump(host);
+            AssertOverlay(Assert.IsType<Popup>(item.FindLogicalAncestorOfType<MenuFlyoutPresenter>()!.Parent));
+            menuButton.Flyout.Hide();
+
+            flyoutButton.Flyout!.ShowAt(flyoutButton);
+            Overlays.Pump(host);
+            AssertOverlay(Assert.IsType<Popup>(content.FindLogicalAncestorOfType<FlyoutPresenter>()!.Parent));
+            flyoutButton.Flyout.Hide();
+
+            file.Open();
+            Overlays.Pump(host);
+            AssertOverlay(Part<Popup>(file, MenuTheme.PopupPart));
+            file.Close();
+        }
+        finally
+        {
+            host.Close();
+        }
+
+        static void AssertOverlay(Popup popup)
+        {
+            Assert.True(popup.ShouldUseOverlayLayer);
+            Assert.True(popup.IsUsingOverlayLayer);
+        }
+    }
+
     [AvaloniaFact]
     public void Glass_InAPopupWindow_DrawsTheSolidFallback()
     {
