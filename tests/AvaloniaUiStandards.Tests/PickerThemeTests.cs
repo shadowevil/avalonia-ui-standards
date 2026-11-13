@@ -488,6 +488,42 @@ public class PickerThemeTests
         }
     }
 
+    // Each picker overlay's glass runs the fade under the shared key when it opens (a slow stand-in
+    // for the theme's, so it is still running when checked); under reduce motion it is opaque at once.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Overlays_RunTheFade_WhenTheyOpen(bool reduceMotion)
+    {
+        var datePicker = new DatePicker { SelectedDate = PickerRenderTests.Date };
+        var timePicker = new TimePicker { SelectedTime = PickerRenderTests.Time };
+        var dropDown = new CalendarDatePicker { Width = 200, SelectedDate = PickerRenderTests.Date };
+        var window = new Window { Width = 400, Height = 900, Content = new StackPanel { Children = { datePicker, timePicker, dropDown } } };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Show();
+        Pump(window);
+        var fade = reduceMotion ? null : Overlays.SlowFadeIn(window);
+        try
+        {
+            foreach (var picker in new Control[] { datePicker, timePicker })
+            {
+                var popup = picker.GetVisualDescendants().OfType<Popup>().Single();
+                Overlays.AssertFadesIn(window, picker.GetType().Name, () => PickerRenderTests.OpenFlyout(picker),
+                    () => popup.Child!.GetVisualDescendants().OfType<GlassBorder>().Single(), fade);
+                popup.IsOpen = false;
+                Pump(window);
+            }
+
+            Overlays.AssertFadesIn(window, nameof(CalendarDatePicker), () => dropDown.IsDropDownOpen = true,
+                () => dropDown.GetVisualDescendants().OfType<Popup>().Single().Child!, fade);
+            dropDown.IsDropDownOpen = false;
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(nameof(DatePicker))]
     [InlineData(nameof(TimePicker))]

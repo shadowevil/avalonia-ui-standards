@@ -324,6 +324,50 @@ public class MenuThemeTests
         }
     }
 
+    // Each overlay's glass runs the fade under the shared key when it opens (a slow stand-in for the
+    // theme's, so it is still running when checked); under reduce motion it is opaque at once.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EveryOverlay_RunsTheFade_WhenItOpens(bool reduceMotion)
+    {
+        var sub = new MenuItem { Header = "Recent", ItemsSource = new[] { new MenuItem { Header = "One" } } };
+        var contextMenu = new ContextMenu { Placement = PlacementMode.BottomEdgeAlignedLeft, ItemsSource = new[] { new MenuItem { Header = "Open" }, sub } };
+        var target = new Border { Width = 40, Height = 20, HorizontalAlignment = HorizontalAlignment.Left, ContextMenu = contextMenu };
+        var flyoutItem = new MenuItem { Header = "One" };
+        var flyoutContent = new TextBlock { Text = "Flyout" };
+        var menuButton = new Button { Content = "Menu", Flyout = new MenuFlyout { ItemsSource = new[] { flyoutItem } } };
+        var flyoutButton = new Button { Content = "Flyout", Flyout = new Flyout { Content = flyoutContent } };
+        var file = new MenuItem { Header = "File", ItemsSource = new[] { new MenuItem { Header = "New" } } };
+        var bar = new Menu { ItemsSource = new[] { file } };
+        var window = Overlays.Host(ThemeVariant.Light, new StackPanel { Children = { bar, target, menuButton, flyoutButton } }, 400, 400, reduceMotion);
+        var fade = reduceMotion ? null : Overlays.SlowFadeIn(window);
+        try
+        {
+            void Check(string name, Action open, Func<Control> glass) => Overlays.AssertFadesIn(window, name, open, glass, fade);
+
+            Check(nameof(ContextMenu), () => contextMenu.Open(target), () => Surface(contextMenu));
+            Check("submenu", () => sub.Open(), () => Part<Popup>(sub, MenuTheme.PopupPart).Child!);
+            contextMenu.Close();
+            Overlays.Pump(window);
+
+            Check(nameof(MenuFlyout), () => menuButton.Flyout!.ShowAt(menuButton), () => Surface(flyoutItem.FindLogicalAncestorOfType<MenuFlyoutPresenter>()!));
+            menuButton.Flyout!.Hide();
+            Overlays.Pump(window);
+
+            Check(nameof(Flyout), () => flyoutButton.Flyout!.ShowAt(flyoutButton), () => Surface(flyoutContent.FindLogicalAncestorOfType<FlyoutPresenter>()!));
+            flyoutButton.Flyout!.Hide();
+            Overlays.Pump(window);
+
+            Check("menu bar menu", () => file.Open(), () => Part<Popup>(file, MenuTheme.PopupPart).Child!);
+            file.Close();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void FadeIn_StartsTransparentAndEndsOpaque()
     {

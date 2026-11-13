@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Layout;
@@ -6,7 +8,9 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
+using Xunit;
 
 namespace AvaloniaUiStandards.Tests;
 
@@ -48,6 +52,38 @@ internal static class Overlays
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Dispatcher.UIThread.RunJobs();
         }
+    }
+
+    /// <summary>
+    /// Puts a one-hour fade under the overlays' open fade key (<see cref="OverlayParts.FadeInFastKey"/>)
+    /// in <paramref name="top"/>'s resources, and returns it. An overlay that runs the fade under the key
+    /// is then still fading for as long as a test looks, however the headless clock advances; the
+    /// theme's own 100 ms fade can end between two frames.
+    /// </summary>
+    public static Animation SlowFadeIn(TopLevel top)
+    {
+        var fade = OverlayParts.FadeIn(TimeSpan.FromHours(1), new LinearEasing())!;
+        top.Resources[OverlayParts.FadeInFastKey] = fade;
+        return fade;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="open"/>, lets the overlay join the tree and render, and checks its glass:
+    /// with <paramref name="fade"/> it resolves that fade and is still partly transparent; without
+    /// (reduce motion) it is opaque at once.
+    /// </summary>
+    public static void AssertFadesIn(TopLevel top, string name, Action open, Func<Control> glass, Animation? fade)
+    {
+        open();
+        Pump(top);
+        var surface = glass();
+        if (fade is null)
+        {
+            Assert.True(surface.Opacity == 1, $"{name}: opacity {surface.Opacity} under reduce motion");
+            return;
+        }
+        Assert.Same(fade, surface.FindResource(OverlayParts.FadeInFastKey));
+        Assert.True(surface.Opacity < 1 && surface.IsAnimating(Visual.OpacityProperty), $"{name}: opaque once open, so it does not fade in");
     }
 
     /// <summary>The window as rendered, popups included (headless popups live in its overlay layer).</summary>
