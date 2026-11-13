@@ -11,7 +11,6 @@ using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
-
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using AvaloniaUiStandards.Style;
