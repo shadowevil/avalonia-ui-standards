@@ -16,7 +16,7 @@
       | Tint opacity | 0.6 | 0.6 |
       | 1 px border | `#99FFFFFF` (white 60%) | `#33FFFFFF` (white 20%) |
   - Theme keys: `GlassTintColor`, `GlassTintOpacity`, `GlassBorderBrush`, `GlassBlurSigma`, `GlassRefractionStrength`, `GlassRefractionEdge`, `GlassChromaticDispersion`.
-  - It is used on overlays (menus, flyouts, tooltips, dialogs), panels and sidebars, and cards.
+  - It is used on overlays (menus, flyouts, tooltips, dialogs), on the window's content panel ([0022](0022-window-layout.md)), and on cards only where they sit directly on the window backdrop. Cards inside the content panel are solid (card colour), so there is no glass on glass. Sidebars are not glass.
   - Fallbacks:
     - Without Skia runtime effects, the blur stays and refraction and dispersion drop.
     - Without Skia, or when "reduce transparency" is on, it is a solid fill in the neutral palette ([0011](0011-colour.md)).

@@ -10,6 +10,6 @@
       <c:ThemeToolbar />
     </Border>
     <ListBox x:Name="Sidebar" DockPanel.Dock="Left" Width="180" Padding="8" />
-    <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" />
+    <c:PageHost x:Name="Scroller" />
   </DockPanel>
 </Window>

@@ -25,9 +25,19 @@ internal sealed class GlassPage : UserControl
         EnableDragging(scroller);
 
         var stage = new Grid { Children = { scroller } };
-        stage.Children.Add(Panel(HorizontalAlignment.Left, 220, 140, "Glass card"));
-        stage.Children.Add(Panel(HorizontalAlignment.Center, 280, 200, "Glass panel"));
-        stage.Children.Add(Panel(HorizontalAlignment.Right, 160, 100, "Glass chip"));
+        // The panels wrap onto further rows when the page is narrow.
+        stage.Children.Add(new WrapPanel
+        {
+            Margin = new Thickness(24, 24, 0, 0),
+            IsHitTestVisible = false,
+            VerticalAlignment = VerticalAlignment.Top,
+            Children =
+            {
+                Panel(220, 140, "Glass card"),
+                Panel(280, 160, "Glass panel"),
+                Panel(160, 100, "Glass chip"),
+            },
+        });
 
         var clipped = new Border { ClipToBounds = true, Child = stage };
         Content = Ui.Page("Glass",
@@ -35,13 +45,11 @@ internal sealed class GlassPage : UserControl
             Ui.Caption("Scroll or drag the backdrop. Reduce transparency in the toolbar draws the panels solid."));
     }
 
-    private static Control Panel(HorizontalAlignment alignment, double width, double height, string text) => new GlassBorder
+    private static Control Panel(double width, double height, string text) => new GlassBorder
     {
         Width = width,
         Height = height,
-        Margin = new Thickness(24),
-        HorizontalAlignment = alignment,
-        VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(0, 0, 24, 24),
         IsHitTestVisible = false,
         Child = new TextBlock { Text = text, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
     };

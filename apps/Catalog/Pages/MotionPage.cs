@@ -45,11 +45,8 @@ internal sealed class MotionPage : UserControl
         label.Width = 140;
         var value = Ui.CaptionOf(key, v => v is TimeSpan t ? $"{t.TotalMilliseconds:0} ms" : "");
         value.Width = 60;
-        return new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 12,
-            Children = { label, value, track, play },
-        };
+        foreach (var part in new Control[] { label, value, track, play })
+            part.Margin = new Thickness(0, 0, 12, 4);
+        return new WrapPanel { Children = { label, value, track, play } };
     }
 }

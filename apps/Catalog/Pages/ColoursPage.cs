@@ -56,17 +56,17 @@ internal sealed class ColoursPage : UserControl
                 hex.Text = Ui.Hex(color);
             }
         });
-        return new StackPanel
+        var name = Ui.Body(key);
+        name.TextWrapping = TextWrapping.Wrap;
+        var text = new StackPanel { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Children = { name, hex } };
+        Grid.SetColumn(text, 1);
+        return new Grid
         {
-            Orientation = Avalonia.Layout.Orientation.Horizontal,
-            Spacing = 12,
+            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+            ColumnSpacing = 12,
+            Width = 340,
             Margin = new Thickness(0, 0, 24, 8),
-            Width = 380,
-            Children =
-            {
-                chip,
-                new StackPanel { Width = 280, Children = { Ui.Body(key), hex } },
-            },
+            Children = { chip, text },
         };
     }
 }

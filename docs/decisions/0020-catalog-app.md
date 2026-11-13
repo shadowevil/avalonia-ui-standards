@@ -8,6 +8,7 @@
   - Every control page shows its variants × states side by side (rest, hover, pressed, disabled, focused) next to a live row.
   - Style pages show the actual theme values.
   - It uses the library as apps do ([0017](0017-app-usage.md)).
-  - The test project renders every catalog page to PNG, in light and dark, for reproducible screenshots.
+  - It uses only library controls once they exist. It moves into the window of [0022](0022-window-layout.md) once the shell Modules are done.
+  - The test project renders every catalog page to PNG, in light and dark.
   - Each new Block adds its page as part of its own step.
 - **Why:** It is a place to see and try everything live, across themes and settings, while the test renders ([0009](0009-screenshots-from-tests.md)) remain the reproducible record.
