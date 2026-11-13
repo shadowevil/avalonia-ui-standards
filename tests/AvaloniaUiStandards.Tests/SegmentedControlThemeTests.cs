@@ -156,6 +156,83 @@ public class SegmentedControlThemeTests
         }
     }
 
+    // Ctrl+click (Cmd on macOS) on the selected segment keeps it selected; a plain click selects.
+    [AvaloniaTheory]
+    [InlineData(RawInputModifiers.Control)]
+    [InlineData(RawInputModifiers.Meta)]
+    [InlineData(RawInputModifiers.Shift)]
+    public void Selection_ToggleClickKeepsTheSelectedSegment(RawInputModifiers modifiers)
+    {
+        var (window, control, _, _) = Show(Items("Day", "Week", "Month", "Year"), selected: 2);
+        try
+        {
+            Click(window, control, 2, modifiers);
+            Assert.Equal(2, control.SelectedIndex);
+            Click(window, control, 1, modifiers);
+            Assert.Equal(1, control.SelectedIndex);
+            Assert.Single(control.SelectedItems!);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Removing the selected segment selects the nearest remaining one: the one that took its
+    // place, or the new last one when it was last. Removing another keeps the selection.
+    [AvaloniaFact]
+    public void Selection_MovesToTheNearestSegment_WhenTheSelectedOneIsRemoved()
+    {
+        var items = new System.Collections.ObjectModel.ObservableCollection<string>(["Day", "Week", "Month", "Year"]);
+        var (window, control, _, _) = Show(new SegmentedControl { ItemsSource = items }, selected: 2);
+        try
+        {
+            items.RemoveAt(2);
+            Pump(window);
+            Assert.Equal("Year", control.SelectedItem);
+            AssertPillOn(control, control.SelectedIndex);
+
+            items.RemoveAt(2);
+            Pump(window);
+            Assert.Equal("Week", control.SelectedItem);
+            AssertPillOn(control, 1);
+
+            items.RemoveAt(0);
+            Pump(window);
+            Assert.Equal("Week", control.SelectedItem);
+            AssertPillOn(control, 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The pill stays on its segment as segments are added or removed around it.
+    [AvaloniaFact]
+    public void Pill_FollowsItsSegment_WhenItemsChange()
+    {
+        var items = new System.Collections.ObjectModel.ObservableCollection<string>(["Day", "Week", "Month"]);
+        var (window, control, _, _) = Show(new SegmentedControl { ItemsSource = items }, selected: 1);
+        try
+        {
+            items.Insert(0, "Hour");
+            Pump(window);
+            Assert.Equal("Week", control.SelectedItem);
+            AssertPillOn(control, 2);
+            items.Add("Year");
+            Pump(window);
+            AssertPillOn(control, 2);
+            items.RemoveAt(0);
+            Pump(window);
+            AssertPillOn(control, 1);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void Selection_DoesNotScrollThePage()
     {
@@ -322,6 +399,38 @@ public class SegmentedControlThemeTests
         }
     }
 
+    // A hovered or pressed segment stays clearly apart from the pill (at least 1.3:1, the
+    // luminance contrast ratio) and still shows on the track, in both themes.
+    [AvaloniaTheory]
+    [InlineData("Light")]
+    [InlineData("Dark")]
+    public void HoverAndPressed_StayApartFromThePill(string theme)
+    {
+        var variant = theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        foreach (var state in new[] { ":pointerover", ":pressed" })
+        {
+            var (window, control, _, _) = Show(Items("Day", "Week"), variant);
+            try
+            {
+                var segment = Segment(control, 1);
+                ((IPseudoClasses)segment.Classes).Set(state, true);
+                Pump(window);
+                var chrome = Part<SquircleBorder>(segment, ButtonParts.ChromePart);
+                var fill = Effective(chrome.GetBaseValue(SquircleBorder.BackgroundProperty).Value);
+                var track = Effective(Part(control, SegmentedControlTheme.TrackPart).Background);
+                var pill = Effective(Part(control, SegmentedControlTheme.PillPart).Background);
+                var onTrack = Over(fill, track);
+                var fromPill = AccessibleColors.ContrastRatio(onTrack, pill);
+                Assert.True(fromPill >= 1.3, $"{state} vs pill: {fromPill:F2}");
+                Assert.NotEqual(track, onTrack);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+    }
+
     // Selected text cross-fades with the slide; no frame overshoots its ends.
     [AvaloniaFact]
     public void Text_CrossFades()
@@ -390,6 +499,15 @@ public class SegmentedControlThemeTests
 
     private static Color Text(SegmentedControlItem segment) =>
         Effective(((ContentPresenter)Part<SquircleBorder>(segment, ButtonParts.ChromePart).Child!).Foreground);
+
+    private static void Click(Window window, SegmentedControl control, int index, RawInputModifiers modifiers)
+    {
+        var segment = Segment(control, index);
+        var point = segment.TranslatePoint(new Point(segment.Bounds.Width / 2, segment.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(point, MouseButton.Left, modifiers);
+        window.MouseUp(point, MouseButton.Left, modifiers);
+        Pump(window);
+    }
 
     private static IInputElement? Focused(Window window) => window.FocusManager!.GetFocusedElement();
 

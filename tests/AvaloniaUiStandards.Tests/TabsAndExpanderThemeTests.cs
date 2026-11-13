@@ -169,6 +169,62 @@ public class TabsAndExpanderThemeTests
         }
     }
 
+    // Every placement: the underline and hairline on the strip's edge facing the content, and
+    // beside a vertical strip the headers keep clear of the underline (room for the focus ring).
+    [AvaloniaTheory]
+    [InlineData(Dock.Top)]
+    [InlineData(Dock.Bottom)]
+    [InlineData(Dock.Left)]
+    [InlineData(Dock.Right)]
+    public void Tabs_UnderlineOnTheContentSide_ForEveryPlacement(Dock placement)
+    {
+        var reduced = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
+        var (window, tabs) = Show(TabsAndExpanderRenderTests.Tabs(placement: placement), theme: reduced);
+        try
+        {
+            foreach (var index in new[] { 0, 2, 1 })
+            {
+                tabs.SelectedIndex = index;
+                Pump(window);
+                AssertUnderline(tabs, index);
+            }
+            var follower = Follower(tabs);
+            var line = Part<Border>(tabs, TabThemes.StripLinePart);
+            var lineRect = new Rect(line.TranslatePoint(default, follower)!.Value, line.Bounds.Size);
+            var underline = follower.Target!.Value;
+            var content = Part<ContentPresenter>(tabs, "PART_SelectedContentHost").TranslatePoint(default, follower)!.Value;
+            switch (placement)
+            {
+                case Dock.Top:
+                    Assert.Equal(lineRect.Bottom, underline.Bottom);
+                    Assert.True(content.Y >= lineRect.Bottom);
+                    break;
+                case Dock.Bottom:
+                    Assert.Equal(lineRect.Top, underline.Top);
+                    Assert.True(content.Y < lineRect.Top);
+                    break;
+                case Dock.Left:
+                    Assert.Equal(lineRect.Right, underline.Right);
+                    Assert.True(content.X >= lineRect.Right);
+                    break;
+                default:
+                    Assert.Equal(lineRect.Left, underline.Left);
+                    Assert.True(content.X < lineRect.Left);
+                    break;
+            }
+            if (placement is Dock.Left or Dock.Right)
+            {
+                var header = Tab(tabs, 1);
+                var rect = new Rect(header.TranslatePoint(default, follower)!.Value, header.Bounds.Size).Inflate(4);
+                Assert.False(rect.Intersects(underline), "the focus ring would cross the underline");
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void TabStrip_HasTheSameUnderline()
     {
@@ -262,21 +318,21 @@ public class TabsAndExpanderThemeTests
         var (window, expander) = Show(NewExpander(expanded: false), theme: reduced);
         try
         {
-            Assert.Equal(-90, Angle(expander));
+            Assert.Equal(0, Angle(expander));
             Assert.Empty(Part<Reveal>(expander, ExpanderTheme.RevealPart).Transitions!);
             var collapsed = expander.Bounds.Height;
 
             Header(expander).Focus(NavigationMethod.Tab);
             Press(window, Key.Space);
             Assert.True(expander.IsExpanded);
-            Assert.Equal(0, Angle(expander));
+            Assert.Equal(90, Angle(expander));
             Assert.Equal(1, Part<Reveal>(expander, ExpanderTheme.RevealPart).Progress);
             Assert.True(Content(expander).IsEffectivelyVisible);
             Assert.True(expander.Bounds.Height > collapsed + 20);
 
             expander.ExpandDirection = ExpandDirection.Up;
             Pump(window);
-            Assert.Equal(-180, Angle(expander));
+            Assert.Equal(-90, Angle(expander));
             // Opening upwards, the header is at the bottom, under the content.
             Assert.True(Header(expander).TranslatePoint(default, expander)!.Value.Y > Content(expander).TranslatePoint(default, expander)!.Value.Y);
 
@@ -329,7 +385,7 @@ public class TabsAndExpanderThemeTests
             Pump(window);
             Assert.Equal(Effective(Resolve(window, "SystemControlHighlightListMediumBrush")), Effective(chrome.Background));
 
-            var ring = Part<SquircleBorder>(expander, FocusRing.Part);
+            var ring = CardRing(expander);
             Assert.False(ring.IsVisible);
             header.Focus(NavigationMethod.Tab);
             Pump(window);
@@ -349,6 +405,76 @@ public class TabsAndExpanderThemeTests
             Pump(window);
             Assert.Equal(Effective(Resolve(window, "SystemControlDisabledBaseMediumLowBrush")),
                 Effective(Part<ContentPresenter>(header, ButtonParts.ContentPart).Foreground));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Only the header lights the card's ring: keyboard focus on a control inside the content
+    // shows that control's own ring, not the card's.
+    [AvaloniaFact]
+    public void Expander_CardRingIgnoresFocusInsideTheContent()
+    {
+        var (window, expander) = Show(NewExpander(expanded: true));
+        try
+        {
+            var ring = CardRing(expander);
+            var inner = Content(expander).GetVisualDescendants().OfType<Button>().Single();
+            inner.Focus(NavigationMethod.Tab);
+            Pump(window);
+            Assert.Contains(":focus-visible", inner.Classes);
+            Assert.False(ring.IsVisible);
+
+            Header(expander).Focus(NavigationMethod.Tab);
+            Pump(window);
+            Assert.True(ring.IsVisible);
+            Press(window, Key.Tab);
+            Assert.Same(inner, window.FocusManager!.GetFocusedElement());
+            Assert.False(ring.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // A closed expander's content takes no focus: Tab goes from the header to the next control.
+    [AvaloniaFact]
+    public void Expander_ClosedContentIsNotReachableByTab()
+    {
+        var expander = NewExpander(expanded: false);
+        var after = new Button { Content = "After" };
+        var window = new Window { Width = 400, Height = 300, Content = new StackPanel { Children = { expander, after } } };
+        window.Show();
+        try
+        {
+            Pump(window);
+            Header(expander).Focus(NavigationMethod.Tab);
+            Press(window, Key.Tab);
+            Assert.Same(after, window.FocusManager!.GetFocusedElement());
+
+            expander.IsExpanded = true;
+            Pump(window);
+            Header(expander).Focus(NavigationMethod.Tab);
+            Press(window, Key.Tab);
+            Assert.NotSame(after, window.FocusManager!.GetFocusedElement());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // An app-set content transition is cleared: the reveal is the only motion, and it follows reduce motion.
+    [AvaloniaFact]
+    public void Expander_ThemeClearsTheContentTransition()
+    {
+        var (window, expander) = Show(NewExpander(expanded: false));
+        try
+        {
+            Assert.Null(expander.ContentTransition);
         }
         finally
         {
@@ -383,6 +509,10 @@ public class TabsAndExpanderThemeTests
 
     private static ToggleButton Header(Expander expander) => Part<ToggleButton>(expander, ExpanderTheme.HeaderPart);
 
+    // The card's own ring, beside the card in the template root (controls in the content have their own).
+    private static SquircleBorder CardRing(Expander expander) =>
+        ((Panel)expander.GetVisualChildren().Single()).Children.OfType<SquircleBorder>().Single(r => r.Name == FocusRing.Part);
+
     // The expander's content presenter (the header has its own PART_ContentPresenter).
     private static ContentPresenter Content(Expander expander) =>
         Part<Reveal>(expander, ExpanderTheme.RevealPart).GetVisualDescendants().OfType<ContentPresenter>().First(c => c.Name == "PART_ContentPresenter");
@@ -403,6 +533,8 @@ public class TabsAndExpanderThemeTests
         return (tabs as TabControl)?.TabStripPlacement switch
         {
             Dock.Left => new Rect(follower.Bounds.Width - 3, r.Y + p.Top, 3, r.Height - p.Top - p.Bottom),
+            Dock.Right => new Rect(0, r.Y + p.Top, 3, r.Height - p.Top - p.Bottom),
+            Dock.Bottom => new Rect(r.X + p.Left, r.Y, r.Width - p.Left - p.Right, 3),
             _ => new Rect(r.X + p.Left, r.Bottom - 3, r.Width - p.Left - p.Right, 3),
         };
     }

@@ -19,7 +19,7 @@ namespace AvaloniaUiStandards.Blocks;
 
 /// <summary>
 /// The Expander theme: one squircle card (card colour, a 1 px line border) holding a header row
-/// and the content. The header row has a caret before the header that turns towards the content
+/// and the content. The header row has a caret before the header that turns to point at the content
 /// as it opens, list-item hover and pressed fills, and the density height. The content reveals
 /// (and the layout around it moves) over <c>MotionNormal</c>, behind a hairline under the header.
 /// The focus ring is drawn around the whole card while the header has keyboard focus.
@@ -43,14 +43,18 @@ internal static class ExpanderTheme
     internal static readonly object ContentPaddingKey = new();
     internal static readonly object CaretTransitionsKey = new();
 
-    /// <summary>The caret's angle, closed and open, per expand direction: it points at the content when open.</summary>
-    internal static readonly (string Pseudo, double Closed, double Open)[] CaretAngles =
-    [
-        (":down", -90, 0),
-        (":up", -90, -180),
-        (":right", -90, 90),
-        (":left", 90, -90),
-    ];
+    /// <summary>
+    /// The caret's angle (<see cref="Icons.CaretRight"/>, clockwise), closed and open, per expand
+    /// direction: open, it points at the content; closed, it points right (down for content that
+    /// opens sideways). Downwards it turns +90° to point down, as tree rows do.
+    /// </summary>
+    internal static (double Closed, double Open) CaretAngles(ExpandDirection direction) => direction switch
+    {
+        ExpandDirection.Up => (0, -90),
+        ExpandDirection.Right => (90, 0),
+        ExpandDirection.Left => (90, 180),
+        _ => (0, 90),
+    };
 
     private static readonly ControlTheme HeaderTheme = Header();
 
@@ -71,9 +75,13 @@ internal static class ExpanderTheme
                 new Setter(ContentControl.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch),
                 new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Stretch),
                 new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<Expander>(Build)),
+                // The reveal is the theme's own motion; an app-set transition would run on top of
+                // it and ignore reduce motion.
+                new Setter(Expander.ContentTransitionProperty, null),
             },
         };
-        FocusRing.AddWithin(theme);
+        // Only the header lights the card's ring; focus inside the content shows its own.
+        FocusRing.AddWithin(theme, (expander, focused) => focused is ToggleButton { Name: HeaderPart } && focused.TemplatedParent == expander);
 
         theme.Children.Add(Part<Reveal>(x => x.Nesting(), RevealPart, (Animatable.TransitionsProperty, new DynamicResourceExtension(Reveal.TransitionsKey))));
         theme.Children.Add(Part<Reveal>(x => x.Nesting().Class(":expanded"), RevealPart, (Reveal.ProgressProperty, 1d)));
@@ -136,27 +144,36 @@ internal static class ExpanderTheme
         header.Bind(ContentControl.ContentProperty, new TemplateBinding(HeaderedContentControl.HeaderProperty));
         header.Bind(ContentControl.ContentTemplateProperty, new TemplateBinding(HeaderedContentControl.HeaderTemplateProperty));
 
-        // The caret follows the expander's state and direction.
+        // The caret follows the expander's state and direction while the header is in the tree.
         Icon? caret = null;
-        header.TemplateApplied += (_, e) =>
-        {
-            caret = e.NameScope.Find<Icon>(CaretPart);
-            Turn();
-        };
         void Turn()
         {
             if (caret is null)
                 return;
-            var angles = CaretAngles.FirstOrDefault(a => expander.Classes.Contains(a.Pseudo), CaretAngles[0]);
-            caret.RenderTransform = TransformOperations.Parse(FormattableString.Invariant($"rotate({(expander.IsExpanded ? angles.Open : angles.Closed)}deg)"));
+            var (closed, open) = CaretAngles(expander.ExpandDirection);
+            caret.RenderTransform = TransformOperations.Parse(FormattableString.Invariant($"rotate({(expander.IsExpanded ? open : closed)}deg)"));
         }
-        expander.PropertyChanged += (_, e) =>
+        void OnTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+        {
+            caret = e.NameScope.Find<Icon>(CaretPart);
+            Turn();
+        }
+        void OnExpanderChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
         {
             if (e.Property == Expander.IsExpandedProperty || e.Property == Expander.ExpandDirectionProperty)
                 Turn();
+        }
+        header.AttachedToVisualTree += (_, _) =>
+        {
+            header.TemplateApplied += OnTemplateApplied;
+            expander.PropertyChanged += OnExpanderChanged;
+            Turn();
         };
-        expander.Classes.CollectionChanged += (_, _) => Turn();
-        Turn();
+        header.DetachedFromVisualTree += (_, _) =>
+        {
+            header.TemplateApplied -= OnTemplateApplied;
+            expander.PropertyChanged -= OnExpanderChanged;
+        };
 
         var content = new ContentPresenter { Name = "PART_ContentPresenter" };
         content.Bind(ContentPresenter.ContentProperty, new TemplateBinding(ContentControl.ContentProperty));
@@ -183,7 +200,7 @@ internal static class ExpanderTheme
 
     private static Control BuildHeader(ToggleButton header, INameScope scope)
     {
-        var caret = new Icon { Name = CaretPart, Data = Icons.CaretDown, VerticalAlignment = VerticalAlignment.Center };
+        var caret = new Icon { Name = CaretPart, Data = Icons.CaretRight, VerticalAlignment = VerticalAlignment.Center };
         caret.Bind(Animatable.TransitionsProperty, new DynamicResourceExtension(CaretTransitionsKey));
         var presenter = new ContentPresenter { Name = ContentPart, RecognizesAccessKey = true };
         presenter.Bind(ContentPresenter.ContentProperty, new TemplateBinding(ContentControl.ContentProperty));

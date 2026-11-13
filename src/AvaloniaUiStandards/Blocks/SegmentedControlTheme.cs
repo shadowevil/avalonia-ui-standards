@@ -6,6 +6,7 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
@@ -20,7 +21,7 @@ namespace AvaloniaUiStandards.Blocks;
 /// is a squircle track in Button's Standard fill, holding equal-width segments inset by
 /// <see cref="Inset"/>. One neutral pill, raised from the track (white in light, a lighter grey
 /// in dark), sits under the selected segment and slides between segments. Segments are
-/// transparent, with Button's hover and pressed fills when not selected; their text colour
+/// transparent, with Button's hover fill (also while pressed) when not selected; their text colour
 /// cross-fades with the pill's slide. The focus ring is drawn around the whole control.
 /// </summary>
 /// <remarks>
@@ -49,11 +50,14 @@ internal static class SegmentedControlTheme
     /// <summary>The selected segment's text per theme: the palette's BaseHigh, as on the track.</summary>
     internal static readonly Color SelectedTextLight = Color.Parse("#1A1A1A"), SelectedTextDark = Color.Parse("#F2F2F2");
 
-    // Per-theme colours, the inner radius, density values and the text fade, under non-public keys.
+    // Per-theme colours, density values and the text fade, under non-public keys.
     internal static readonly object PillKey = new();
     internal static readonly object PillDisabledKey = new();
+
+    // The selected text has its own key so the pill can switch between the neutral and the accent
+    // variant (accent: white text); the variant not chosen, and this key if it is not needed, are
+    // removed once the pill is decided.
     internal static readonly object SelectedTextKey = new();
-    internal static readonly object InnerRadiusKey = new();
     internal static readonly object ItemMinHeightKey = new();
     internal static readonly object ItemPaddingKey = new();
     internal static readonly object TextTransitionsKey = new();
@@ -71,7 +75,6 @@ internal static class SegmentedControlTheme
                 new Setter(TemplatedControl.CornerRadiusProperty, Resource("CornerRadiusControl")),
                 new Setter(TemplatedControl.PaddingProperty, new Thickness(Inset)),
                 new Setter(TemplatedControl.BackgroundProperty, Resource("ButtonBackground")),
-                new Setter(TemplatedControl.BorderBrushProperty, Resource("ButtonBorderBrush")),
                 new Setter(TemplatedControl.BorderThicknessProperty, new Thickness(0)),
                 new Setter(TemplatedControl.ForegroundProperty, Resource("ButtonForeground")),
                 new Setter(Layoutable.HorizontalAlignmentProperty, HorizontalAlignment.Left),
@@ -103,7 +106,12 @@ internal static class SegmentedControlTheme
         {
             Setters =
             {
-                new Setter(TemplatedControl.CornerRadiusProperty, new DynamicResourceExtension(InnerRadiusKey)),
+                // Concentric with the control's track: its corner radius less the inset.
+                new Setter(TemplatedControl.CornerRadiusProperty, new Binding(nameof(TemplatedControl.CornerRadius))
+                {
+                    RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor) { AncestorType = typeof(SegmentedControl) },
+                    Converter = Shrink,
+                }),
                 new Setter(TemplatedControl.PaddingProperty, new DynamicResourceExtension(ItemPaddingKey)),
                 new Setter(Layoutable.MinHeightProperty, new DynamicResourceExtension(ItemMinHeightKey)),
                 new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent),
@@ -123,7 +131,9 @@ internal static class SegmentedControlTheme
         });
         theme.Children.Add(State((string?)null, new Look(Brushes.Transparent, Brushes.Transparent, "ButtonForeground")));
         theme.Children.Add(State(":pointerover", new Look("ButtonBackgroundPointerOver", Brushes.Transparent, "ButtonForeground")));
-        theme.Children.Add(State(":pressed", new Look("ButtonBackgroundPressed", Brushes.Transparent, "ButtonForeground")));
+        // A press selects the segment at once, so pressed keeps the hover fill; Button's pressed
+        // fill would match the pill in dark.
+        theme.Children.Add(State(":pressed", new Look("ButtonBackgroundPointerOver", Brushes.Transparent, "ButtonForeground")));
         theme.Children.Add(State(":disabled", new Look(Brushes.Transparent, Brushes.Transparent, "ButtonForegroundDisabled")));
 
         // Selected: the pill shows through; the segment adds no fill of its own.
@@ -133,14 +143,13 @@ internal static class SegmentedControlTheme
         return theme;
     }
 
+    /// <summary>A corner radius less the inset (the mirror of the focus ring's grow), for curves concentric with the track.</summary>
+    internal static readonly IValueConverter Shrink = new FuncValueConverter<CornerRadius, CornerRadius>(r =>
+        new CornerRadius(Math.Max(0, r.TopLeft - Inset), Math.Max(0, r.TopRight - Inset),
+            Math.Max(0, r.BottomRight - Inset), Math.Max(0, r.BottomLeft - Inset)));
+
     public static void AddResources(IResourceDictionary resources)
     {
-        // Concentric with the track: its corner radius less the inset.
-        var outer = resources.TryGetResource("CornerRadiusControl", null, out var value) && value is CornerRadius r ? r : new CornerRadius(8);
-        resources[InnerRadiusKey] = new CornerRadius(
-            Math.Max(0, outer.TopLeft - Inset), Math.Max(0, outer.TopRight - Inset),
-            Math.Max(0, outer.BottomRight - Inset), Math.Max(0, outer.BottomLeft - Inset));
-
         foreach (var (variant, pill, disabled, text) in new[]
                  {
                      (ThemeVariant.Light, PillLight, PillDisabledLight, SelectedTextLight),
@@ -164,7 +173,7 @@ internal static class SegmentedControlTheme
     private static Control Build(SegmentedControl control, INameScope scope)
     {
         var pill = new SquircleBorder { Name = PillPart };
-        pill.Bind(SquircleBorder.CornerRadiusProperty, new DynamicResourceExtension(InnerRadiusKey));
+        pill.Bind(SquircleBorder.CornerRadiusProperty, new TemplateBinding(TemplatedControl.CornerRadiusProperty) { Converter = Shrink });
 
         var items = new ItemsPresenter { Name = "PART_ItemsPresenter" };
         items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));

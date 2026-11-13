@@ -50,11 +50,26 @@ internal sealed class SelectionIndicator : Panel
         indicator.IsHitTestVisible = false;
         Children.Add(indicator);
         Children.Add(content);
-        owner.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == SelectingItemsControl.SelectedIndexProperty)
-                InvalidateArrange();
-        };
+    }
+
+    // The owner's selection is followed while the panel is in the tree.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _owner.PropertyChanged += OnOwnerChanged;
+        InvalidateArrange();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _owner.PropertyChanged -= OnOwnerChanged;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnOwnerChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == SelectingItemsControl.SelectedIndexProperty)
+            InvalidateArrange();
     }
 
     public Point Offset

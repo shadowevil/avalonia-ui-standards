@@ -71,33 +71,43 @@ internal static class FocusRing
     /// control whose focus lands on a part or item inside it (a segment, a header): the ring is
     /// drawn around the whole control while the focused element inside it shows keyboard focus.
     /// </summary>
-    public static void AddWithin(ControlTheme theme)
+    /// <param name="counts">
+    /// Which focused elements inside the control light the ring (the control, then the focused
+    /// element); null counts every element inside it. A control that holds other focusable
+    /// content (an Expander's content) counts only its own part.
+    /// </param>
+    public static void AddWithin(ControlTheme theme, Func<Control, Control, bool>? counts = null)
     {
         theme.Setters.Add(new Setter(Control.FocusAdornerProperty, null));
         theme.Setters.Add(new Setter(Visual.ClipToBoundsProperty, false));
-        theme.Setters.Add(new Setter(TracksFocusWithinProperty, true));
+        theme.Setters.Add(new Setter(TracksFocusWithinProperty, counts ?? AnyWithin));
         theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting())) { Setters = { new Setter(Visual.IsVisibleProperty, false) } });
         theme.Children.Add(new Avalonia.Styling.Style(x => Ring(x.Nesting().Class(FocusVisibleWithin))) { Setters = { new Setter(Visual.IsVisibleProperty, true) } });
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(FocusVisibleWithin)) { Setters = { new Setter(Visual.ZIndexProperty, 1) } });
     }
 
-    /// <summary>Set by <see cref="AddWithin"/>: the control tracks keyboard focus inside it as <see cref="FocusVisibleWithin"/>.</summary>
-    private static readonly AttachedProperty<bool> TracksFocusWithinProperty =
-        AvaloniaProperty.RegisterAttached<Control, bool>("TracksFocusWithin", typeof(FocusRing));
+    private static readonly Func<Control, Control, bool> AnyWithin = (_, _) => true;
+
+    /// <summary>
+    /// Set by <see cref="AddWithin"/>: which focused elements inside the control it tracks as
+    /// <see cref="FocusVisibleWithin"/>; null tracks none.
+    /// </summary>
+    private static readonly AttachedProperty<Func<Control, Control, bool>?> TracksFocusWithinProperty =
+        AvaloniaProperty.RegisterAttached<Control, Func<Control, Control, bool>?>("TracksFocusWithin", typeof(FocusRing));
 
     static FocusRing()
     {
         TracksFocusWithinProperty.Changed.AddClassHandler<Control>((control, e) =>
         {
-            if (e.NewValue is true)
+            control.RemoveHandler(InputElement.GotFocusEvent, OnFocusChanged);
+            control.RemoveHandler(InputElement.LostFocusEvent, OnFocusChanged);
+            if (e.NewValue is not null)
             {
                 control.AddHandler(InputElement.GotFocusEvent, OnFocusChanged, handledEventsToo: true);
                 control.AddHandler(InputElement.LostFocusEvent, OnFocusChanged, handledEventsToo: true);
             }
             else
             {
-                control.RemoveHandler(InputElement.GotFocusEvent, OnFocusChanged);
-                control.RemoveHandler(InputElement.LostFocusEvent, OnFocusChanged);
                 ((IPseudoClasses)control.Classes).Set(FocusVisibleWithin, false);
             }
         });
@@ -112,7 +122,9 @@ internal static class FocusRing
         var within = focused is not null && (focused == control || control.IsVisualAncestorOf(focused));
         if (e.RoutedEvent == InputElement.LostFocusEvent && within)
             return; // the GotFocus of the element inside decides
-        ((IPseudoClasses)control.Classes).Set(FocusVisibleWithin, within && focused!.Classes.Contains(":focus-visible"));
+        var counts = control.GetValue(TracksFocusWithinProperty) ?? AnyWithin;
+        ((IPseudoClasses)control.Classes).Set(FocusVisibleWithin,
+            within && focused!.Classes.Contains(":focus-visible") && counts(control, focused));
     }
 
     private static Selector Ring(Selector state) => state.Template().OfType<SquircleBorder>().Name(Part);

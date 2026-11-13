@@ -181,17 +181,10 @@ internal static class TabThemes
             line.Height = vertical ? double.NaN : LineThickness;
             line.HorizontalAlignment = dock switch { Dock.Left => HorizontalAlignment.Right, Dock.Right => HorizontalAlignment.Left, _ => HorizontalAlignment.Stretch };
             line.VerticalAlignment = dock switch { Dock.Top => VerticalAlignment.Bottom, Dock.Bottom => VerticalAlignment.Top, _ => VerticalAlignment.Stretch };
+            // Beside a vertical strip the headers keep clear of the underline, so a focus ring never crosses it.
+            items.Margin = dock switch { Dock.Left => new Thickness(0, 0, Spacing.S, 0), Dock.Right => new Thickness(Spacing.S, 0, 0, 0), _ => default };
         }
         PlaceLine();
-        if (control is TabControl tabs)
-            tabs.PropertyChanged += (_, e) =>
-            {
-                if (e.Property == Avalonia.Controls.TabControl.TabStripPlacementProperty)
-                {
-                    PlaceLine();
-                    follower.InvalidateArrange();
-                }
-            };
 
         items.RegisterInNameScope(scope);
         indicator.RegisterInNameScope(scope);
@@ -199,7 +192,26 @@ internal static class TabThemes
         // Nothing in the strip clips, so a focused header's ring shows outside the strip's edges.
         items.ClipToBounds = false;
         follower.ClipToBounds = false;
-        return new Panel { ClipToBounds = false, Children = { line, follower } };
+        var strip = new Panel { ClipToBounds = false, Children = { line, follower } };
+
+        // The placement is followed while the strip is in the tree.
+        if (control is TabControl tabs)
+        {
+            void OnTabsChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+            {
+                if (e.Property != Avalonia.Controls.TabControl.TabStripPlacementProperty)
+                    return;
+                PlaceLine();
+                follower.InvalidateArrange();
+            }
+            strip.AttachedToVisualTree += (_, _) =>
+            {
+                tabs.PropertyChanged += OnTabsChanged;
+                PlaceLine();
+            };
+            strip.DetachedFromVisualTree += (_, _) => tabs.PropertyChanged -= OnTabsChanged;
+        }
+        return strip;
     }
 
     private static Control BuildTab(ContentControl tab, INameScope scope)
