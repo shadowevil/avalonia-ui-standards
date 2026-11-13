@@ -73,6 +73,12 @@ internal static class BlocksThemes
         resources[typeof(CalendarDayButton)] = CalendarThemes.DayButton();
         resources[typeof(CalendarButton)] = CalendarThemes.MonthButton();
         resources[typeof(CalendarDatePicker)] = CalendarDatePickerTheme.Create(fluentTheme(typeof(CalendarDatePicker)), fieldButton, innerTextBox);
+        ColorPickerThemes.AddResources(resources);
+        resources[typeof(ColorView)] = ColorPickerThemes.ColorView();
+        resources[typeof(ColorPicker)] = ColorPickerThemes.ColorPicker();
+        resources[typeof(ColorSpectrum)] = ColorPartsThemes.Spectrum();
+        resources[typeof(ColorSlider)] = ColorPartsThemes.Slider();
+        resources[typeof(ColorPreviewer)] = ColorPartsThemes.Previewer();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
         resources[typeof(CaptionButton)] = WindowButtonThemes.Caption();
         WindowButtonThemes.AddResources(resources);
@@ -125,5 +131,6 @@ internal static class BlocksThemes
         TreeViewTheme.ApplyDensity(resources, density == DensityStyle.Compact);
         PickerThemes.ApplyDensity(resources, density);
         CalendarThemes.ApplyDensity(resources, density);
+        ColorPartsThemes.ApplyDensity(resources, density);
     }
 }
