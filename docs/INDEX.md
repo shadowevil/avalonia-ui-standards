@@ -27,6 +27,7 @@
 - [0024 — ListBox, ScrollViewer and ComboBox drop-down](decisions/0024-lists-and-scrolling.md) — the shared list item design, the drop-down popup and the scroll-edge shadow
 - [0025 — Overlay scrollbar](decisions/0025-overlay-scrollbar.md) — the overlay ScrollBar Block: reveal, sizes, colours and motion
 - [0026 — Icon](decisions/0026-icon.md) — the icon set and licence, the Icon Block's design box, sizes and colour, and how icons are added
+- [0036 — Menus and flyouts](decisions/0036-menus-and-flyouts.md) — the glass menu and flyout overlays, menu item columns and states, the menu bar and the open fade
 - [0039 — Separator and GridSplitter](decisions/0039-separator-and-gridsplitter.md) — the hairline separator and the splitter's hover grip
 
 ## Plan

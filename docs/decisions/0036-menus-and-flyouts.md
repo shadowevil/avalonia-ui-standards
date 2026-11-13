@@ -1,0 +1,37 @@
+# 0036 — Menus and flyouts
+
+- **Status:** Proposed, 2026-11-13
+- **Decision:**
+  - Menu, MenuItem, ContextMenu, MenuFlyout and Flyout keep Fluent's behaviour (keyboard, access keys, submenu timing, light dismiss, placement) and get the library's own templates ([0003](0003-restyle-fluent.md)).
+    - **Why:** The shape and material need new templates; the behaviour is Fluent's and stays.
+  - Menus (context menus, menu flyouts, submenus and the menus of a Menu bar) are glass overlays ([0015](0015-glass.md)): a `GlassBorder` with the overlay radius 16 (`CornerRadiusOverlay`, [0014](0014-shape.md)) and `SpacingXS` padding, which insets the items 4 px from the edges, as the ComboBox drop-down ([0024](0024-lists-and-scrolling.md)). Fluent's maximum width (456) and minimum height are kept. Long menus scroll in the library's ScrollViewer ([0025](0025-overlay-scrollbar.md)).
+    - **Why:** 0015 puts glass on menus and flyouts; the inset matches the one existing overlay, so its items sit inside the curved corners the same way.
+  - Glass that sits in a popup shown as its own OS window draws the solid fallback of [0015](0015-glass.md) (the tint colour, opaque, with the 1 px border). A popup in the window's overlay layer (headless, and apps that turn on overlay popups) keeps the glass.
+    - **Why:** The glass blurs what is behind it in its own top level. A popup window has nothing of the app behind it, so the glass would show an unblurred, see-through tint over the desktop. This adds one case to 0015's fallbacks and applies to every glass in a popup window.
+  - Menu items use the list item design of [0024](0024-lists-and-scrolling.md): a squircle pill with `CornerRadiusControl`, transparent at rest, height 32 at Normal and 24 at Compact, with Button's density padding.
+    - **Why:** One item design for lists, drop-downs and menus.
+  - The highlight (pointer hover and keyboard) is the list item's neutral hover fill (`ListMedium`), and pressed is its pressed fill (`BaseMediumLow`). The text keeps its colour. The accent fill is not used.
+    - **Why:** In 0024 the accent fill means "selected" (the current value of a ComboBox), and the neutral fill means "under the pointer". A menu's highlight is the second, so an accent highlight would read as a selection next to a ComboBox. Fluent and Windows 11 menus highlight in a neutral fill. macOS highlights menus in the accent colour; that was weighed and set aside for the reason above.
+  - Menu items show keyboard focus as the highlight, not the focus ring ([0019](0019-focus-ring.md)), and Fluent's focus adorner is off. This is an exception to 0019 for menu items and menu bar items.
+    - **Why:** In a menu the highlight follows the keyboard, as on every platform; a ring around the highlighted pill would show the same thing twice.
+  - Columns, all sharing their width across a menu so headers line up:
+    - The mark column: `Icons.Check` for a checked toggle item and an 8 px filled dot for a checked radio item, in the text colour. The column shows for every toggle and radio item, checked or not.
+    - The icon column for `MenuItem.Icon`, at the Icon sizes of [0026](0026-icon.md): 20 px at Normal and 16 px at Compact. Other content is scaled to fit.
+    - The header.
+    - The input gesture, right-aligned in secondary text (`BaseMedium`, [0011](0011-colour.md)), in the platform's key format, `SpacingXL` after the header.
+    - The submenu caret, `Icons.CaretRight` at the Icon size, `SpacingS` after the gesture.
+    - The mark and icon columns are followed by a `SpacingS` gap.
+    - **Why:** The check is the set's check mark, `Icons.Check`, so menus and check boxes can share one glyph. A dot for radio items keeps Fluent's distinction between one-of-many and on/off items. Keeping the mark column for unchecked items stops the headers jumping when an item is checked. 20/16 px icons and the caret follow the Icon sizes of 0026; the Phosphor caret at 20 px is about as large as Fluent's 8 × 16 chevron.
+  - Separators in menus are the Separator of [0039](0039-separator-and-gridsplitter.md), inset `SpacingS` from the sides; a `-` header draws the same separator.
+  - A submenu opens at the right edge of its item, its first item level with its parent item (the overlay padding and edge are offset), overlapping the parent menu by its 4 px padding.
+    - **Why:** The eye stays on the same line when a submenu opens, as on macOS.
+  - The Menu bar's height follows its items. Its top-level items are subtle buttons ([0018](0018-button.md)): Button's density height, padding and radius, no fill at rest, Button's hover fill when highlighted and its pressed fill when pressed or while their menu is open. Their menu opens 4 px (`SpacingXS`) below the item, shifted left so the menu's item text lines up with the bar item's text.
+    - **Why:** Bar items behave like buttons that open menus; the subtle variant keeps the bar quiet until used. Lining up the text makes the menu read as coming from its item.
+  - A Flyout is a glass card with the overlay radius 16 and its content padded `SpacingL` (16), replacing Fluent's 12, 11, 12, 12. Its content scrolls in the library's ScrollViewer. Fluent's minimum and maximum sizes are kept.
+    - **Why:** It is a panel-like overlay, so it takes the overlay radius and a padding on the grid.
+  - Each menu, submenu and flyout fades in over `MotionFast` (100 ms, ease-out) when it opens; under reduce motion it appears at once ([0016](0016-motion.md)). The fade is one fixed animation object in the theme's resources, replaced when motion changes. Closing is instant.
+    - **Why:** A short fade softens the appearance without delaying use, as macOS and Windows 11 menus do. 0016 lists flyouts under `MotionSlow`; a 300 ms fade on an overlay the user just asked for felt slow, so overlays opened by the user use `MotionFast`. Avalonia removes a popup the moment it closes, so a fade-out would need a delayed close and change Fluent's behaviour.
+  - Disabled items and bar items use the disabled text colour (`BaseMediumLow`) for the header, gesture, marks and caret, with no fill.
+  - Item fills fade with the button family's fixed `MotionFast` chrome transitions ([0016](0016-motion.md)).
+- **Known for later:** Menus have no drop shadow; a shadow outside a popup needs room the popup does not have. The ComboBox drop-down (0024) is still a solid surface while menus are glass.
+- **Why:** Menus and flyouts share the overlay surface and the list item design, so every overlay and every list in the library looks and behaves alike.

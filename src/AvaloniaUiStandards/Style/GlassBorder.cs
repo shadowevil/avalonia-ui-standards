@@ -14,7 +14,8 @@ namespace AvaloniaUiStandards.Style;
 /// </summary>
 /// <remarks>
 /// Falls back to a solid fill in <see cref="TintColor"/> with a fixed 1 px border in
-/// <see cref="BorderBrush"/> instead of the rim when transparency is reduced (<c>StandardsTheme.ReduceTransparency</c>) or Skia is not
+/// <see cref="BorderBrush"/> instead of the rim when transparency is reduced (<c>StandardsTheme.ReduceTransparency</c>), when it
+/// sits in a popup shown as its own OS window (see <see cref="IsSolid"/>), or when Skia is not
 /// available. Without Skia runtime effects it keeps the blur and drops refraction.
 /// The 1 px border is counted in layout, so the child sits inside it, and is drawn above the
 /// child, so a child with a background does not cover it at the corners.
@@ -22,7 +23,7 @@ namespace AvaloniaUiStandards.Style;
 /// </remarks>
 public class GlassBorder : Decorator
 {
-    private const double BorderWidth = 1;
+    internal const double BorderWidth = 1;
 
     // Defaults, shared with the Glass* resources that StandardsTheme sets.
     internal static readonly Color DefaultTintLight = Colors.White;
@@ -224,6 +225,26 @@ public class GlassBorder : Decorator
             _borderOverlay.InvalidateVisual();
     }
 
+    /// <summary>
+    /// Whether the glass draws as the solid fallback: when transparency is reduced, or when it
+    /// sits in a popup shown as its own OS window, where nothing of the app's window is behind it
+    /// in its top level to blur. A popup in the window's overlay layer keeps the glass.
+    /// </summary>
+    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || _inPopupWindow;
+
+    private bool _inPopupWindow;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        var inPopupWindow = TopLevel.GetTopLevel(this) is Avalonia.Controls.Primitives.PopupRoot;
+        if (inPopupWindow == _inPopupWindow)
+            return;
+        _inPopupWindow = inPopupWindow;
+        InvalidateVisual();
+        _borderOverlay.InvalidateVisual();
+    }
+
     public override void Render(DrawingContext context)
     {
         var size = Bounds.Size;
@@ -232,7 +253,7 @@ public class GlassBorder : Decorator
             return;
 
         var solid = new ImmutableSolidColorBrush(TintColor);
-        if (GetValue(ReduceTransparencyProperty))
+        if (IsSolid)
         {
             context.DrawGeometry(solid, null, _fill);
         }
@@ -250,7 +271,7 @@ public class GlassBorder : Decorator
     {
         var size = Bounds.Size;
         UpdateShape(size);
-        if (!GetValue(ReduceTransparencyProperty) && GlassRimDrawOperation.Effect is not null)
+        if (!IsSolid && GlassRimDrawOperation.Effect is not null)
         {
             if (RimAbsorption > 0)
                 context.Custom(new GlassRimDrawOperation(new GlassRimDrawOperation.Parameters(

@@ -29,6 +29,11 @@ internal static class BlocksThemes
         resources[typeof(DropDownButton)] = DropDownButtonTheme.Create();
         resources[typeof(SplitButton)] = SplitButtonTheme.Create();
         resources[typeof(Icon)] = IconTheme.Create();
+        resources[typeof(MenuItem)] = MenuTheme.Item();
+        resources[typeof(Menu)] = MenuTheme.Menu(fluentTheme(typeof(Menu)));
+        resources[typeof(ContextMenu)] = MenuTheme.MenuOverlay(typeof(ContextMenu), fluentTheme(typeof(ContextMenu)));
+        resources[typeof(MenuFlyoutPresenter)] = MenuTheme.MenuOverlay(typeof(MenuFlyoutPresenter), fluentTheme(typeof(MenuFlyoutPresenter)));
+        resources[typeof(FlyoutPresenter)] = MenuTheme.FlyoutPresenter(fluentTheme(typeof(FlyoutPresenter)));
         resources[typeof(Separator)] = SeparatorTheme.Create();
         resources[typeof(GridSplitter)] = GridSplitterTheme.Create();
         resources[typeof(TrafficLightButton)] = WindowButtonThemes.TrafficLight();
@@ -45,6 +50,7 @@ internal static class BlocksThemes
     /// </summary>
     public static void ApplyMotion(IResourceDictionary resources, TimeSpan fast, Easing easing)
     {
+        resources[OverlayParts.FadeInFastKey] = OverlayParts.FadeIn(fast, easing);
         resources[ButtonParts.ChromeTransitionsKey] = ButtonParts.ChromeTransitions(fast, easing);
         resources[ButtonParts.FadeTransitionsKey] = ButtonParts.FadeTransitions(fast, easing);
         resources[ScrollBarTheme.PartTransitionsKey] = ScrollBarTheme.PartTransitions(fast, easing);
