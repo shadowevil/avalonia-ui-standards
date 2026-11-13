@@ -12,6 +12,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Style;
 using static AvaloniaUiStandards.Blocks.ButtonParts;
 
@@ -123,8 +124,43 @@ internal static class PickerThemes
             button.SetValue(Layoutable.MinHeightProperty, 0d);
         }
         if (scope.Find<Popup>("PART_Popup") is { } popup)
+        {
             popup.ShouldUseOverlayLayer = true;
+            if (scope.Find<Button>("PART_FlyoutButton") is { } opener)
+                FocusOnOpenFromKeyboard(opener, popup);
+        }
         return FocusRing.Wrap(root, new NameScope());
+    }
+
+    /// <summary>
+    /// Fluent focuses the first selector when the flyout opens, without marking it as keyboard
+    /// focus. When the flyout was opened from the keyboard (Enter or Space on the field), that
+    /// focus is given again as keyboard focus, so the column shows its ring; opened by pointer,
+    /// it stays unmarked and shows none.
+    /// </summary>
+    private static void FocusOnOpenFromKeyboard(Button opener, Popup popup)
+    {
+        var fromKeyboard = false;
+        opener.AddHandler(InputElement.KeyDownEvent, (_, e) => fromKeyboard = e.Key is Key.Enter or Key.Space,
+            Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        opener.AddHandler(InputElement.PointerPressedEvent, (_, _) => fromKeyboard = false,
+            Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        popup.Opened += (_, _) =>
+        {
+            if (!fromKeyboard)
+                return;
+            fromKeyboard = false;
+            var first = (popup.Child as Visual)?.GetVisualDescendants().OfType<DateTimePickerPanel>()
+                .Where(p => p.IsEffectivelyVisible).OrderBy(p => p.TranslatePoint(default, popup.Child as Visual ?? p)?.X ?? 0).FirstOrDefault();
+            if (first is null)
+                return;
+            // Focusing the element that already has focus changes nothing, so focus passes to the
+            // accept button first and comes back as keyboard focus.
+            if (first.IsFocused && (popup.Child as Visual)?.GetVisualDescendants().OfType<Button>()
+                    .FirstOrDefault(b => b.Name == "PART_AcceptButton") is { } accept)
+                accept.Focus();
+            first.Focus(NavigationMethod.Tab);
+        };
     }
 
     /// <summary>

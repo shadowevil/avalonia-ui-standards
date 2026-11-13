@@ -525,6 +525,54 @@ public class PickerThemeTests
         }
     }
 
+    // Opened from the keyboard, the flyout's first selector has keyboard focus and shows its
+    // ring; opened by pointer, it has focus but no ring.
+    [AvaloniaTheory]
+    [InlineData(nameof(DatePicker), "Enter")]
+    [InlineData(nameof(DatePicker), "Space")]
+    [InlineData(nameof(DatePicker), "Pointer")]
+    [InlineData(nameof(TimePicker), "Enter")]
+    [InlineData(nameof(TimePicker), "Space")]
+    [InlineData(nameof(TimePicker), "Pointer")]
+    public void Flyout_OpenedFromTheKeyboard_ShowsTheRingOnTheFirstSelector(string name, string how)
+    {
+        Control picker = name == nameof(DatePicker) ? new DatePicker { SelectedDate = PickerRenderTests.Date } : new TimePicker { SelectedTime = PickerRenderTests.Time };
+        var (window, _) = Show(picker, height: 500);
+        try
+        {
+            var opener = (Button)PickerRenderTests.FocusTarget(picker);
+            if (how == "Pointer")
+            {
+                var centre = opener.TranslatePoint(new Point(opener.Bounds.Width / 2, opener.Bounds.Height / 2), window)!.Value;
+                window.MouseMove(centre);
+                window.MouseDown(centre, MouseButton.Left);
+                window.MouseUp(centre, MouseButton.Left);
+            }
+            else
+            {
+                opener.Focus(NavigationMethod.Tab);
+                var (key, physical) = how == "Enter" ? (Key.Enter, PhysicalKey.Enter) : (Key.Space, PhysicalKey.Space);
+                window.KeyPress(key, RawInputModifiers.None, physical, null);
+                window.KeyRelease(key, RawInputModifiers.None, physical, null);
+            }
+            Pump(window);
+
+            var popup = picker.GetVisualDescendants().OfType<Popup>().Single();
+            Assert.True(popup.IsOpen);
+            var presenter = (Control)popup.Child!;
+            var first = presenter.GetVisualDescendants().OfType<DateTimePickerPanel>().Where(p => p.IsEffectivelyVisible)
+                .OrderBy(p => p.TranslatePoint(default, presenter)!.Value.X).First();
+            Assert.True(first.IsFocused);
+            var ring = ((Panel)first.FindAncestorOfType<ScrollViewer>()!.Parent!)
+                .Children.OfType<SquircleBorder>().Single(b => b.Name == PickerThemes.ColumnFocusRingPart);
+            Assert.Equal(how != "Pointer", ring.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("Normal", 32)]
     [InlineData("Compact", 24)]
