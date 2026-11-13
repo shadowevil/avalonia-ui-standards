@@ -18,10 +18,10 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    8. ComboBox.
    9. Icon (restyled Fluent `PathIcon`). The Icon set is Phosphor Regular (vector, MIT; [0026](../decisions/0026-icon.md)). Done.
    10. The sidebar Module with its collapse stages (see M4; needs ListBox and Icon).
-   11. CheckBox and ToggleSwitch.
+   11. CheckBox and ToggleSwitch, with RadioButton ([0030](../decisions/0030-checkbox-toggleswitch-radiobutton.md)). Done.
    12. Segmented control (multi-switch): a Block for choosing one of several options for a single setting, with text and/or icon segments. Design per platform best practices, researched and agreed at that step.
    13. TreeView, reusing the list item design of [0024](../decisions/0024-lists-and-scrolling.md), with a caret to expand and collapse.
-   14. The rest of Avalonia's built-in Fluent controls, restyled: RadioButton, Slider, ProgressBar (with ProgressRing), NumericUpDown and ButtonSpinner, AutoCompleteBox, TabControl and TabStrip, Expander, Menu, ContextMenu, MenuFlyout and Flyout, ToolTip, DatePicker, TimePicker, Calendar and CalendarDatePicker (this fixes the known picker overrun), Separator, GridSplitter, notification card. Each gets a catalog page.
+   14. The rest of Avalonia's built-in Fluent controls, restyled: RadioButton, Slider, ProgressBar (with ProgressRing), NumericUpDown and ButtonSpinner, AutoCompleteBox, TabControl and TabStrip, Expander, Menu, ContextMenu, MenuFlyout and Flyout, ToolTip, DatePicker, TimePicker, Calendar and CalendarDatePicker (this fixes the known picker overrun), Separator, GridSplitter, notification card. Each gets a catalog page. Done so far: RadioButton (step 11), Slider, ProgressBar and ProgressRing ([0031](../decisions/0031-slider-and-progress.md)).
 
    Blocks Fluent provides are restyled Fluent. All have the focus ring ([0019](../decisions/0019-focus-ring.md)). The catalog app ([0020](../decisions/0020-catalog-app.md)) starts with the Style pages and Button, and each Block step adds its page.
 
