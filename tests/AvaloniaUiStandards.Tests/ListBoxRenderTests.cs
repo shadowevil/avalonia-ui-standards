@@ -75,7 +75,7 @@ public class ListBoxRenderTests
     [AvaloniaFact]
     public void ComboBoxDropDown_Renders()
     {
-        using var sheet = new Sheet("ComboBox drop-down open: hover on the first item, the third selected (closed field stays Fluent)");
+        using var sheet = new Sheet("ComboBox drop-down open: hover on the first item, the third selected");
         string[] columns = ["Fluent", "Library"];
         foreach (var (themeLabel, theme) in ButtonRenderTests.Themes)
             sheet.AddSection(themeLabel, columns,
