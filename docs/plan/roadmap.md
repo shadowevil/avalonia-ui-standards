@@ -10,17 +10,24 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    3. The shell Module `StandardsWindow` with a sidebar slot but no sidebar (see M4). Done.
    4. The catalog moves into the window of [0022](../decisions/0022-window-layout.md), keeping its current sidebar list for now. Done.
    5. ListBox and ScrollViewer ([0024](../decisions/0024-lists-and-scrolling.md)). ListBox is used for sidebar navigation lists. The ScrollViewer restyle shows a soft shadow on each edge that has content out of view, for every ScrollViewer.
-   5b. Frame rate: 30 fps by default, developer opt-in to the display rate ([0016](../decisions/0016-motion.md)).
-   5c. Glass rim: a hairline that takes a light tint of what's below ([0015](../decisions/0015-glass.md)).
-   6. Native window behaviour per OS: system shadow and native border on macOS and Windows, click-through shadow margin and frame extents on Linux, chrome roles on all ([0022](../decisions/0022-window-layout.md)). It needs per-OS work.
+   5b. Frame rate: continuous animation at 30 fps by default ([0016](../decisions/0016-motion.md)). Done.
+   5c. Glass rim: a hairline that takes a light tint of what's below ([0015](../decisions/0015-glass.md)). Done.
+   5d. Overlay scrollbar: nearly invisible until scrolling or the pointer comes near, then it fades in and widens with proximity for easy grabbing; no arrow buttons; the thumb and track are always fully rounded pills; it floats over content ([0024](../decisions/0024-lists-and-scrolling.md), [0025](../decisions/0025-overlay-scrollbar.md)). Done.
+   6. Native window behaviour on macOS: system shadow, native border and chrome roles ([0022](../decisions/0022-window-layout.md)). Windows and Linux are a later step.
    7. TextInput (Fluent `TextBox`).
    8. ComboBox.
    9. Icon (restyled Fluent `PathIcon`). The Icon set is Phosphor (vector, MIT).
    10. The sidebar Module with its collapse stages (see M4; needs ListBox and Icon).
    11. CheckBox and ToggleSwitch.
+   12. Segmented control (multi-switch): a Block for choosing one of several options for a single setting, with text and/or icon segments. Design per platform best practices, researched and agreed at that step.
+   13. TreeView, reusing the list item design of [0024](../decisions/0024-lists-and-scrolling.md), with a caret to expand and collapse.
+   14. The rest of Avalonia's built-in Fluent controls, restyled: RadioButton, Slider, ProgressBar (with ProgressRing), NumericUpDown and ButtonSpinner, AutoCompleteBox, TabControl and TabStrip, Expander, Menu, ContextMenu, MenuFlyout and Flyout, ToolTip, DatePicker, TimePicker, Calendar and CalendarDatePicker (this fixes the known picker overrun), Separator, GridSplitter, notification card. Each gets a catalog page.
 
    Blocks Fluent provides are restyled Fluent. All have the focus ring ([0019](../decisions/0019-focus-ring.md)). The catalog app ([0020](../decisions/0020-catalog-app.md)) starts with the Style pages and Button, and each Block step adds its page.
+
+   DataGrid and ColorPicker (separate Avalonia packages), after M3.
 4. **M4 First Modules:** the shell Module `StandardsWindow` (frame, title band, glass content panel, status bar, sidebar slot; [0022](../decisions/0022-window-layout.md)), built at step 3 of M3, and the sidebar Module that plugs into its slot, built at step 10. See Open questions for the rest.
+   - Toolbar band: a Module directly below the title band, holding commands and settings (icons, segmented controls, menus), following toolbar best practices. Researched and agreed at that step. The catalog then moves its theme controls out of the title band into the toolbar band, using segmented controls where a setting has a few options (for example theme System/Light/Dark, density Normal/Compact, motion and transparency Follow OS/Reduced/Full).
 5. **M5 First Screen:** the app shell ([0022](../decisions/0022-window-layout.md)).
 
 Then the web decision is due ([0002](../decisions/0002-desktop-first.md)).
