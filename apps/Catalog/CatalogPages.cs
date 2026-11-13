@@ -22,6 +22,8 @@ internal static class CatalogPages
         new("Icon", () => new IconPage()),
         new("TextInput", () => new TextInputPage()),
         new("ComboBox", () => new ComboBoxPage()),
+        new("Toggles", () => new TogglesPage()),
+        new("Ranges", () => new RangesPage()),
         new("NumericUpDown", () => new NumericUpDownPage()),
         new("AutoCompleteBox", () => new AutoCompleteBoxPage()),
     ];

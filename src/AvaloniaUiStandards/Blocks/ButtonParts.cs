@@ -24,6 +24,9 @@ namespace AvaloniaUiStandards.Blocks;
 internal static class ButtonParts
 {
     public const string ChromePart = "PART_Chrome";
+
+    /// <summary>A corner larger than any side: the shapes clamp it to half the shorter side, a pill (or circle).</summary>
+    public static readonly CornerRadius Pill = new(1000);
     public const string ContentPart = "PART_ContentPresenter";
 
     // Density-dependent values, set by BlocksThemes.ApplyDensity under these non-public keys.

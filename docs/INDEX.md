@@ -30,6 +30,8 @@
 - [0027 — TextInput](decisions/0027-text-input.md) — the TextBox chrome, sizes, state colours, placeholder, selection, and the clear and reveal buttons shared by field Blocks
 - [0028 — ComboBox](decisions/0028-combobox.md) — the closed ComboBox field, its caret zone, editable mode and how focus shows on composite fields
 - [0029 — NumericUpDown, ButtonSpinner and AutoCompleteBox](decisions/0029-numeric-and-autocomplete.md) — the spin fields, their spin buttons, and the AutoCompleteBox field and suggestions
+- [0030 — CheckBox, ToggleSwitch and RadioButton](decisions/0030-checkbox-toggleswitch-radiobutton.md) — the toggles' indicator layers, sizes, check glyph, colours, focus ring and motion
+- [0031 — Slider, ProgressBar and ProgressRing](decisions/0031-slider-and-progress.md) — the range controls' shapes, sizes, colours, the added ProgressRing and how indeterminate progress is animated
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions
