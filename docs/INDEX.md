@@ -40,6 +40,7 @@
 - [0037 — ToolTip and notification cards](decisions/0037-tooltip-and-notifications.md) — the solid tooltip card, the glass notification card, its type icons and the status colours
 - [0038 — DatePicker, TimePicker, Calendar and CalendarDatePicker](decisions/0038-pickers-and-calendar.md) — the picker fields, the glass flyouts and drop-down and how their rows stay inside the corners, and the Calendar's cells, today, selection and keyboard ring
 - [0039 — Separator and GridSplitter](decisions/0039-separator-and-gridsplitter.md) — the hairline separator and the splitter's hover grip
+- [0041 — ColorPicker and ColorView](decisions/0041-colorpicker.md) — the ColorPicker package and how it is included, the picker field and its glass flyout, the ColorView's tabs and pages, the colour chip, thumb, sliders, spectrum, palette and previewer
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

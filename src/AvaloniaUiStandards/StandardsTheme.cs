@@ -3,6 +3,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -13,7 +14,8 @@ namespace AvaloniaUiStandards;
 /// <summary>
 /// The library theme, used in place of <c>FluentTheme</c>, and the entry point that assembles
 /// every tier: Fluent with the neutral palettes and the accent, the Style tier resources (type,
-/// spacing, shape, motion, glass, danger) and the Blocks tier control themes. Light or dark
+/// spacing, shape, motion, glass, danger) and the Blocks tier control themes, including those of
+/// the ColorPicker package's controls over that package's Fluent styles. Light or dark
 /// follows the application's <c>RequestedThemeVariant</c>, which follows the OS by default.
 /// </summary>
 public class StandardsTheme : Styles
@@ -94,6 +96,12 @@ public class StandardsTheme : Styles
         _fluent.Palettes[ThemeVariant.Light] = _light;
         _fluent.Palettes[ThemeVariant.Dark] = _dark;
         Add(_fluent);
+        // The ColorPicker package's Fluent styles, after Fluent's, as Fluent's own are included;
+        // the Blocks themes below restyle its controls.
+        Add(new StyleInclude(new Uri("avares://AvaloniaUiStandards/"))
+        {
+            Source = new Uri("avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml"),
+        });
 
         AddResources(Resources);
         AddDanger(Resources, Danger);
