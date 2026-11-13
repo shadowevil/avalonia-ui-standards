@@ -3,6 +3,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
@@ -65,7 +66,11 @@ public class StandardsTheme : Styles
     private static readonly TimeSpan MotionSlow = TimeSpan.FromMilliseconds(300);
     private static readonly Easing MotionEasing = new CubicEaseOut();
 
+    /// <summary>The DataGrid package's Fluent theme (<c>Avalonia.Controls.DataGrid</c>).</summary>
+    internal static readonly Uri DataGridFluentSource = new("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml");
+
     private readonly FluentTheme _fluent;
+    private readonly StyleInclude _dataGrid;
     private readonly ColorPaletteResources _light;
     private readonly ColorPaletteResources _dark;
     private readonly OsAccessibility.Settings _os;
@@ -94,6 +99,9 @@ public class StandardsTheme : Styles
         _fluent.Palettes[ThemeVariant.Light] = _light;
         _fluent.Palettes[ThemeVariant.Dark] = _dark;
         Add(_fluent);
+        // The DataGrid package's Fluent theme, which the Blocks tier restyles like Fluent's own.
+        _dataGrid = new StyleInclude(new Uri("avares://AvaloniaUiStandards/")) { Source = DataGridFluentSource };
+        Add(_dataGrid);
 
         AddResources(Resources);
         AddDanger(Resources, Danger);
@@ -104,7 +112,10 @@ public class StandardsTheme : Styles
         UpdateMotion();
 
         // The Blocks tier control themes (Fluent overrides, 0004).
-        Blocks.BlocksThemes.AddTo(Resources, type => _fluent.TryGetResource(type, null, out var fluentTheme) ? fluentTheme as ControlTheme : null);
+        Blocks.BlocksThemes.AddTo(Resources, type =>
+            _fluent.TryGetResource(type, null, out var fluentTheme) || _dataGrid.TryGetResource(type, null, out fluentTheme)
+                ? fluentTheme as ControlTheme
+                : null);
         Blocks.BlocksThemes.ApplyDensity(Resources, _fluent.DensityStyle);
         foreach (var style in Blocks.BlocksThemes.Styles())
             Add(style);

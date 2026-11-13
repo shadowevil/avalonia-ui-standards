@@ -40,6 +40,7 @@
 - [0037 — ToolTip and notification cards](decisions/0037-tooltip-and-notifications.md) — the solid tooltip card, the glass notification card, its type icons and the status colours
 - [0038 — DatePicker, TimePicker, Calendar and CalendarDatePicker](decisions/0038-pickers-and-calendar.md) — the picker fields, the glass flyouts and drop-down and how their rows stay inside the corners, and the Calendar's cells, today, selection and keyboard ring
 - [0039 — Separator and GridSplitter](decisions/0039-separator-and-gridsplitter.md) — the hairline separator and the splitter's hover grip
+- [0040 — DataGrid](decisions/0040-datagrid.md) — the DataGrid package and version, row bands, grid lines, headers, sort caret, resize grip, cell focus, editing and check columns
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions

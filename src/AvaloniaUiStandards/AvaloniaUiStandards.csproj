@@ -10,6 +10,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Skia" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
   </ItemGroup>
   <ItemGroup>
     <!-- The Phosphor Icons licence (0026) ships at the package root. -->

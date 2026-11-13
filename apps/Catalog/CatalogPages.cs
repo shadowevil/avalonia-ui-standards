@@ -36,5 +36,6 @@ internal static class CatalogPages
         new("ToolTip and notifications", Icons.Info, () => new ToolTipNotificationPage()),
         new("Pickers", Icons.CalendarBlank, () => new PickersPage()),
         new("Separator and GridSplitter", Icons.ArrowsOutLineHorizontal, () => new SeparatorPage()),
+        new("DataGrid", Icons.Table, () => new DataGridPage()),
     ];
 }
