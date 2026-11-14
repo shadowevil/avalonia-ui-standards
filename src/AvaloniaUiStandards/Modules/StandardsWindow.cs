@@ -661,13 +661,20 @@ public class StandardsWindow : Window, IFrameTickSource
         _hidePending = false;
     }
 
-    // The revealed rows stay while keyboard focus is in them or one of their menus or flyouts is open.
-    private bool IsRevealInUse() =>
-        _top is not null
-        && (_top.IsKeyboardFocusWithin
-            || _menuRow.IsOpen
-            || _top.GetLogicalDescendants().OfType<Popup>().Any(p => p.IsOpen)
-            || _top.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen));
+    // The revealed rows stay while keyboard focus (focus shown, not from a click) is in the rows that hide (the title
+    // band and the menu row, not the toolbar band), or a menu or flyout opened from them is open.
+    private bool IsRevealInUse()
+    {
+        if (_top is null)
+            return false;
+        var rows = _top.Rows;
+        if (FocusManager?.GetFocusedElement() is Control focused && focused.Classes.Contains(":focus-visible")
+            && (focused == rows || rows.IsVisualAncestorOf(focused)))
+            return true;
+        return _menuRow.IsOpen
+            || rows.GetLogicalDescendants().OfType<Popup>().Any(p => p.IsOpen)
+            || rows.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen);
+    }
 
     // On macOS, where the full screen window reaches the screen's top (no camera housing), the menu bar slides down over
     // it with the rows, so they reveal below it.
@@ -724,7 +731,11 @@ public class StandardsWindow : Window, IFrameTickSource
                 ToggleFullScreen();
                 break;
             default:
-                ToggleMaximized();
+                // In full screen the caption maximise button (its restore glyph) leaves it for the state before.
+                if (WindowState == WindowState.FullScreen)
+                    ToggleFullScreen();
+                else
+                    ToggleMaximized();
                 break;
         }
     }
@@ -862,7 +873,8 @@ public class StandardsWindow : Window, IFrameTickSource
         if (_buttons is not null)
         {
             _buttons.ButtonStyle = ResolvedButtonStyle;
-            _buttons.IsMaximized = WindowState == WindowState.Maximized;
+            // In full screen the caption maximise button shows restore: it leaves full screen.
+            _buttons.IsMaximized = WindowState is WindowState.Maximized or WindowState.FullScreen;
             _buttons.IsActive = IsActive;
             _buttons.CanMinimize = CanMinimize;
             _buttons.CanMaximize = CanMaximize;

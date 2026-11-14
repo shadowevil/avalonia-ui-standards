@@ -14,7 +14,7 @@
       - Dragging the title band calls Avalonia's move drag, the same native window drag the `TitleBar` role starts. Double-clicking it follows the system setting "Double-click a window's title bar to" (`AppleActionOnDoubleClick`): minimise, do nothing, or otherwise maximise and restore.
       - The client area is not extended (`ExtendClientAreaToDecorationsHint` stays false), so the chrome roles are tagged but not acted on.
       - When maximised, the system keeps its shadow and rounds the window's corners with its own mask.
-      - A normal window that would open as wide or as tall as the screen's working area, or more, opens that side `SpacingL` (16) short of the working area at each edge.
+      - A normal window that would open as wide or as tall as the screen's working area, or more, opens that side `SpacingL` (16) short of the working area at each edge, but never below the window's `MinWidth` or `MinHeight`: a minimum as large as the working area still opens the window there, with the issue below.
         - **Why:** Avalonia.Native 12.1.6 counts a native window as maximised whenever its frame equals the screen's visible frame. macOS squeezes a window that opens larger than the working area to exactly that frame, so the window started out maximised natively while reading Normal, with no frame to restore to, and maximise and restore then acted backwards.
       - The library's traffic lights and Cmd+W and Cmd+M stay.
       - Why not a borderless window with `hasShadow`: macOS gives a borderless window only a small, tight shadow, unlike other windows, and no native resizing. Avalonia 12.1.6 has no resize drag on macOS (`BeginResizeDrag` does nothing there), so only a resizable window can be resized.

@@ -566,6 +566,66 @@ public class FullScreenTests
         }
     }
 
+    [AvaloniaFact]
+    public void Reveal_AClickInTheRowsOrTheBand_DoesNotKeepThem()
+    {
+        var delays = new Delays();
+        var window = Show(before: w => w.RevealDelay = delays.Add);
+        try
+        {
+            window.WindowState = WindowState.FullScreen;
+            MenuRowTests.Pump(window);
+            foreach (var target in new[]
+                     {
+                         MenuRowTests.Part<Button>(window, "ToolbarButton"),
+                         ((ToolbarBand)window.ToolbarBand!).Items.OfType<Button>().First(),
+                     })
+            {
+                window.MouseMove(new Point(400, 0));
+                MenuRowTests.Pump(window);
+                Assert.True(window.IsTopRevealed);
+                var point = Centre(target, window);
+                window.MouseMove(point);
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
+                MenuRowTests.Pump(window);
+                Assert.True(target.IsFocused);
+
+                window.MouseMove(new Point(400, 300));
+                delays.RunAll();
+                MenuRowTests.Pump(window);
+                Assert.False(window.IsTopRevealed);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(WindowState.Normal)]
+    [InlineData(WindowState.Maximized)]
+    public void CaptionMaximise_InFullScreen_ShowsRestore_AndLeavesForTheStateBefore(WindowState before)
+    {
+        var window = Show(WindowLayoutMode.Windows);
+        try
+        {
+            window.WindowState = before;
+            window.ToggleFullScreen();
+            MenuRowTests.Pump(window);
+            var maximise = Caption(window, WindowButtonKind.Maximize);
+            Assert.True(maximise.IsMaximized);
+            Assert.Equal("Restore", Avalonia.Automation.AutomationProperties.GetName(maximise));
+            Click(maximise);
+            Assert.Equal(before, window.WindowState);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- The menu item ------------------------------------------------------------------------
 
     private static (StandardsWindow Window, FullScreenMenuItem Item) WithItem(bool macOS = true, WindowLayoutMode layout = WindowLayoutMode.MacOS,

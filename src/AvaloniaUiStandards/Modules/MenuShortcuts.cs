@@ -116,8 +116,10 @@ internal sealed class MenuShortcuts : IDisposable
         foreach (var watch in _watches)
             watch.Dispose();
         _watches.Clear();
+        // An item moved to another window's menu keeps that window.
         foreach (var item in _fullScreenItems)
-            item.Window = null;
+            if (item.Window == _window)
+                item.Window = null;
         _fullScreenItems.Clear();
         if (_menu is null)
             return;

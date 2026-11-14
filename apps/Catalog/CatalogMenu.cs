@@ -12,8 +12,8 @@ namespace Catalog;
 
 /// <summary>
 /// The catalog window's menus (File, Edit, View, Help), defined once as a <see cref="NativeMenu"/>: macOS shows them in
-/// the system menu bar, the Windows layout in the window's menu row. View ends with the library's full screen item (macOS). The application menu's About item joins the end of
-/// Help in the menu row.
+/// the system menu bar, the Windows layout in the window's menu row. View ends with the library's full screen item
+/// (macOS). The application menu's About item joins the end of Help in the menu row.
 /// </summary>
 internal sealed class CatalogMenu
 {
