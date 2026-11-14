@@ -33,7 +33,7 @@ internal sealed class MotionPage : UserControl
         var play = new Button { Content = "Play" };
         play.Click += (_, _) =>
         {
-            // Duration and easing are read at the moment of the click, so toolbar changes apply.
+            // Duration and easing are read at the moment of the click, so theme band changes apply.
             var duration = play.FindResource(key) is TimeSpan d ? d : TimeSpan.Zero;
             var easing = play.FindResource("MotionEasing") as Easing ?? new LinearEasing();
             dot.Transitions = [new ThicknessTransition { Property = Layoutable.MarginProperty, Duration = duration, Easing = easing }];

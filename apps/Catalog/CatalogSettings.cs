@@ -9,7 +9,7 @@ using AvaloniaUiStandards;
 namespace Catalog;
 
 /// <summary>
-/// The catalog's saved settings: the theme toolbar's choices and the Settings page's, so the catalog reopens as it
+/// The catalog's saved settings: the theme band's choices and the Settings page's, so the catalog reopens as it
 /// was left. Kept as JSON in the per-user application data folder (<see cref="DefaultPath"/>).
 /// </summary>
 internal sealed record CatalogSettings

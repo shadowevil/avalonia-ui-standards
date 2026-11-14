@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
@@ -15,13 +16,13 @@ namespace AvaloniaUiStandards.Tests;
 
 /// <summary>
 /// Drives the catalog's main window as a user would: every sidebar page in turn, and every
-/// toolbar setting (theme, density, accent, reduce motion, reduce transparency), with the
+/// toolbar band setting (theme, density, accent, reduce motion, reduce transparency), with the
 /// application-wide theme as the app has it.
 /// </summary>
 public class CatalogWindowTests
 {
     [AvaloniaFact]
-    public void MainWindow_SurvivesPagesAndToolbarChanges()
+    public void MainWindow_SurvivesPagesAndToolbarBandChanges()
     {
         var app = Application.Current!;
         var theme = app.Styles.OfType<StandardsTheme>().Single();
@@ -31,22 +32,22 @@ public class CatalogWindowTests
         {
             window.Show();
             Pump();
-            var toolbar = window.GetVisualDescendants().OfType<ThemeToolbar>().Single();
+            var band = window.ThemeControls;
 
             VisitAllPages(window);
             foreach (var themeIndex in new[] { 2, 1, 0, 2 })
             {
-                toolbar.ThemeBox.SelectedIndex = themeIndex;
+                band.Theme.SelectedIndex = themeIndex;
                 Pump();
                 VisitAllPages(window);
             }
 
-            foreach (var (box, indices) in new (ComboBox, int[])[]
+            foreach (var (box, indices) in new (SelectingItemsControl, int[])[]
                      {
-                         (toolbar.DensityBox, [1, 0, 1]),
-                         (toolbar.AccentBox, Enumerable.Range(0, toolbar.AccentBox.ItemCount).Concat([0]).ToArray()),
-                         (toolbar.MotionBox, [1, 2, 0]),
-                         (toolbar.TransparencyBox, [1, 2, 0]),
+                         (band.Density, [1, 0, 1]),
+                         (band.AccentList, Enumerable.Range(0, band.AccentList.ItemCount).Concat([0]).ToArray()),
+                         (band.Motion, [1, 2, 0]),
+                         (band.Transparency, [1, 2, 0]),
                      })
                 foreach (var index in indices)
                 {

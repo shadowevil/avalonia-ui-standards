@@ -42,7 +42,7 @@ internal sealed class GlassPage : UserControl
         var clipped = new Border { ClipToBounds = true, Child = stage };
         Content = Ui.Page("Glass",
             Ui.Section("Over a backdrop", clipped),
-            Ui.Caption("Scroll or drag the backdrop. Reduce transparency in the toolbar draws the panels solid."));
+            Ui.Caption("Scroll or drag the backdrop. Reduce transparency in the toolbar band draws the panels solid."));
     }
 
     private static Control Panel(double width, double height, string text) => new GlassBorder

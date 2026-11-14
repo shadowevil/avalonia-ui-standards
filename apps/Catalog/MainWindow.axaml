@@ -7,9 +7,6 @@
   <StandardsWindow.Backdrop>
     <c:RibbonBackdrop x:Name="Ribbons" />
   </StandardsWindow.Backdrop>
-  <StandardsWindow.Toolbar>
-    <c:ThemeToolbar />
-  </StandardsWindow.Toolbar>
   <StandardsWindow.Sidebar>
     <Sidebar x:Name="PageList" />
   </StandardsWindow.Sidebar>

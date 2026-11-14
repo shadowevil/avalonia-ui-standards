@@ -29,7 +29,7 @@
       - separators, group starts and zone boundaries between two overflowed items become menu separators, and a segmented group has a separator on each side;
       - spacers vanish.
     - Separators show in the band only between two shown items of their zone.
-    - The band measures each item's real width. Which items show is applied after layout (posted), as in the catalog's theme toolbar, so layout never loops; until then an item that no longer fits is laid out empty.
+    - The band measures each item's real width. Which items show is applied after layout (posted), so layout never loops; until then an item that no longer fits is laid out empty.
     - Hidden items take no focus; if the focused item overflows, focus moves to "…".
     - **Why:** Fluent 2 (never wrap; overflow is a trailing "…" menu) and Apple HIG (zones, labels in the overflow menu). Priorities let an app keep its key commands; the trailing end goes first by default, as in Fluent.
   - Keyboard: one Tab stop per item, in visual order (leading, centre, trailing, then "…"), whatever the order the items were added in. Arrow keys stay inside segmented controls ([0032](0032-segmented-control.md)). The "…" button opens its menu with Enter, Space or Down.

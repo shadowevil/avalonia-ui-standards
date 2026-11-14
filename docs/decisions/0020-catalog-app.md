@@ -4,7 +4,11 @@
 - **Decision:**
   - A desktop app in `apps/Catalog` (project `Catalog`) for browsing and trying the library live. It is built with the solution and never shipped.
   - A simple sidebar list of pages, with no tier grouping.
-  - A toolbar with live theme controls: theme (System, Light, Dark), density, accent colour, reduce motion and reduce transparency.
+  - Live theme controls in the window's toolbar band ([0043](0043-toolbar-band.md)), below the title band, which holds only the window buttons, the sidebar button and the title:
+    - segmented controls for theme (System, Light, Dark), density (Normal, Compact), reduce motion and reduce transparency (each Follow OS, Reduced, Full), each with its name as tooltip, automation name and overflow label;
+    - the accent colour as a swatch button: a subtle button, square at the button height, holding a chip of the accent at the icon size (20, 16 Compact) with a hairline edge and radius 4. It opens a glass flyout ([0036](0036-menus-and-flyouts.md)) with the preset list (Default, Teal, Green, Orange, Purple, Pink; each a chip and its name) and a hex box (#RRGGBB) below it.
+    - Theme and accent lead, then density as a group of its own; motion and transparency sit in the trailing zone, as two groups. As the window narrows they move into the "…" menu in the order transparency, motion, density, accent, theme, so theme and accent stay visible longest. In the menu each segmented control is a radio group, and the accent entry opens the accent flyout at "…".
+    - **Why:** Settings with a few options read best as segmented controls ([0032](0032-segmented-control.md)); the band gives them a row of their own and keeps every setting reachable at any width. The accent chooser has more options than fit in a band, so the band shows the current colour and the choices open on demand.
   - Every control page shows its variants × states side by side (rest, hover, pressed, disabled, focused) next to a live row.
   - Style pages show the actual theme values.
   - It uses the library as apps do ([0017](0017-app-usage.md)).
@@ -14,8 +18,8 @@
   - In light, the ribbons use normal blending: accent bands at opacity 0.5, accent lines deeper than the bands with wider halos, and sparkles with a ringed halo. Additive blending washed out to white on the light backdrop, so light uses normal blending and deeper tones to keep the ribbons visible.
   - The status bar shows the window's rendered frames per second (counted passively, so it causes no frames) and the effective `HighRefreshRate` ([0016](0016-motion.md)), or why animation is paused, shortened when the window is narrow.
   - A Settings page (`Icons.Gear`) is the sidebar's footer row ([0034](0034-sidebar.md)), pinned below the page list. It holds the catalog's settings, starting with a switch for high refresh rate, which sets `StandardsTheme.HighRefreshRate` app-wide.
-  - The catalog reopens as it was left: the toolbar's choices (theme, density, accent, reduce motion, reduce transparency) and the Settings page's are saved, half a second after the last change, to `AvaloniaUiStandards.Catalog/settings.json` (System.Text.Json) in the per-user application data folder (`Environment.SpecialFolder.ApplicationData`: ~/Library/Application Support on macOS, %APPDATA% on Windows, ~/.config on Linux), and applied at startup. A missing or unreadable file gives the defaults.
-  - A test also drives the catalog's main window through every page and toolbar setting, as a regression guard.
+  - The catalog reopens as it was left: the toolbar band's choices (theme, density, accent, reduce motion, reduce transparency) and the Settings page's are saved, half a second after the last change, to `AvaloniaUiStandards.Catalog/settings.json` (System.Text.Json) in the per-user application data folder (`Environment.SpecialFolder.ApplicationData`: ~/Library/Application Support on macOS, %APPDATA% on Windows, ~/.config on Linux), and applied at startup. A missing or unreadable file gives the defaults.
+  - A test also drives the catalog's main window through every page and toolbar band setting, as a regression guard.
   - The catalog sets its own application name, "Avalonia UI Standards Catalog", and its own application menu with an "About Avalonia UI Standards Catalog" item that opens a small window with the name and library version. This replaces the default "About Avalonia" item on macOS; Quit, Hide and Services come from Avalonia.
   - Each new Block adds its page as part of its own step.
 - **Why:** It is a place to see and try everything live, across themes and settings, while the test renders ([0009](0009-screenshots-from-tests.md)) remain the reproducible record.
