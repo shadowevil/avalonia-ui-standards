@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Segmented control tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/segmented-control.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<form id="form">
+  <ui-segmented-control id="range" class="ui-squircle ui-focus-ring-within" aria-label="Range" name="range">
+    <span class="ui-segmented-control-item ui-squircle" data-value="day">Day</span>
+    <span class="ui-segmented-control-item ui-squircle" data-value="week" aria-checked="true">Week</span>
+    <span class="ui-segmented-control-item ui-squircle" data-value="month" aria-disabled="true">Month</span>
+    <span class="ui-segmented-control-item ui-squircle" data-value="year">Year</span>
+  </ui-segmented-control>
+  <fieldset id="fieldset">
+    <ui-segmented-control id="in-fieldset" class="ui-squircle ui-focus-ring-within" aria-label="Theme" name="theme">
+      <span class="ui-segmented-control-item ui-squircle">Light</span>
+      <span class="ui-segmented-control-item ui-squircle">Dark</span>
+    </ui-segmented-control>
+  </fieldset>
+</form>
+<ui-segmented-control id="none" class="ui-squircle ui-focus-ring-within" aria-label="None checked">
+  <span class="ui-segmented-control-item ui-squircle" aria-disabled="true">A</span>
+  <span class="ui-segmented-control-item ui-squircle">B</span>
+  <span class="ui-segmented-control-item ui-squircle">C</span>
+</ui-segmented-control>
+<ui-segmented-control id="icons" class="ui-squircle ui-focus-ring-within" aria-label="View">
+  <span class="ui-segmented-control-item ui-squircle" aria-label="List" title="List"><svg class="ui-icon" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256"/></svg></span>
+  <span class="ui-segmented-control-item ui-squircle" aria-label="Grid" title="Grid"><svg class="ui-icon" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256"/></svg></span>
+</ui-segmented-control>
+<div dir="rtl">
+  <ui-segmented-control id="rtl" class="ui-squircle ui-focus-ring-within" aria-label="RTL">
+    <span class="ui-segmented-control-item ui-squircle">One</span>
+    <span class="ui-segmented-control-item ui-squircle" aria-checked="true">Two</span>
+    <span class="ui-segmented-control-item ui-squircle">Three</span>
+  </ui-segmented-control>
+</div>
+<div id="host"></div>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity, setReduceMotion } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/segmented-control.js";
+
+const $ = (id) => document.getElementById(id);
+const cs = (el, pseudo) => getComputedStyle(el, pseudo);
+const items = (id) => $(id).items;
+const pill = (id) => $(id).querySelector(".ui-segmented-control-pill");
+const frame = () => new Promise((r) => setTimeout(r, 50));
+const tick = () => new Promise((r) => setTimeout(r));
+const probe = $("probe");
+// The length a custom property resolves to on `el`.
+function length(el, name) {
+  const child = el.appendChild(document.createElement("i"));
+  child.style.cssText = `position: absolute; width: var(${name})`;
+  const width = parseFloat(cs(child).width);
+  child.remove();
+  return width;
+}
+
+function rgba(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(v * 255)).concat(m[4] === undefined ? 1 : +m[4]);
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  throw new Error(`unparsed colour ${text}`);
+}
+const toHex = (c) => "#" + c.slice(0, 3).map((v) => Math.round(v).toString(16).padStart(2, "0").toUpperCase()).join("");
+const hex = (text) => toHex(rgba(text));
+// A colour with alpha over an opaque one.
+const over = (top, under) => { const t = rgba(top), u = rgba(under); return toHex(t.slice(0, 3).map((v, i) => v * t[3] + u[i] * (1 - t[3]))); };
+function token(name) {
+  probe.style.color = `var(${name})`;
+  return cs(probe).color;
+}
+const ratio = (a, b) => contrastRatio(...[a, b].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))));
+const checked = (id) => items(id).filter((i) => i.getAttribute("aria-checked") === "true").map((i) => i.textContent.trim()).join(",");
+function key(el, k, options = {}) {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+const click = (el, options = {}) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...options }));
+function pillOn(id, item) {
+  const p = pill(id).getBoundingClientRect(), r = item.getBoundingClientRect();
+  return Math.abs(p.left - r.left) < 0.5 && Math.abs(p.width - r.width) < 0.5 && Math.abs(p.top - r.top) < 0.5 && Math.abs(p.height - r.height) < 0.5;
+}
+function make(labels, checkedIndex) {
+  const c = document.createElement("ui-segmented-control");
+  c.className = "ui-squircle ui-focus-ring-within";
+  c.id = "made";
+  c.setAttribute("aria-label", "Made");
+  for (const [i, l] of labels.entries()) {
+    const s = document.createElement("span");
+    s.className = "ui-segmented-control-item ui-squircle";
+    s.textContent = l;
+    if (i === checkedIndex) s.setAttribute("aria-checked", "true");
+    c.append(s);
+  }
+  $("host").replaceChildren(c);
+  return c;
+}
+
+test("roles: a radiogroup of radios with aria-checked and aria-disabled; the pill hidden from assistive technology", () => {
+  assertEqual($("range").getAttribute("role"), "radiogroup");
+  assertEqual(items("range").map((i) => i.getAttribute("role")).join(), "radio,radio,radio,radio");
+  assertEqual(items("range").map((i) => i.getAttribute("aria-checked")).join(), "false,true,false,false");
+  assertEqual(items("range")[2].getAttribute("aria-disabled"), "true");
+  assertEqual(pill("range").getAttribute("aria-hidden"), "true");
+  assertEqual(items("icons").map((i) => i.getAttribute("aria-label")).join(), "List,Grid", "icon segments are named");
+});
+
+test("one Tab stop, on the selected segment; with none checked, the first enabled one is selected", () => {
+  assertEqual(items("range").map((i) => i.tabIndex).join(), "-1,0,-1,-1");
+  assertEqual(checked("none"), "B");
+  assertEqual(items("none").map((i) => i.tabIndex).join(), "-1,0,-1");
+});
+
+test("arrows select the next or previous enabled segment, skipping disabled ones, stopping at the ends; Home and End; keys always prevented", () => {
+  const [day, week, , year] = items("range");
+  week.focus();
+  assert(key(week, "ArrowRight"), "Right prevented");
+  assertEqual(document.activeElement, year, "skips Month");
+  assertEqual(checked("range"), "Year");
+  assertEqual(year.tabIndex, 0);
+  assert(key(year, "ArrowRight"), "prevented at the end too");
+  assertEqual(checked("range"), "Year", "no wrap");
+  key(year, "ArrowUp");
+  assertEqual(checked("range"), "Week");
+  key(week, "ArrowDown");
+  assertEqual(checked("range"), "Year");
+  key(year, "Home");
+  assertEqual(document.activeElement, day);
+  assertEqual(checked("range"), "Day");
+  assert(key(day, "ArrowLeft"), "prevented at the start");
+  assertEqual(checked("range"), "Day", "no wrap");
+  key(day, "End");
+  assertEqual(checked("range"), "Year");
+  key(year, "ArrowLeft");
+  assertEqual(checked("range"), "Week");
+  assertEqual(items("range").filter((i) => i.tabIndex === 0).length, 1, "one Tab stop");
+});
+
+test("right-to-left: Left and Right swap; Up and Down do not", () => {
+  const [one, two, three] = items("rtl");
+  two.focus();
+  key(two, "ArrowLeft");
+  assertEqual(checked("rtl"), "Three");
+  key(three, "ArrowRight");
+  assertEqual(checked("rtl"), "Two");
+  key(two, "ArrowUp");
+  assertEqual(checked("rtl"), "One");
+  key(one, "ArrowDown");
+  assertEqual(checked("rtl"), "Two");
+});
+
+test("a click selects whatever the modifiers; a disabled segment does nothing; change fires only on a change", () => {
+  const [day, week, month] = items("range");
+  let changes = 0;
+  const count = () => changes++;
+  $("range").addEventListener("change", count);
+  click(day, { ctrlKey: true, shiftKey: true, metaKey: true });
+  assertEqual(checked("range"), "Day");
+  assertEqual(changes, 1);
+  click(day, { ctrlKey: true });
+  assertEqual(checked("range"), "Day", "a click never clears");
+  assertEqual(changes, 1);
+  click(month);
+  assertEqual(checked("range"), "Day");
+  assertEqual(changes, 1);
+  week.focus();
+  assert(key(week, " "), "Space handled");
+  assertEqual(checked("range"), "Week");
+  assertEqual(changes, 2);
+  $("range").removeEventListener("change", count);
+});
+
+test("form: the selected data-value is submitted under name; value and selectedIndex; reset restores", () => {
+  $("range").value = "year";
+  assertEqual($("range").selectedIndex, 3);
+  assertEqual(new FormData($("form")).get("range"), "year");
+  $("range").selectedIndex = 0;
+  assertEqual(new FormData($("form")).get("range"), "day");
+  assertEqual(new FormData($("form")).get("theme"), "Light", "the text without data-value");
+  assertEqual(items("icons")[0].getAttribute("aria-label"), $("icons").value, "the name of an icon segment");
+  $("form").reset();
+  assertEqual($("range").value, "week");
+});
+
+test("disabled (attribute or fieldset): aria-disabled, no Tab stop, keys and clicks ignored", async () => {
+  $("fieldset").disabled = true;
+  await tick();
+  assertEqual($("in-fieldset").getAttribute("aria-disabled"), "true");
+  assert(items("in-fieldset").every((i) => i.tabIndex === -1), "no Tab stop");
+  $("fieldset").disabled = false;
+  await tick();
+  assert(!$("in-fieldset").hasAttribute("aria-disabled"));
+  const c = $("range");
+  c.disabled = true;
+  assertEqual(c.getAttribute("aria-disabled"), "true");
+  assert(items("range").every((i) => i.tabIndex === -1), "no Tab stop");
+  click(items("range")[0]);
+  key(items("range")[1], "ArrowLeft");
+  assertEqual(checked("range"), "Week");
+  c.disabled = false;
+  assertEqual(items("range")[1].tabIndex, 0);
+});
+
+test("removing the selected segment selects the one taking its place, or the new last; one change each; others keep it", async () => {
+  const c = make(["A", "B", "C", "D"], 1);
+  let changes = 0;
+  c.addEventListener("change", () => changes++);
+  c.items[1].remove();
+  await tick();
+  assertEqual(checked("made"), "C");
+  assertEqual(changes, 1);
+  c.items[0].remove();
+  await tick();
+  assertEqual(checked("made"), "C", "removing another keeps the selection");
+  assertEqual(changes, 1);
+  c.items.at(-1).click();
+  changes = 0;
+  c.items.at(-1).remove();
+  await tick();
+  assertEqual(checked("made"), "C", "the new last");
+  assertEqual(changes, 1);
+  const x = document.createElement("span");
+  x.className = "ui-segmented-control-item ui-squircle";
+  x.textContent = "X";
+  c.items.at(-1).replaceWith(x);
+  await tick();
+  assertEqual(checked("made"), "X", "replacing keeps the index");
+});
+
+test("shape and size by density: track 32/24 with radius 8, segments 4 shorter with radius 6, equal widths, padding 12/8", () => {
+  try {
+    for (const [density, h, pad] of [["normal", 32, "12px"], ["compact", 24, "8px"]]) {
+      setDensity(density);
+      const c = $("range");
+      assertEqual(c.getBoundingClientRect().height, h, `${density} height`);
+      assertEqual(length(c, "--ui-squircle-radius"), 8);
+      assertEqual(cs(c).paddingTop, "2px");
+      for (const item of c.items) {
+        assertEqual(item.getBoundingClientRect().height, h - 4, `${density} segment height`);
+        assertEqual(cs(item).paddingInlineStart, pad);
+      }
+      assertEqual(new Set(c.items.map((i) => i.getBoundingClientRect().width.toFixed(2))).size, 1, "equal widths");
+      assertEqual(cs(items("icons")[0].firstElementChild).width, density === "normal" ? "20px" : "16px", "icon at its density size");
+    }
+    assertEqual(length(items("range")[0], "--ui-squircle-radius"), 6, "segment radius 6");
+    assertEqual(length(pill("range"), "--ui-squircle-radius"), 6, "pill radius 6");
+    $("range").style.setProperty("--ui-segmented-control-radius", "12px");
+    assertEqual(length(items("range")[0], "--ui-squircle-radius"), 10, "follows the control's radius");
+    assertEqual(length(pill("range"), "--ui-squircle-radius"), 10, "the pill too");
+    $("range").style.removeProperty("--ui-segmented-control-radius");
+  } finally {
+    setDensity("normal");
+  }
+});
+
+test("the pill sits under the selected segment, follows the selection and a resize at once", async () => {
+  await frame();
+  const c = make(["Short", "A much longer one", "C"], 0);
+  await frame();
+  assert(pillOn("made", c.items[0]), "on the first");
+  c.items[2].click();
+  await frame();
+  assert(pillOn("made", c.items[2]), "on the clicked one (reduce motion)");
+  c.style.width = "600px";
+  await frame();
+  assert(pillOn("made", c.items[2]), "after a resize");
+  c.items[1].setAttribute("aria-checked", "true");
+  c.items[2].setAttribute("aria-checked", "false");
+  await frame();
+  assert(pillOn("made", c.items[1]), "follows aria-checked set by script");
+  assertEqual(cs(c.items[1]).backgroundColor, "rgba(0, 0, 0, 0)", "the segment adds no fill");
+});
+
+test("right-to-left: the pill sits under the selected segment", async () => {
+  await frame();
+  assert(pillOn("rtl", items("rtl").find((i) => i.getAttribute("aria-checked") === "true")), "mirrored");
+});
+
+test("motion: a new selection slides the pill; a resize or a segment added moves it at once", async () => {
+  try {
+    setReduceMotion(false);
+    const c = make(["A", "B", "C"], 0);
+    await frame();
+    const p = c.querySelector(".ui-segmented-control-pill");
+    const sliding = () => cs(p).insetInlineStart && p.getAnimations().filter((a) => ["left", "right", "inset-inline-start"].includes(a.transitionProperty)).length;
+    c.items[2].click();
+    assertEqual(sliding(), 1, "slides to the clicked segment");
+    p.getAnimations().forEach((a) => a.finish());
+    c.style.width = "500px";
+    assertEqual(sliding(), 0, "a resize does not slide");
+    const d = document.createElement("span");
+    d.className = "ui-segmented-control-item ui-squircle";
+    d.textContent = "D";
+    c.append(d);
+    await tick();
+    assertEqual(sliding(), 0, "a segment added does not slide");
+    await frame();
+    assert(pillOn("made", c.items[2]), "still under its segment");
+  } finally {
+    setReduceMotion(true);
+  }
+});
+
+test("the pill slides over MotionNormal with the ease-out; instant under reduce motion", async () => {
+  try {
+    setReduceMotion(false);
+    const p = pill("range");
+    assertEqual(cs(p).transitionProperty, "inset-inline-start, background-color");
+    assertEqual(cs(p).transitionDuration, "0.2s, 0.1s");
+    assertEqual(cs(items("range")[0]).transitionDuration, "0.1s", "hover fades over MotionFast");
+    setReduceMotion(true);
+    assertEqual(cs(p).transitionDuration, "0s, 0s");
+  } finally {
+    setReduceMotion(true);
+  }
+});
+
+test("colours in light and dark: Button's track and text, the neutral pill, hover fill, AA text, hover apart from the pill", () => {
+  const want = { light: ["#FFFFFF", "#FFFFFF", "#A6A6A6"], dark: ["#6B6B6B", "#525252", "#9E9E9E"] };
+  const c = $("range");
+  const [day, week] = c.items;
+  c.selectedIndex = 0;
+  try {
+    for (const theme of ["light", "dark"]) {
+      setTheme(theme);
+      const track = hex(cs(c).backgroundColor);
+      assertEqual(track, hex(token("--ui-system-base-low-color")), `${theme} track`);
+      const p = hex(cs(pill("range")).backgroundColor);
+      assertEqual(p, want[theme][0], `${theme} pill`);
+      const text = hex(cs(day).color);
+      assertEqual(text, hex(token("--ui-system-base-high-color")), "selected text is Button's");
+      assertEqual(hex(cs(week).color), text, "the same for unselected");
+      assert(ratio(text, p) >= 4.5, `${theme} text on the pill`);
+      assert(ratio(text, track) >= 4.5, `${theme} text on the track`);
+      for (const state of ["hover", "pressed"]) {
+        week.dataset.state = state;
+        const fill = cs(week).backgroundColor;
+        probe.style.color = "color-mix(in srgb, var(--ui-system-base-high-color) 10%, transparent)";
+        assertEqual(fill, cs(probe).color, `${theme} ${state}: Button's hover fill`);
+        const onTrack = over(fill, cs(c).backgroundColor);
+        assert(onTrack !== track, `${theme} ${state} shows on the track`);
+        assert(ratio(onTrack, p) >= 1.3, `${theme} ${state} vs pill ${ratio(onTrack, p).toFixed(2)}`);
+        day.dataset.state = state;
+        assertEqual(rgba(cs(day).backgroundColor)[3], 0, "the selected segment takes no hover fill");
+        delete day.dataset.state;
+      }
+      delete week.dataset.state;
+      assertEqual(hex(cs(items("range")[2]).color), hex(token("--ui-system-base-medium-low-color")), "disabled segment text");
+      c.disabled = true;
+      const dp = hex(cs(pill("range")).backgroundColor);
+      assertEqual(dp, want[theme][1], `${theme} disabled pill`);
+      assertEqual(hex(cs(day).color), want[theme][2], `${theme} disabled selected text`);
+      const disabledTrack = hex(cs(c).backgroundColor);
+      assert(ratio(hex(cs(day).color), dp) >= ratio(hex(cs(week).color), disabledTrack), `${theme} disabled selected no harder to read`);
+      c.disabled = false;
+    }
+  } finally {
+    setTheme("light");
+    c.disabled = false;
+    $("form").reset();
+  }
+});
+
+test("focus ring around the whole control while a segment has keyboard focus; none on the segment", () => {
+  const c = $("range");
+  c.dataset.state = "focus";
+  assertEqual(cs(c).outlineStyle, "solid");
+  assertEqual(cs(c).outlineWidth, "2px");
+  assertEqual(cs(c).outlineOffset, "2px");
+  delete c.dataset.state;
+  const week = c.items[1];
+  week.focus();
+  assertEqual(cs(week).outlineStyle, "none");
+  if (week.matches(":focus-visible")) assertEqual(cs(c).outlineStyle, "solid");
+  week.blur();
+});
+</script>
+</body>
+</html>

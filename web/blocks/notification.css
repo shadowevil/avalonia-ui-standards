@@ -1,0 +1,174 @@
+/*
+  Notification cards (0037): glass cards that float over the app, stacked in a notification area.
+
+    <div class="ui-notification-area" popover="manual" aria-live="polite">   shown from the start
+      <div class="ui-notification ui-glass ui-squircle" data-type="success" role="status">
+        <svg class="ui-icon ui-notification-icon">…</svg>              Icons.CheckCircle (below)
+        <div class="ui-notification-text">
+          <div class="ui-notification-title">Saved</div>
+          <div class="ui-notification-message">The document was saved.</div>
+        </div>
+        <button type="button" class="ui-button ui-subtle ui-squircle ui-focus-ring ui-notification-close"
+            aria-label="Close"><svg class="ui-icon">…</svg></button>  Icons.X
+      </div>
+    </div>
+
+  - Area: a popover="manual" the app shows (showPopover()) when the page loads and keeps open, so
+    it sits in the top layer above everything and its cards are first-level glass wherever it is
+    in the DOM, as the desktop's notification manager in the window's overlay layer (0015, 0036).
+  - Card: the overlay radius 16, 360 px wide (never wider than the area), SpacingL padding inside
+    the glass edge and an outer margin of SpacingS. The area is inset SpacingS from the viewport's
+    top and end edges (Fluent's TopRight), so cards sit 16 px from the edge and 16 px apart;
+    data-position="top-start", "bottom-end" or "bottom-start" moves it to another corner.
+  - Layout: the type icon (the icon size) at the top start, SpacingM before the text; the title in
+    body strong over the message in body text, SpacingXS apart, both wrapping, in the primary text
+    colour; the close button, a subtle square Button (Button's density height) holding Icons.X,
+    pulled into the padding so its centre lines up with the icon. Its accessible name is "Close";
+    the app can set another.
+  - Types (data-type) and their icon, in the type's text colour (AA on the glass):
+      information  Icons.Info           AccentTextColor
+      success      Icons.CheckCircle    SuccessTextColor
+      warning      Icons.Warning        WarningTextColor
+      error        Icons.WarningCircle  DangerTextColor
+    Content that is not a title and message goes in ui-notification-text as it is.
+  - Motion: a card fades in over MotionSlow when it is added; data-closing="true" fades it out over
+    MotionSlow, after which the app removes it (on the animationend whose animationName is
+    ui-notification-fade-out; it fires at once under reduce motion). The fades run on the glass
+    layers and the content, not on the card, so the blur stays during them.
+  - Live region (accessibility.md): the area exists in the page before any card is added, so
+    assistive technology announces cards as they arrive. A card is role="status" (polite), or
+    role="alert" for an error that needs action now, and never takes focus.
+*/
+.ui-notification-area {
+  --ui-notification-inset: var(--ui-spacing-s);
+  /* Over the browser's popover defaults. */
+  position: fixed;
+  inset-block: 0 auto;
+  inset-inline: auto 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  box-sizing: border-box;
+  max-block-size: 100dvh;
+  max-inline-size: 100vw;
+  padding: var(--ui-notification-inset);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ui-notification-area[data-position="top-start"] {
+  inset-inline: 0 auto;
+  align-items: flex-start;
+}
+
+.ui-notification-area[data-position="bottom-end"] {
+  inset-block: auto 0;
+  justify-content: flex-end;
+}
+
+.ui-notification-area[data-position="bottom-start"] {
+  inset-block: auto 0;
+  inset-inline: 0 auto;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.ui-notification {
+  --ui-squircle-radius: var(--ui-corner-radius-overlay);
+  --ui-notification-width: 360px;
+  --ui-notification-padding: var(--ui-spacing-l);
+  /* The glass edge inside the padding, as the desktop GlassBorder lays it out. */
+  --ui-notification-edge: 1px;
+  --ui-notification-gap: var(--ui-spacing-m);
+  --ui-notification-icon-color: var(--ui-accent-text-color);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  box-sizing: border-box;
+  inline-size: var(--ui-notification-width);
+  max-inline-size: 100%;
+  margin: var(--ui-spacing-s);
+  padding: calc(var(--ui-notification-padding) + var(--ui-notification-edge));
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  line-height: normal;
+  pointer-events: auto;
+}
+
+.ui-notification[data-type="success"] {
+  --ui-notification-icon-color: var(--ui-success-text-color);
+}
+
+.ui-notification[data-type="warning"] {
+  --ui-notification-icon-color: var(--ui-warning-text-color);
+}
+
+.ui-notification[data-type="error"] {
+  --ui-notification-icon-color: var(--ui-danger-text-color);
+}
+
+.ui-notification-icon {
+  grid-column: 1;
+  margin-inline-end: var(--ui-notification-gap);
+  color: var(--ui-notification-icon-color);
+}
+
+.ui-notification-text {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-xs);
+  min-inline-size: 0;
+  overflow-wrap: break-word;
+}
+
+.ui-notification-title {
+  font-weight: var(--ui-font-weight-body-strong);
+}
+
+/* Square at Button's height; up into the padding by half the difference to the icon, so the
+   centres line up; SpacingS into the end padding, SpacingS after the text. */
+.ui-notification-close.ui-button {
+  grid-column: 3;
+  inline-size: var(--ui-control-min-height);
+  block-size: var(--ui-control-min-height);
+  margin-block-start: calc((var(--ui-icon-size) - var(--ui-control-min-height)) / 2);
+  margin-inline: calc(var(--ui-notification-gap) - var(--ui-spacing-xs)) calc(-1 * var(--ui-spacing-s));
+  padding: 0;
+}
+
+@keyframes ui-notification-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-notification-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.ui-notification::before,
+.ui-notification::after,
+.ui-notification > * {
+  animation: ui-notification-fade-in var(--ui-motion-slow) var(--ui-motion-easing);
+}
+
+.ui-notification[data-closing="true"]::before,
+.ui-notification[data-closing="true"]::after,
+.ui-notification[data-closing="true"] > * {
+  animation: ui-notification-fade-out var(--ui-motion-slow) var(--ui-motion-easing) forwards;
+}
+
+/* Forced colours: the system draws the card; its edge stays visible. */
+@media (forced-colors: active) {
+  .ui-notification {
+    border: 1px solid CanvasText;
+  }
+}

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Notification card tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/notification.css">
+<style>body { margin: 0; }</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="panel" class="ui-glass ui-squircle" style="position:absolute;inset:0">
+  <div id="area" class="ui-notification-area" popover="manual" aria-live="polite"></div>
+</div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity, setReduceTransparency } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import { icon } from "../blocks/icon.js";
+import { refreshGlassRefraction } from "../style/glass.js";
+
+const $ = (id) => document.getElementById(id);
+const rect = (el) => el.getBoundingClientRect();
+const near = (a, b, label, tolerance = 0.5) => assert(Math.abs(a - b) <= tolerance, `${label}: expected ${b}, got ${a}`);
+const TYPES = { information: ["info", "--ui-accent-text-color"], success: ["check-circle", "--ui-success-text-color"], warning: ["warning", "--ui-warning-text-color"], error: ["warning-circle", "--ui-danger-text-color"] };
+
+function rgb(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)/);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(v * 255));
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)/);
+  return [+m[1], +m[2], +m[3]];
+}
+function token(name) {
+  const probe = document.createElement("div");
+  probe.style.color = `var(${name})`;
+  document.body.append(probe);
+  const value = rgb(getComputedStyle(probe).color);
+  probe.remove();
+  return value;
+}
+
+function card(type, title = "Saved", message = "The document was saved.") {
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "ui-button ui-subtle ui-squircle ui-focus-ring ui-notification-close";
+  close.setAttribute("aria-label", "Close");
+  close.append(icon("x"));
+  const typeIcon = icon(TYPES[type][0]);
+  typeIcon.classList.add("ui-notification-icon");
+  const text = document.createElement("div");
+  text.className = "ui-notification-text";
+  text.innerHTML = `<div class="ui-notification-title"></div><div class="ui-notification-message"></div>`;
+  text.children[0].textContent = title;
+  text.children[1].textContent = message;
+  const c = document.createElement("div");
+  c.className = "ui-notification ui-glass ui-squircle";
+  c.dataset.type = type;
+  c.setAttribute("role", type === "error" ? "alert" : "status");
+  c.append(typeIcon, text, close);
+  $("area").append(c);
+  return c;
+}
+
+$("area").showPopover();
+const cards = Object.keys(TYPES).map((t) => card(t));
+
+test("area: fixed at the top end, inset SpacingS, so cards sit 16 from the edges and 16 apart", () => {
+  const [first, second] = cards;
+  const vw = document.documentElement.clientWidth;
+  near(rect(first).top, 16, "top");
+  near(vw - rect(first).right, 16, "end edge");
+  near(rect(second).top - rect(first).bottom, 16, "apart");
+  assertEqual(getComputedStyle($("area")).position, "fixed");
+  assertEqual(getComputedStyle($("area")).pointerEvents, "none");
+  assertEqual(getComputedStyle(first).pointerEvents, "auto");
+});
+
+test("area: right to left puts it at the left; data-position moves it to another corner", () => {
+  document.documentElement.dir = "rtl";
+  near(rect(cards[0]).left, 16, "rtl: the end edge is the left");
+  document.documentElement.dir = "ltr";
+  $("area").dataset.position = "bottom-start";
+  near(rect(cards[0]).left, 16, "start");
+  near(document.documentElement.clientHeight - rect(cards.at(-1)).bottom, 16, "bottom");
+  delete $("area").dataset.position;
+});
+
+test("card: first-level glass in the top-layer area, even with the area inside the glass panel", async () => {
+  refreshGlassRefraction();
+  await new Promise((r) => setTimeout(r));
+  const c = cards[0];
+  assertEqual(getComputedStyle(c).getPropertyValue("--ui-glass-solid").trim(), "0", "not solid");
+  if (navigator.userAgentData?.brands.some((b) => b.brand === "Chromium") ?? /Chrome\//.test(navigator.userAgent)) {
+    assert(c.style.getPropertyValue("--ui-glass-refraction").startsWith("url(#"), "refraction filter, as first level");
+  }
+});
+
+test("card: glass, radius 16, 360 wide, SpacingL padding inside the 1 px edge", () => {
+  const c = cards[0];
+  const s = getComputedStyle(c);
+  assertEqual(rect(c).width, 360);
+  assertEqual(s.paddingTop, "17px");
+  assert(["16px", "18.88px"].includes(s.borderTopLeftRadius), `radius ${s.borderTopLeftRadius}`);
+  assert(getComputedStyle(c, "::before").backdropFilter.endsWith("blur(6px)"), "glass blur");
+  setReduceTransparency(true);
+  assertEqual(getComputedStyle(c, "::before").backdropFilter, "none", "solid under reduce transparency");
+  setReduceTransparency("system");
+});
+
+test("layout: icon at the top start, SpacingM before the text; title body strong over the message, SpacingXS apart", () => {
+  const c = cards[1];
+  const i = rect(c.querySelector(".ui-notification-icon"));
+  const title = c.querySelector(".ui-notification-title");
+  const message = c.querySelector(".ui-notification-message");
+  near(i.left - rect(c).left, 17, "icon inside the padding");
+  near(i.top - rect(c).top, 17, "icon at the top");
+  assertEqual(i.width, 20, "icon size");
+  near(rect(title).left - i.right, 12, "SpacingM");
+  assertEqual(getComputedStyle(title).fontWeight, "600");
+  assertEqual(getComputedStyle(message).fontWeight, "400");
+  near(rect(message).top - rect(title).bottom, 4, "SpacingXS");
+  assertEqual(JSON.stringify(rgb(getComputedStyle(message).color)), JSON.stringify(token("--ui-system-base-high-color")), "message in the primary colour");
+});
+
+test("close button: subtle, square at Button's height, centred on the icon, SpacingS into the end padding, named Close", () => {
+  for (const [density, size, iconSize] of [["normal", 32, 20], ["compact", 24, 16]]) {
+    setDensity(density);
+    const c = cards[0];
+    const b = rect(c.querySelector(".ui-notification-close"));
+    const i = rect(c.querySelector(".ui-notification-icon"));
+    assertEqual(b.width, size, `${density} width`);
+    assertEqual(b.height, size, `${density} height`);
+    assertEqual(i.width, iconSize, `${density} icon`);
+    near(b.top + b.height / 2, i.top + i.height / 2, `${density}: centred on the icon`);
+    near(rect(c).right - b.right, 17 - 8, `${density}: into the padding`);
+  }
+  setDensity("normal");
+  assertEqual(cards[0].querySelector(".ui-notification-close").getAttribute("aria-label"), "Close");
+});
+
+test("types: their icon colour is the type's text colour; roles status, alert for errors", () => {
+  for (const c of cards) {
+    const colour = rgb(getComputedStyle(c.querySelector(".ui-notification-icon")).color);
+    assertEqual(JSON.stringify(colour), JSON.stringify(token(TYPES[c.dataset.type][1])), c.dataset.type);
+    assertEqual(c.getAttribute("role"), c.dataset.type === "error" ? "alert" : "status");
+  }
+});
+
+test("contrast: the type colours and text reach AA on the glass tint (opaque) and the card colour, light and dark", () => {
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    for (const surface of ["--ui-glass-tint-color", "--ui-system-chrome-medium-low-color"]) {
+      for (const name of [...Object.values(TYPES).map(([, t]) => t), "--ui-system-base-high-color"]) {
+        const r = contrastRatio(token(name), token(surface));
+        assert(r >= 4.5, `${theme} ${name} on ${surface}: ${r.toFixed(2)}`);
+      }
+    }
+  }
+  setTheme("light");
+});
+
+test("motion: fades in over MotionSlow on the glass layers and content; data-closing fades out; instant under reduce motion", () => {
+  document.documentElement.dataset.reduceMotion = "false";
+  const c = cards[0];
+  for (const [el, pseudo] of [[c, "::before"], [c, "::after"], [c.querySelector(".ui-notification-text"), null]]) {
+    assertEqual(getComputedStyle(el, pseudo).animationName, "ui-notification-fade-in");
+    assertEqual(getComputedStyle(el, pseudo).animationDuration, "0.3s");
+  }
+  assertEqual(getComputedStyle(c).animationName, "none", "never on the card itself");
+  c.dataset.closing = "true";
+  assertEqual(getComputedStyle(c, "::before").animationName, "ui-notification-fade-out");
+  assertEqual(getComputedStyle(c, "::before").animationFillMode, "forwards", "stays faded until removed");
+  document.documentElement.dataset.reduceMotion = "true";
+  assertEqual(getComputedStyle(c, "::before").animationDuration, "0s", "instant under reduce motion");
+  delete c.dataset.closing;
+});
+</script>
+</body>
+</html>

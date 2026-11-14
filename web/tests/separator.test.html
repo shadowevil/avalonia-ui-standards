@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Separator tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/separator.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host" style="inline-size: 200px">
+  <span>Above</span>
+  <hr id="line" class="ui-separator">
+  <span>Below</span>
+</div>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+
+const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+const cs = (el) => getComputedStyle(el);
+const probe = $("probe");
+function colour(value) {
+  probe.style.color = value;
+  return cs(probe).color;
+}
+async function withAttr(name, value, fn) {
+  const before = root.getAttribute(name);
+  root.setAttribute(name, value);
+  try { await fn(); } finally {
+    if (before === null) root.removeAttribute(name); else root.setAttribute(name, before);
+  }
+}
+
+test("native <hr>: the separator role, no focus", () => {
+  assertEqual($("line").localName, "hr");
+  assert(!$("line").hasAttribute("role"), "repeats the native role");
+  $("line").focus();
+  assert(document.activeElement !== $("line"), "took focus");
+});
+
+test("a 1 px hairline stretched across its container, 4 above and below, no side margin", () => {
+  const s = cs($("line"));
+  assertEqual(s.height, "1px");
+  assertEqual(s.width, "200px");
+  assertEqual(`${s.marginTop} ${s.marginRight} ${s.marginBottom} ${s.marginLeft}`, "4px 0px 4px 0px");
+  assertEqual(s.borderTopStyle, "none");
+});
+
+test("the border colour (BaseLow), light and dark", async () => {
+  for (const [theme, rgb] of [["light", "rgb(212, 212, 212)"], ["dark", "rgb(69, 69, 69)"]]) {
+    await withAttr("data-theme", theme, () => {
+      assertEqual(cs($("line")).backgroundColor, rgb);
+      assertEqual(cs($("line")).backgroundColor, colour("var(--ui-system-base-low-color)"));
+    });
+  }
+});
+
+test("density does not change it", async () => {
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs($("line")).height, "1px");
+    assertEqual(cs($("line")).marginTop, "4px");
+  });
+});
+</script>
+</body>
+</html>

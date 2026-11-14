@@ -1,0 +1,339 @@
+/*
+  CheckBox, RadioButton and ToggleSwitch (0030), on the native <input> with appearance: none, so
+  the browser keeps the role, the checked and indeterminate states, the keys (Space) and the form
+  value. Each takes its label from a wrapping <label> (or <label for>, or aria-label):
+
+    <label class="ui-toggle">
+      <input type="checkbox" class="ui-check-box ui-squircle ui-focus-ring"> Label
+    </label>
+    <label class="ui-toggle">
+      <input type="radio" name="size" class="ui-radio-button ui-focus-ring"> Label
+    </label>
+    <label class="ui-toggle-switch-label">
+      <span class="ui-toggle-switch-header">Header</span>             (optional)
+      <input type="checkbox" role="switch" class="ui-toggle-switch ui-focus-ring">
+      <span class="ui-toggle-switch-content" aria-hidden="true">
+        <span class="ui-toggle-switch-off">Off</span><span class="ui-toggle-switch-on">On</span>
+      </span>
+    </label>
+
+  A CheckBox is indeterminate through its `indeterminate` property (HTML has no attribute for it);
+  a click then checks it, as the browser does. Radio groups are a <fieldset> with a <legend>.
+  The On and Off texts are the app's to translate; they are hidden from assistive technology,
+  since the switch role already announces on and off.
+
+  The indicator is the input: its 1 px border is the unchecked outline, ::after the checked accent
+  fill (fading in over MotionNormal), ::before the mark (the stroked check or dash, the radio's dot,
+  the switch's knob). Hover and press on the input or anywhere on its label cross-fade colours over
+  MotionFast; the knob slides over MotionNormal and changes size over MotionFast. toggles.js lets
+  the knob be dragged with the pointer, setting the switch at release by where the knob is.
+  Without a label the indicator stands alone. Forced states for renders and tests: data-state="hover", "pressed"
+  or "focus" on the input (or hover and pressed on its label).
+*/
+:where(.ui-check-box, .ui-radio-button, .ui-toggle-switch) {
+  --ui-toggle-outline-width: 1px;
+  /* CheckBox: the box and its radius (a quarter of the side, 0030), and the marks: the check on
+     Phosphor's check centre line 0.6 of the box wide, the dash half the box wide, stroked 2 with
+     round caps and joins. */
+  --ui-check-box-size: 20px;
+  --ui-check-box-radius: 5px;
+  --ui-check-box-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4 10.5217L7.6522 14.1739L16 5.8261' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --ui-check-box-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10H15' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  /* RadioButton: the circle and its dot. */
+  --ui-radio-button-size: 20px;
+  --ui-radio-button-dot: 8px;
+  /* ToggleSwitch: the pill track, the knob off and on, and how much wider it gets while pressed. */
+  --ui-toggle-switch-width: 40px;
+  --ui-toggle-switch-height: 20px;
+  --ui-toggle-switch-knob-off: 12px;
+  --ui-toggle-switch-knob-on: 14px;
+  --ui-toggle-switch-knob-stretch: 4px;
+
+  /* State colours: the unchecked outline, its fill and the off knob; the checked fill; the mark. */
+  --_outline: var(--ui-system-base-medium-color);
+  --_back: transparent;
+  --_fill: var(--ui-accent-fill-color);
+  --_mark: var(--ui-accent-button-foreground);
+  --_stretch: 0px;
+  /* 1 in left-to-right, -1 in right-to-left: the knob slides along the inline direction. */
+  --_dir: 1;
+}
+
+:root[data-density="compact"] :where(.ui-check-box, .ui-radio-button, .ui-toggle-switch) {
+  --ui-check-box-size: 16px;
+  --ui-check-box-radius: 4px;
+  --ui-check-box-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4174L6.1217 11.3391L12.8 4.6609' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --ui-check-box-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8H12' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  --ui-radio-button-size: 16px;
+  --ui-radio-button-dot: 6px;
+  --ui-toggle-switch-width: 32px;
+  --ui-toggle-switch-height: 16px;
+  --ui-toggle-switch-knob-off: 10px;
+  --ui-toggle-switch-knob-on: 12px;
+}
+
+:where(.ui-toggle-switch):dir(rtl) {
+  --_dir: -1;
+}
+
+/* Hover, on the input or its label: Fluent's PointerOver keys. */
+:where(
+  :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch):is(:hover, [data-state~="hover"]),
+  :is(.ui-toggle, .ui-toggle-switch-label):is(:hover, [data-state~="hover"]) > :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)
+) {
+  --_outline: var(--ui-system-base-medium-high-color);
+  --_fill: var(--ui-accent-fill-color-pointer-over);
+}
+
+/* Pressed: Fluent's Pressed keys; the knob stretches. */
+:where(
+  :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch):is(:active, [data-state~="pressed"]),
+  :is(.ui-toggle, .ui-toggle-switch-label):is(:active, [data-state~="pressed"]) > :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)
+) {
+  --_outline: var(--ui-system-base-high-color);
+  --_back: var(--ui-system-base-medium-low-color);
+  --_fill: var(--ui-accent-fill-color-pressed);
+  --_stretch: var(--ui-toggle-switch-knob-stretch);
+}
+
+/* Disabled: Fluent's Disabled keys unchecked; the disabled accent button's pair checked. */
+:where(.ui-check-box, .ui-radio-button, .ui-toggle-switch):disabled {
+  --_outline: var(--ui-system-base-medium-low-color);
+  --_back: transparent;
+  --_fill: var(--ui-system-base-low-color);
+  --_mark: var(--ui-system-base-medium-low-color);
+  --_stretch: 0px;
+}
+
+.ui-check-box,
+.ui-radio-button,
+.ui-toggle-switch {
+  appearance: none;
+  position: relative;
+  box-sizing: border-box;
+  flex: none;
+  margin: 0;
+  border: var(--ui-toggle-outline-width) solid var(--_outline);
+  background-color: var(--_back);
+  font: inherit;
+  vertical-align: middle;
+  cursor: default;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    border-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+/* The checked layer: the accent fill over the outline, and the mark above it. */
+:is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::after,
+:is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+:is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::after {
+  inset: calc(-1 * var(--ui-toggle-outline-width));
+  border-radius: inherit;
+  corner-shape: inherit;
+  background-color: var(--_fill);
+  opacity: 0;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    opacity var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+:is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::before {
+  z-index: 1;
+  background-color: var(--_mark);
+  opacity: 0;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    opacity var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+/* Checked (and indeterminate): the outline takes the fill's colour, so no grey edge shows. */
+:is(.ui-check-box:is(:checked, :indeterminate), .ui-radio-button:checked, .ui-toggle-switch:checked) {
+  border-color: var(--_fill);
+  background-color: transparent;
+}
+
+:is(.ui-check-box:is(:checked, :indeterminate), .ui-radio-button:checked, .ui-toggle-switch:checked)::after,
+:is(.ui-check-box:is(:checked, :indeterminate), .ui-radio-button:checked)::before {
+  opacity: 1;
+}
+
+/* CheckBox: the squircle box, the check or the dash drawn over it. */
+.ui-check-box {
+  --ui-squircle-radius: var(--ui-check-box-radius);
+  inline-size: var(--ui-check-box-size);
+  block-size: var(--ui-check-box-size);
+}
+
+.ui-check-box::before {
+  inset: calc(-1 * var(--ui-toggle-outline-width));
+  mask: var(--ui-check-box-check) center / 100% 100% no-repeat;
+}
+
+.ui-check-box:indeterminate::before {
+  mask-image: var(--ui-check-box-dash);
+}
+
+/* RadioButton: the circle, the dot centred in it. */
+.ui-radio-button {
+  inline-size: var(--ui-radio-button-size);
+  block-size: var(--ui-radio-button-size);
+  border-radius: 50%;
+}
+
+.ui-radio-button::before {
+  inset: 0;
+  margin: auto;
+  inline-size: var(--ui-radio-button-dot);
+  block-size: var(--ui-radio-button-dot);
+  border-radius: 50%;
+}
+
+/* ToggleSwitch: the pill track; the knob centred in a square cell of the track's height, which
+   slides the track's width less its height. The knob takes the outline's colour while off. */
+.ui-toggle-switch {
+  --_knob: var(--ui-toggle-switch-knob-off);
+  inline-size: var(--ui-toggle-switch-width);
+  block-size: var(--ui-toggle-switch-height);
+  border-radius: calc(var(--ui-toggle-switch-height) / 2);
+}
+
+.ui-toggle-switch:checked {
+  --_knob: var(--ui-toggle-switch-knob-on);
+}
+
+.ui-toggle-switch::before {
+  inset-block-start: calc((var(--ui-toggle-switch-height) - var(--_knob)) / 2 - var(--ui-toggle-outline-width));
+  inset-inline-start: calc((var(--ui-toggle-switch-height) - var(--_knob) - var(--_stretch)) / 2 - var(--ui-toggle-outline-width));
+  inline-size: calc(var(--_knob) + var(--_stretch));
+  block-size: var(--_knob);
+  border-radius: calc(var(--_knob) / 2);
+  background-color: var(--_outline);
+  opacity: 1;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    inline-size var(--ui-motion-fast) var(--ui-motion-easing),
+    block-size var(--ui-motion-fast) var(--ui-motion-easing),
+    inset var(--ui-motion-fast) var(--ui-motion-easing),
+    translate var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+.ui-toggle-switch:checked::before {
+  background-color: var(--_mark);
+  translate: calc(var(--_dir) * (var(--ui-toggle-switch-width) - var(--ui-toggle-switch-height))) 0;
+}
+
+/* Dragging (toggles.js): the knob follows the pointer at once, --ui-toggle-switch-drag along its
+   travel; at release it slides to its end. Vertical touch moves still scroll the page. */
+.ui-toggle-switch {
+  touch-action: pan-y;
+}
+
+.ui-toggle-switch[data-dragging]::before {
+  translate: calc(var(--_dir) * var(--ui-toggle-switch-drag, 0px)) 0;
+  transition-property: background-color, inline-size, block-size, inset;
+}
+
+/* CheckBox and RadioButton label: the indicator, then the label 8 after it, in a row of the
+   button height; the indicator lines up with the first line of a wrapped label. */
+.ui-toggle {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--ui-spacing-s);
+  box-sizing: border-box;
+  min-block-size: var(--ui-control-min-height);
+  padding-block: max(0px, (var(--ui-control-min-height) - 1lh) / 2);
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  vertical-align: middle;
+  cursor: default;
+}
+
+.ui-toggle > .ui-check-box {
+  margin-block: calc((1lh - var(--ui-check-box-size)) / 2);
+}
+
+.ui-toggle > .ui-radio-button {
+  margin-block: calc((1lh - var(--ui-radio-button-size)) / 2);
+}
+
+/* ToggleSwitch label: the header above (SpacingXS apart), then the track and the On or Off text
+   8 after it, in a row of the button height. */
+.ui-toggle-switch-label {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  align-items: center;
+  column-gap: var(--ui-spacing-s);
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  vertical-align: middle;
+  cursor: default;
+}
+
+.ui-toggle-switch-header {
+  grid-column: 1 / -1;
+  margin-block-end: var(--ui-spacing-xs);
+}
+
+.ui-toggle-switch-label > .ui-toggle-switch {
+  margin-block: calc((var(--ui-control-min-height) - var(--ui-toggle-switch-height)) / 2);
+}
+
+/* The On and Off texts share one cell, as wide as the longer. */
+.ui-toggle-switch-content {
+  display: grid;
+}
+
+.ui-toggle-switch-content > * {
+  grid-area: 1 / 1;
+}
+
+.ui-toggle-switch-on,
+.ui-toggle-switch:checked ~ .ui-toggle-switch-content > .ui-toggle-switch-off {
+  visibility: hidden;
+}
+
+.ui-toggle-switch:checked ~ .ui-toggle-switch-content > .ui-toggle-switch-on {
+  visibility: visible;
+}
+
+/* Disabled labels: Fluent's disabled foregrounds (BaseMediumLow). */
+:is(.ui-toggle, .ui-toggle-switch-label):has(> :disabled) {
+  color: var(--ui-system-base-medium-low-color);
+}
+
+/* Forced colours: the system draws the outline; the checked fill and the mark keep system colours. */
+@media (forced-colors: active) {
+  :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::after,
+  :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::before {
+    forced-color-adjust: none;
+  }
+
+  :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::after {
+    background-color: Highlight;
+  }
+
+  :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::before,
+  .ui-toggle-switch:checked::before {
+    background-color: HighlightText;
+  }
+
+  .ui-toggle-switch:not(:checked)::before {
+    background-color: CanvasText;
+  }
+
+  :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch):disabled::after {
+    background-color: GrayText;
+  }
+
+  .ui-toggle-switch:disabled:not(:checked)::before {
+    background-color: GrayText;
+  }
+}

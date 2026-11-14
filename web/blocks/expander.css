@@ -1,0 +1,161 @@
+/*
+  Expander (0033): the native <details> and <summary>, so the browser gives the header its button
+  role, the expanded state, Enter and Space, and find in page opens it.
+
+    <details class="ui-expander ui-squircle">
+      <summary class="ui-expander-header">Advanced options</summary>
+      <div class="ui-expander-content">…</div>
+    </details>
+      + open                     starts open, shown open at once
+      + aria-disabled="true"     disabled: expander.js stops it toggling and takes the header out of
+                                 the Tab order (<details> has no disabled attribute)
+
+  One squircle card (control radius, the card colour, a 1 px line border) stretched to its
+  container's width, holding the header row and the content. The header row has the list item
+  fills (ListMedium on hover, BaseMediumLow pressed), the button height and side padding of the
+  density, and the caret (the icon set's caret-right) 8 px before the header, turning +90° to point
+  down as it opens. The content reveals over MotionNormal: its height grows from 0 (clipped), so the
+  layout around it moves with it, behind a 1 px hairline under the header; closing runs back. Both
+  are instant under reduce motion. The content is padded by the header's side padding on every
+  side. The focus ring is drawn around the whole card while the header has keyboard focus.
+  Forced states for renders and tests: data-state="hover" or "pressed" on the header, "focus" on the
+  expander.
+
+  Browser gap: the reveal animates the ::details-content part to its full height
+  (interpolate-size), which Chromium supports; other engines open and close at once. The content
+  opens downwards only (Fluent's ExpandDirection Down).
+*/
+:where(.ui-expander) {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  --ui-expander-background: var(--ui-system-chrome-medium-low-color);
+  --ui-expander-border-color: var(--ui-system-base-low-color);
+  --ui-expander-border-width: 1px;
+  --ui-expander-header-background-pointer-over: var(--ui-system-list-medium-color);
+  --ui-expander-header-background-pressed: var(--ui-system-base-medium-low-color);
+  --ui-expander-foreground: var(--ui-system-base-high-color);
+  --ui-expander-foreground-disabled: var(--ui-system-base-medium-low-color);
+  /* The content padding: the header's side padding on every side. */
+  --ui-expander-content-padding: var(--ui-spacing-m);
+  /* The icon set's caret-right (Icons.CaretRight, 0026), in its 256 design box. */
+  --ui-expander-caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z'/%3E%3C/svg%3E");
+}
+
+:root[data-density="compact"] :where(.ui-expander) {
+  --ui-expander-content-padding: var(--ui-spacing-s);
+}
+
+.ui-expander {
+  box-sizing: border-box;
+  display: block;
+  inline-size: auto;
+  margin: 0;
+  border: var(--ui-expander-border-width) solid var(--ui-expander-border-color);
+  background: var(--ui-expander-background);
+  color: var(--ui-expander-foreground);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  /* The card clips the header's fill and the revealing content to its corners. */
+  overflow: clip;
+  interpolate-size: allow-keywords;
+}
+
+/* The ring goes around the card while its own header has keyboard focus, not for focus inside
+   the content. */
+.ui-expander:is(:has(> .ui-expander-header:focus-visible), [data-state~="focus"]) {
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring-color);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
+.ui-expander-header {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-spacing-s);
+  min-block-size: var(--ui-control-min-height);
+  padding: var(--ui-control-padding);
+  background-color: transparent;
+  color: inherit;
+  list-style: none;
+  cursor: default;
+  user-select: none;
+  outline: none;
+  transition: background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-expander-header::-webkit-details-marker {
+  display: none;
+}
+
+/* The caret, in the header's text colour, turning to point at the content. */
+.ui-expander-header::before {
+  content: "";
+  flex: none;
+  inline-size: var(--ui-icon-size);
+  block-size: var(--ui-icon-size);
+  background-color: currentColor;
+  mask: var(--ui-expander-caret) center / 100% 100% no-repeat;
+  transition: rotate var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+/* Right to left, the closed caret points to the start (left), as the icon mirrored. */
+.ui-expander-header:dir(rtl)::before {
+  scale: -1 1;
+}
+
+.ui-expander[open] > .ui-expander-header::before {
+  rotate: 90deg;
+}
+
+/* Mirrored, the same turn the other way still points down. */
+.ui-expander[open] > .ui-expander-header:dir(rtl)::before {
+  rotate: -90deg;
+}
+
+.ui-expander:not([aria-disabled="true"]) > .ui-expander-header:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-expander-header-background-pointer-over);
+}
+
+.ui-expander:not([aria-disabled="true"]) > .ui-expander-header:is(:active, [data-state~="pressed"]) {
+  background-color: var(--ui-expander-header-background-pressed);
+}
+
+.ui-expander[aria-disabled="true"] > .ui-expander-header {
+  color: var(--ui-expander-foreground-disabled);
+}
+
+/* The reveal: the content's part grows from no height to its own, clipped; closed, it is hidden
+   (content-visibility), so nothing in it takes focus. */
+.ui-expander::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition:
+    block-size var(--ui-motion-normal) var(--ui-motion-easing),
+    content-visibility var(--ui-motion-normal) allow-discrete;
+}
+
+.ui-expander[open]::details-content {
+  block-size: auto;
+}
+
+/* The hairline under the header is the content's top edge, so it reveals with it. */
+.ui-expander-content {
+  box-sizing: border-box;
+  padding: var(--ui-expander-content-padding);
+  border-block-start: var(--ui-expander-border-width) solid var(--ui-expander-border-color);
+}
+
+/* Forced colours: the card keeps its border; the header's caret follows the text. */
+@media (forced-colors: active) {
+  .ui-expander {
+    border-color: CanvasText;
+  }
+
+  .ui-expander-header::before {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+
+  .ui-expander[aria-disabled="true"] > .ui-expander-header::before {
+    background-color: GrayText;
+  }
+}

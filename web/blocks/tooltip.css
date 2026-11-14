@@ -1,0 +1,47 @@
+/*
+  ToolTip (0037): a small solid card, not glass, linked to its control with aria-describedby:
+
+    <button type="button" class="ui-button ui-squircle ui-focus-ring" aria-describedby="tip">Save</button>
+    <div id="tip" class="ui-tooltip ui-squircle" role="tooltip" popover="manual">Save (Ctrl+S)</div>
+
+  The card colour (ChromeMediumLow) with a 1 px border in the border colour (BaseLow), the control
+  radius 8, caption text (12 px) in the primary text colour, padded SpacingS at the sides and
+  SpacingXS above and below inside the border, wrapping at Fluent's 320 px. It fades in over
+  MotionFast (none under reduce motion) and closes at once. tooltip.js shows, places and hides it.
+*/
+.ui-tooltip {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  --ui-tooltip-max-inline-size: 320px;
+  --ui-tooltip-border-width: 1px;
+  /* Over the browser's popover defaults. */
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  max-inline-size: min(var(--ui-tooltip-max-inline-size), 100vw);
+  margin: 0;
+  padding: var(--ui-spacing-xs) var(--ui-spacing-s);
+  border: var(--ui-tooltip-border-width) solid var(--ui-system-base-low-color);
+  overflow: hidden;
+  background-color: var(--ui-system-chrome-medium-low-color);
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-caption);
+  line-height: normal;
+  overflow-wrap: break-word;
+}
+
+/* Without the popover attribute a tooltip is shown in place, in the flow (a preview or sample). */
+.ui-tooltip:not([popover]) {
+  position: relative;
+  display: inline-block;
+}
+
+@keyframes ui-tooltip-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.ui-tooltip:popover-open {
+  animation: ui-tooltip-fade-in var(--ui-motion-fast) var(--ui-motion-easing);
+}

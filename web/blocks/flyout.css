@@ -1,0 +1,168 @@
+/*
+  Flyout (0036): a glass card anchored to the element that opened it, on the native popover
+  attribute, so it sits in the top layer above every clip and stacking context:
+
+    <button type="button" class="ui-button ui-squircle ui-focus-ring" popovertarget="f">Flyout</button>
+    <div id="f" class="ui-flyout ui-glass ui-squircle" popover role="dialog" aria-label="…">
+      <div class="ui-flyout-content ui-scroll">…</div>
+    </div>
+
+  The overlay radius 16, its content padded SpacingL (16) inside the glass edge, Fluent's minimum
+  (96 x 40) and maximum (456 x 758) sizes; content that does not fit scrolls in the library's
+  scroller (ui-scroll). It fades in over MotionFast and closes at once. The fade runs on the glass
+  layers and the content, not on the element itself: opacity on the element would make it a
+  backdrop root, so the blur would vanish for the length of the fade.
+
+  Placement (data-placement, flyout.js reads it):
+    block-end        (default) below the anchor, centred on it; above it when there is no room
+                     below, slid along the edge to stay in view (Avalonia's Bottom)
+    block-end-start  below the anchor, start edges lined up (a menu bar's menu)
+    inline-end       at the anchor's end edge, tops lined up; at its start edge when there is no
+                     room (a submenu)
+    point            at a point (a context menu at the pointer)
+  --ui-flyout-offset moves the flyout away from the anchor, --ui-flyout-shift moves it along the
+  anchor's edge (towards the start). Where CSS anchor positioning exists, the anchored placements
+  are CSS (position-area, with flipping fallbacks, kept in place while the page scrolls);
+  elsewhere, and for point, flyout.js computes the position.
+
+  Glass level (0015, 0036): an open flyout is in the top layer, so it is first-level glass wherever
+  it sits in the DOM, as desktop overlays open in the window's overlay layer outside the panel's
+  glass; a submenu is first level too. Shown in place (without the popover attribute) it follows
+  the plain nesting rule. The glass levels are counted by the Style tier (glass.css).
+*/
+/* Registered as lengths, so script placement reads them resolved (a calc() computes to px). */
+@property --ui-flyout-offset {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --ui-flyout-shift {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+.ui-flyout {
+  --ui-squircle-radius: var(--ui-corner-radius-overlay);
+  --ui-flyout-padding: var(--ui-spacing-l);
+  /* The glass edge inside the padding: the desktop GlassBorder lays its 1 px border out there. */
+  --ui-flyout-edge: 1px;
+  --ui-flyout-min-inline-size: 96px;
+  --ui-flyout-min-block-size: 40px;
+  --ui-flyout-max-inline-size: 456px;
+  --ui-flyout-max-block-size: 758px;
+  --ui-flyout-offset: 0px;
+  --ui-flyout-shift: 0px;
+  /* Over the popover defaults of the browser, and over ui-glass's position: relative. */
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  min-inline-size: var(--ui-flyout-min-inline-size);
+  min-block-size: var(--ui-flyout-min-block-size);
+  max-inline-size: min(var(--ui-flyout-max-inline-size), 100vw);
+  max-block-size: min(var(--ui-flyout-max-block-size), 100dvh);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  line-height: normal;
+}
+
+.ui-flyout:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Without the popover attribute a flyout is shown in place, in the flow (a preview or sample). */
+.ui-flyout:not([popover]) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-flyout-content {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+  padding: calc(var(--ui-flyout-padding) + var(--ui-flyout-edge));
+  /* A focused element scrolled into view keeps its ring in view. */
+  scroll-padding: var(--ui-spacing-xs);
+}
+
+/* The open fade (0036): MotionFast, 0 ms under reduce motion. */
+@keyframes ui-flyout-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.ui-flyout:popover-open::before,
+.ui-flyout:popover-open::after,
+.ui-flyout:popover-open > * {
+  animation: ui-flyout-fade-in var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+/* Anchored by CSS (flyout.js sets data-anchored and the anchor's name). */
+@supports (position-area: block-end) {
+  .ui-flyout[data-anchored] {
+    position-area: block-end;
+    justify-self: anchor-center;
+    margin-block-start: var(--ui-flyout-offset);
+    position-try-fallbacks: --ui-flyout-above, --ui-flyout-below-start, --ui-flyout-below-end, --ui-flyout-above-start, --ui-flyout-above-end;
+  }
+
+  .ui-flyout[data-anchored][data-placement="block-end-start"] {
+    position-area: block-end span-inline-end;
+    justify-self: normal;
+    margin-inline-start: calc(-1 * var(--ui-flyout-shift));
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  }
+
+  .ui-flyout[data-anchored][data-placement="inline-end"] {
+    position-area: inline-end span-block-end;
+    justify-self: normal;
+    margin-block-start: calc(-1 * var(--ui-flyout-shift));
+    margin-inline-start: var(--ui-flyout-offset);
+    position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+  }
+}
+
+@position-try --ui-flyout-above {
+  position-area: block-start;
+  justify-self: anchor-center;
+  margin-block: 0 var(--ui-flyout-offset);
+}
+
+@position-try --ui-flyout-below-start {
+  position-area: block-end span-inline-end;
+  justify-self: normal;
+}
+
+@position-try --ui-flyout-below-end {
+  position-area: block-end span-inline-start;
+  justify-self: normal;
+}
+
+@position-try --ui-flyout-above-start {
+  position-area: block-start span-inline-end;
+  justify-self: normal;
+  margin-block: 0 var(--ui-flyout-offset);
+}
+
+@position-try --ui-flyout-above-end {
+  position-area: block-start span-inline-start;
+  justify-self: normal;
+  margin-block: 0 var(--ui-flyout-offset);
+}
+
+/* Forced colours: the system draws the card; its edge stays visible. */
+@media (forced-colors: active) {
+  .ui-flyout {
+    border: 1px solid CanvasText;
+  }
+}

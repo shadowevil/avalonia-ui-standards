@@ -30,6 +30,16 @@ export function captioned(text, control) {
   return el("div", "catalog-captioned", caption(text), control);
 }
 
+/** A control in a wrapping row of samples: 16 after it and 12 below, centred in the row (the desktop Ui.Spaced). */
+export function spaced(control) {
+  const wrap = el("div", "", control);
+  Object.assign(wrap.style, {
+    display: "flex", alignItems: "center", alignSelf: "center",
+    marginInlineEnd: "var(--ui-spacing-l)", marginBlockEnd: "var(--ui-spacing-m)",
+  });
+  return wrap;
+}
+
 /** Lets content scroll sideways when it cannot fit; the page never does. */
 export const sideScroll = (content) => el("div", "catalog-side-scroll", content);
 

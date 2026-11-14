@@ -76,11 +76,14 @@ test("in forced colours the focus rings use Highlight", () => {
     }
   };
   for (const sheet of document.styleSheets) walk(sheet.cssRules);
-  const rule = rules.find((r) => r.style?.outlineColor === "highlight" || r.style?.outlineColor === "Highlight");
-  assert(rule, "no forced-colors rule setting outline-color: Highlight");
-  for (const selector of [".ui-focus-ring:focus-visible", ".ui-focus-ring-within:has(:focus-visible)", ".ui-skip-link:focus"]) {
-    assert(rule.selectorText.includes(selector), `missing ${selector}`);
-  }
+  // The rings take their colour from --ui-focus-ring-color, which is Highlight there; the skip
+  // link sets its outline colour itself.
+  const token = rules.find((r) => r.selectorText === ":root" && r.style.getPropertyValue("--ui-focus-ring-color").trim().toLowerCase() === "highlight");
+  assert(token, "no forced-colors rule setting --ui-focus-ring-color: Highlight");
+  const skip = rules.find((r) => r.selectorText?.includes(".ui-skip-link:focus") && r.style.outlineColor.toLowerCase() === "highlight");
+  assert(skip, "missing .ui-skip-link:focus");
+  const ring = getComputedStyle(document.documentElement).getPropertyValue("--ui-focus-ring-color").trim();
+  assertEqual(ring, getComputedStyle(document.documentElement).getPropertyValue("--ui-system-accent-color").trim(), "the accent otherwise");
 });
 </script>
 </body>

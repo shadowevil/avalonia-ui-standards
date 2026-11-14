@@ -1,0 +1,243 @@
+/*
+  TextInput (0027) on native <input> and <textarea>, and the field parts shared by every field
+  Block (ComboBox editable, NumericUpDown, AutoCompleteBox, the pickers):
+
+    <input class="ui-text-input ui-squircle ui-focus-ring">            a field alone
+    <textarea class="ui-text-input ui-squircle ui-focus-ring">         multi-line
+
+    <span class="ui-field ui-squircle ui-focus-ring-within">           a field with parts
+      <span class="ui-field-leading">…</span>                          optional, before the text
+      <input class="ui-text-input">                                    the text; no chrome of its own
+      <span class="ui-field-trailing">                                 optional, after the text
+        <button type="button" class="ui-button ui-subtle ui-field-button ui-text-input-clear ui-squircle"
+                tabindex="-1" aria-label="Clear">(x-circle icon)</button>
+        <button type="button" class="ui-button ui-subtle ui-field-button ui-text-input-reveal ui-squircle"
+                tabindex="-1" aria-label="Show password" aria-pressed="false">(eye, eye-slash icons)</button>
+      </span>
+    </span>
+
+  The chrome (fill, 1 px border, state colours, ring) is on the input alone, or on the ui-field
+  around it; a ui-text-input inside a ui-field draws none of it (0027's inner theme). Field
+  buttons are Subtle ui-buttons (0018), 24 px (20 Compact) with 16 px icons, never
+  Tab stops. text-input.js keeps data-filled (not empty) on the field, wires clear and reveal, and
+  marks pointer focus (data-pointer-focus), which shows the accent border without the ring.
+  Errors: aria-invalid="true" or :user-invalid on the input. Forced states for renders and tests:
+  data-state="hover" or "focus" on the chrome element (input alone, or the field); "focus" with
+  data-pointer-focus is pointer focus.
+*/
+:where(.ui-text-input, .ui-field) {
+  /* Fluent's TextControl keys, resolved by the desktop theme. Rest and hover are Fluent's
+     AltMediumLow and AltMedium, which stay white or black over the library palette. */
+  --ui-text-control-background: light-dark(#FFFFFF66, #00000066);
+  --ui-text-control-background-pointer-over: light-dark(#FFFFFF99, #00000099);
+  --ui-text-control-background-focused: var(--ui-system-alt-high-color);
+  --ui-text-control-background-disabled: var(--ui-system-base-low-color);
+  --ui-text-control-border-brush: var(--ui-system-base-medium-color);
+  --ui-text-control-border-brush-pointer-over: var(--ui-system-base-medium-high-color);
+  --ui-text-control-border-brush-focused: var(--ui-system-accent-color);
+  --ui-text-control-border-brush-disabled: var(--ui-system-base-low-color);
+  --ui-text-control-foreground: var(--ui-system-base-high-color);
+  /* Fluent's ChromeDisabledLow, which the library palette does not set. */
+  --ui-text-control-foreground-disabled: light-dark(#7A7A7A, #858585);
+  --ui-text-control-placeholder-foreground: var(--ui-system-base-medium-color);
+  --ui-text-control-button-foreground: var(--ui-system-base-medium-high-color);
+  /* Fluent's TextControlThemeMinWidth and TextControlBorderThemeThickness. */
+  --ui-text-control-theme-min-width: 64px;
+  --ui-text-control-border-width: 1px;
+  /* The side padding of the density's control padding, for the field parts' margins. */
+  --ui-field-padding-inline: var(--ui-spacing-m);
+  /* Field buttons: centred in the field with an equal inset, concentric corners (0027). */
+  --ui-field-button-size: 24px;
+  --ui-field-button-inset: calc((var(--ui-control-min-height) - var(--ui-field-button-size)) / 2);
+  --ui-field-button-radius: calc(var(--ui-corner-radius-control) - var(--ui-field-button-inset));
+  --ui-field-icon-size: 16px;
+}
+
+:root[data-density="compact"] :where(.ui-text-input, .ui-field) {
+  --ui-field-padding-inline: var(--ui-spacing-s);
+  --ui-field-button-size: 20px;
+}
+
+/* The chrome, on an input alone or on a field. */
+.ui-text-input,
+.ui-field {
+  box-sizing: border-box;
+  min-block-size: var(--ui-control-min-height);
+  min-inline-size: var(--ui-text-control-theme-min-width);
+  margin: 0;
+  border: var(--ui-text-control-border-width) solid var(--ui-text-control-border-brush);
+  background-color: var(--ui-text-control-background);
+  color: var(--ui-text-control-foreground);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  line-height: normal;
+  vertical-align: middle;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    border-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-text-input {
+  padding: var(--ui-control-padding);
+  caret-color: var(--ui-text-control-foreground);
+  appearance: none;
+}
+
+textarea.ui-text-input {
+  resize: none;
+}
+
+.ui-field {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  cursor: text;
+}
+
+/* States, in rising precedence: hover, focus (any focus), error (the border), disabled. */
+.ui-text-input:where(:hover, [data-state~="hover"]),
+.ui-field:where(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-text-control-background-pointer-over);
+  border-color: var(--ui-text-control-border-brush-pointer-over);
+}
+
+.ui-text-input:where(:focus, [data-state~="focus"]),
+.ui-field:where(:has(.ui-text-input:focus), [data-state~="focus"]) {
+  background-color: var(--ui-text-control-background-focused);
+  border-color: var(--ui-text-control-border-brush-focused);
+}
+
+.ui-text-input:where([aria-invalid="true"], :user-invalid),
+.ui-field:where(:has(.ui-text-input:is([aria-invalid="true"], :user-invalid))) {
+  border-color: var(--ui-danger-color);
+}
+
+.ui-text-input:where(:disabled),
+.ui-field:where(:has(.ui-text-input:disabled)) {
+  background-color: var(--ui-text-control-background-disabled);
+  border-color: var(--ui-text-control-border-brush-disabled);
+  color: var(--ui-text-control-foreground-disabled);
+  cursor: default;
+}
+
+/* Pointer focus shows the accent border alone; keyboard focus adds the ring (0019). */
+.ui-text-input.ui-focus-ring[data-pointer-focus],
+.ui-field.ui-focus-ring-within[data-pointer-focus] {
+  outline: none;
+}
+
+/* The placeholder at full opacity (0027); the disabled text colour when disabled. */
+.ui-text-input::placeholder {
+  color: var(--ui-text-control-placeholder-foreground);
+  opacity: 1;
+}
+
+.ui-text-input:disabled::placeholder {
+  color: var(--ui-text-control-foreground-disabled);
+}
+
+/* Selection: the AA accent fill with white text, as list items (0024). */
+.ui-text-input::selection {
+  background-color: var(--ui-accent-fill-color);
+  color: var(--ui-accent-button-foreground);
+}
+
+/* Inside a field the input is the text area only: no chrome, fill or ring of its own. */
+.ui-field .ui-text-input {
+  flex: 1 1 0;
+  align-self: stretch;
+  min-inline-size: 0;
+  min-block-size: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  transition: none;
+}
+
+/* Parts before and after the text: the inset from the field's edge, SpacingXS from the text. */
+.ui-field-leading,
+.ui-field-trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  cursor: default;
+}
+
+.ui-field-leading {
+  margin-inline: calc(var(--ui-field-button-inset) - var(--ui-text-control-border-width)) calc(var(--ui-spacing-xs) - var(--ui-field-padding-inline));
+}
+
+.ui-field-trailing {
+  margin-inline: calc(var(--ui-spacing-xs) - var(--ui-field-padding-inline)) calc(var(--ui-field-button-inset) - var(--ui-text-control-border-width));
+}
+
+/* Field buttons: Subtle buttons (ui-button ui-subtle) with TextControlButtonForeground at rest,
+   the text colour while hovered or pressed, no pressed scale and no ring. */
+.ui-field .ui-button.ui-field-button {
+  --ui-squircle-radius: var(--ui-field-button-radius);
+  --ui-button-foreground: var(--ui-text-control-button-foreground);
+  --ui-button-pressed-scale: 1;
+  inline-size: var(--ui-field-button-size);
+  block-size: var(--ui-field-button-size);
+  min-block-size: 0;
+  padding: 0;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    opacity var(--ui-motion-fast) var(--ui-motion-easing),
+    visibility var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+/* No checked fill on the reveal button: ToggleButton's checked values (button.css) undone, back
+   to Subtle's. */
+.ui-field .ui-button.ui-field-button[aria-pressed="true"] {
+  --ui-button-background: transparent;
+  --ui-button-background-pointer-over: color-mix(in srgb, var(--ui-system-base-high-color) 10%, transparent);
+  --ui-button-background-pressed: var(--ui-system-base-medium-low-color);
+  --ui-button-background-disabled: transparent;
+  --ui-button-foreground-pressed: var(--ui-system-base-high-color);
+}
+
+.ui-field .ui-field-button:is(:hover, :active, [data-state~="hover"], [data-state~="pressed"]):not(:disabled) {
+  color: var(--ui-system-base-high-color);
+}
+
+.ui-field-button .ui-icon {
+  inline-size: var(--ui-field-icon-size);
+  block-size: var(--ui-field-icon-size);
+}
+
+/* Clear and reveal hold their place from the start, transparent and click-through, and fade
+   in: clear while the field is focused and not empty, reveal while it is not empty. Neither
+   applies to multi-line or read-only text. */
+.ui-field .ui-field-button:is(.ui-text-input-clear, .ui-text-input-reveal) {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.ui-field[data-filled]:is(:has(.ui-text-input:focus), [data-state~="focus"]) .ui-field-button.ui-text-input-clear,
+.ui-field[data-filled] .ui-field-button.ui-text-input-reveal {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ui-field:has(textarea.ui-text-input, .ui-text-input[readonly]) :is(.ui-text-input-clear, .ui-text-input-reveal) {
+  display: none;
+}
+
+/* The reveal icon shows the action: the eye while hidden, the slashed eye while shown. */
+.ui-text-input-reveal[aria-pressed="true"] > .ui-icon:first-of-type,
+.ui-text-input-reveal:not([aria-pressed="true"]) > .ui-icon:last-of-type {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  .ui-text-input::selection {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  .ui-text-input:disabled,
+  .ui-field:has(.ui-text-input:disabled) {
+    border-color: GrayText;
+  }
+}

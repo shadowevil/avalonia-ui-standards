@@ -1,0 +1,191 @@
+/*
+  Menus (0036): menu, submenu, context menu and menu flyout on the flyout (flyout.css), their
+  items in the list item design (list-box.css), and the menu bar's items as subtle buttons
+  (button.css). menu.js builds and drives them.
+
+    <div class="ui-menu ui-flyout ui-glass ui-squircle" popover role="menu" aria-label="File">
+      <div class="ui-flyout-content ui-scroll">
+        <button type="button" class="ui-menu-item ui-list-item ui-squircle" role="menuitem"
+            aria-keyshortcuts="Control+O" tabindex="-1">
+          <svg class="ui-icon ui-menu-item-icon">…</svg>
+          <span class="ui-menu-item-header">Open…</span>
+          <span class="ui-menu-item-gesture" aria-hidden="true">Ctrl+O</span>
+        </button>
+        <div class="ui-menu-separator" role="separator"></div>
+        …
+      </div>
+    </div>
+
+  - The menu: the overlay radius 16, padded SpacingXS inside the glass edge, so items sit inside
+    the curved corners; Fluent's maximum width (456) and minimum height (32); long menus scroll.
+  - Columns, shared by every item of a menu (a subgrid) so headers line up: the mark (an icon-size
+    column, ui-menu-item-mark, holding Icons.Check for a menuitemcheckbox or an 8 px dot,
+    ui-menu-item-dot, for a menuitemradio, shown while aria-checked="true"), the icon
+    (ui-menu-item-icon, the icon size), the header, the input gesture (ui-menu-item-gesture,
+    secondary text, SpacingXL after the header) and the submenu caret (ui-menu-item-caret,
+    Icons.CaretRight, SpacingS after the gesture; mirrored right to left). The mark and icon
+    columns are followed by SpacingS; a column no item uses takes no space.
+  - Item states: transparent at rest; the highlight (pointer or keyboard; the item has focus, since
+    the pointer moves focus) is ListMedium, pressed BaseMediumLow, the text keeping its colour; an
+    item whose submenu is open (aria-expanded="true") stays highlighted. Keyboard focus shows as
+    the highlight, with no ring (0019). Disabled (aria-disabled="true"): the disabled text colour
+    for header, gesture, mark and caret, no fill.
+  - Separators: a 1 px BaseLow line, SpacingXS above and below, inset SpacingS from the sides
+    (the menu Separator of 0039).
+  - Menu bar (<ui-menu-bar>, role="menubar") items: ui-menu-bar-item ui-button ui-subtle ui-squircle,
+    Button's density height, padding and radius, no fill at rest, Button's hover fill when
+    highlighted (pointer or keyboard focus) and its pressed fill when pressed or while their menu
+    is open, with no ring and no pressed scale. Their menu opens 4 px below, shifted so its item
+    text lines up with the bar item's text.
+  Forced states for renders and tests: data-state="hover" (the highlight) or "pressed" on an item.
+*/
+.ui-menu {
+  --ui-flyout-padding: var(--ui-spacing-xs);
+  --ui-flyout-min-inline-size: 0px;
+  --ui-flyout-min-block-size: 32px;
+  --ui-menu-gesture-gap: var(--ui-spacing-xl);
+  --ui-menu-column-gap: var(--ui-spacing-s);
+  --ui-menu-radio-mark-size: 8px;
+}
+
+/* A menu bar's menu: 4 px below its item, its item text in line with the item's. */
+ui-menu-bar .ui-menu {
+  --ui-flyout-offset: var(--ui-spacing-xs);
+  --ui-flyout-shift: calc(var(--ui-flyout-padding) + var(--ui-flyout-edge));
+}
+
+/* A submenu: at its item's end edge, its first item level with its item (the padding and the
+   glass edge taken back), overlapping the parent menu by its padding. */
+.ui-menu .ui-menu {
+  --ui-flyout-offset: 0px;
+  --ui-flyout-shift: calc(var(--ui-flyout-padding) + var(--ui-flyout-edge));
+}
+
+/* The menu itself holds focus only while no item is highlighted (after a pointer opening): no ring. */
+.ui-menu:focus {
+  outline: none;
+}
+
+.ui-menu > .ui-flyout-content {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-content: start;
+}
+
+.ui-menu-item {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 0;
+  outline: none;
+}
+
+.ui-menu-item-mark,
+.ui-menu-item-icon {
+  inline-size: var(--ui-icon-size);
+  block-size: var(--ui-icon-size);
+  margin-inline-end: var(--ui-menu-column-gap);
+}
+
+.ui-menu-item-mark {
+  grid-column: 1;
+  display: grid;
+  place-items: center;
+}
+
+.ui-menu-item-icon {
+  grid-column: 2;
+}
+
+.ui-menu-item-header {
+  grid-column: 3;
+  white-space: nowrap;
+}
+
+.ui-menu-item-gesture {
+  grid-column: 4;
+  justify-self: end;
+  margin-inline-start: var(--ui-menu-gesture-gap);
+  color: var(--ui-system-base-medium-color);
+  white-space: nowrap;
+}
+
+.ui-menu-item-caret {
+  grid-column: 5;
+  margin-inline-start: var(--ui-menu-column-gap);
+}
+
+.ui-menu-item-caret:dir(rtl) {
+  scale: -1 1;
+}
+
+.ui-menu-item-dot {
+  inline-size: var(--ui-menu-radio-mark-size);
+  block-size: var(--ui-menu-radio-mark-size);
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.ui-menu-item:not([aria-checked="true"]) .ui-menu-item-mark > * {
+  visibility: hidden;
+}
+
+/* The highlight follows focus, which the pointer moves; a hover alone does not highlight, so an
+   item the pointer rests on does not stay lit when the keyboard moves on. */
+.ui-menu-item:hover {
+  background-color: transparent;
+}
+
+.ui-menu-item:is(:focus, [data-state~="hover"], [aria-expanded="true"]):not([aria-disabled="true"]) {
+  background-color: var(--ui-system-list-medium-color);
+}
+
+.ui-menu-item:is(:active, [data-state~="pressed"]):not([aria-disabled="true"]) {
+  background-color: var(--ui-system-base-medium-low-color);
+}
+
+.ui-menu-item[aria-disabled="true"] .ui-menu-item-gesture {
+  color: inherit;
+}
+
+.ui-menu-separator {
+  grid-column: 1 / -1;
+  block-size: 1px;
+  margin: var(--ui-spacing-xs) var(--ui-spacing-s);
+  background-color: var(--ui-system-base-low-color);
+}
+
+/* Menu bar. */
+ui-menu-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ui-menu-bar-item.ui-button {
+  --ui-button-pressed-scale: 1;
+  outline: none;
+}
+
+.ui-menu-bar-item.ui-button:focus-visible:not([aria-disabled="true"]) {
+  background-color: var(--ui-button-background-pointer-over);
+}
+
+.ui-menu-bar-item.ui-button[aria-expanded="true"]:not([aria-disabled="true"]) {
+  background-color: var(--ui-button-background-pressed);
+}
+
+/* Forced colours: the system draws the fills; the highlight stays visible. */
+@media (forced-colors: active) {
+  .ui-menu-item:is(:focus, [aria-expanded="true"]):not([aria-disabled="true"]),
+  .ui-menu-bar-item.ui-button:is(:focus-visible, [aria-expanded="true"]) {
+    background-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .ui-menu-separator {
+    background-color: CanvasText;
+  }
+}

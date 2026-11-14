@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Menu tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/scroll.css">
+<link rel="stylesheet" href="../blocks/list-box.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<link rel="stylesheet" href="../blocks/menu.css">
+<style>body { margin: 0; padding: 20px; }</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host"></div>
+<button id="after" type="button">After</button>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/scroll.js";
+import { setAnchorPositioning } from "../blocks/flyout.js";
+import { createMenu, createMenuBar, menuItems, formatShortcut, openMenu, closeMenu } from "../blocks/menu.js";
+
+const $ = (id) => document.getElementById(id);
+const host = $("host");
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+const rect = (el) => el.getBoundingClientRect();
+const near = (a, b, label, tolerance = 1) => assert(Math.abs(a - b) <= tolerance, `${label}: expected ${b}, got ${a}`);
+const open = (el) => el.matches(":popover-open");
+const tick = () => new Promise((r) => setTimeout(r));
+const header = (el) => el.querySelector(".ui-menu-item-header")?.textContent;
+
+function rgb(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)/);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(v * 255));
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)/);
+  return [+m[1], +m[2], +m[3]];
+}
+const hex = (text) => "#" + rgb(text).map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+function token(name) {
+  const probe = document.createElement("div");
+  probe.style.color = `var(${name})`;
+  document.body.append(probe);
+  const value = hex(getComputedStyle(probe).color);
+  probe.remove();
+  return value;
+}
+const ratio = (a, b) => contrastRatio(rgb(`rgb(${[1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16)).join(", ")})`), rgb(`rgb(${[1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16)).join(", ")})`));
+
+function key(el, k, options = {}) {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+const keyboardClick = (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+const pointerClick = (el) => {
+  el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+};
+
+// A menu flyout from a button, as an app writes it.
+const menu = createMenu([
+  { label: "New", icon: "plus", shortcut: "Mod+N" },
+  { label: "Open…", icon: "magnifying-glass", shortcut: "Mod+O" },
+  { label: "Recent", items: [{ label: "Report.txt" }, { label: "Notes.md" }] },
+  "-",
+  { label: "Print…", shortcut: "Mod+P", disabled: true },
+  { label: "Show sidebar", type: "checkbox", checked: true },
+  { label: "Large icons", type: "radio", group: "size" },
+  { label: "Small icons", type: "radio", group: "size", checked: true },
+  { label: "Settings" },
+], { label: "File" });
+const button = document.createElement("button");
+button.type = "button";
+button.className = "ui-button";
+button.textContent = "Menu";
+button.setAttribute("aria-haspopup", "menu");
+button.setAttribute("aria-expanded", "false");
+button.setAttribute("aria-controls", menu.id);
+const context = document.createElement("div");
+context.tabIndex = 0;
+context.textContent = "Context";
+context.style.cssText = "width:200px;height:64px";
+const contextMenu = createMenu([{ label: "Cut", shortcut: "Mod+X" }, { label: "Copy" }], { label: "Edit" });
+context.dataset.contextMenu = contextMenu.id;
+const bar = createMenuBar([
+  { label: "File", items: [{ label: "New" }, { label: "Recent", items: [{ label: "One" }] }] },
+  { label: "Edit", items: [{ label: "Undo" }] },
+  { label: "Off", items: [{ label: "x" }], disabled: true },
+  { label: "View", items: [{ label: "Zoom" }] },
+], { label: "Main" });
+host.append(button, menu, context, contextMenu, bar);
+
+const items = () => menuItems(menu);
+const byHeader = (m, h) => menuItems(m).find((i) => header(i) === h);
+const sub = () => document.getElementById(byHeader(menu, "Recent").getAttribute("aria-controls"));
+const titles = () => [...bar.querySelectorAll(".ui-menu-bar-item")];
+const barMenu = (i) => document.getElementById(titles()[i].getAttribute("aria-controls"));
+
+function closeAll() {
+  for (const m of document.querySelectorAll(".ui-menu")) if (open(m)) m.hidePopover();
+}
+
+test("roles: menu with a name, menuitem / menuitemcheckbox / menuitemradio with aria-checked, separator, submenu link", () => {
+  assertEqual(menu.getAttribute("role"), "menu");
+  assertEqual(menu.getAttribute("aria-label"), "File");
+  assertEqual(menu.getAttribute("popover"), "auto");
+  const roles = items().map((i) => i.getAttribute("role"));
+  assertEqual(roles.join(","), "menuitem,menuitem,menuitem,menuitem,menuitemcheckbox,menuitemradio,menuitemradio,menuitem");
+  assertEqual(byHeader(menu, "Show sidebar").getAttribute("aria-checked"), "true");
+  assertEqual(byHeader(menu, "Large icons").getAttribute("aria-checked"), "false");
+  assertEqual(menu.querySelectorAll("[role=separator]").length, 1);
+  const recent = byHeader(menu, "Recent");
+  assertEqual(recent.getAttribute("aria-haspopup"), "menu");
+  assertEqual(recent.getAttribute("aria-expanded"), "false");
+  assertEqual(sub().getAttribute("role"), "menu");
+  assert(menu.contains(sub()), "the submenu sits in its parent menu");
+  assert(items().every((i) => i.localName === "button" && i.type === "button" && i.tabIndex === -1), "native buttons out of the Tab order");
+});
+
+test("shortcuts: shown in the platform's format and declared with aria-keyshortcuts", () => {
+  const item = byHeader(menu, "Open…");
+  assertEqual(item.getAttribute("aria-keyshortcuts"), isMac ? "Meta+O" : "Control+O");
+  assertEqual(item.querySelector(".ui-menu-item-gesture").textContent, isMac ? "⌘O" : "Ctrl+O");
+  assertEqual(item.querySelector(".ui-menu-item-gesture").getAttribute("aria-hidden"), "true");
+  assertEqual(formatShortcut("Shift+Mod+S").text, isMac ? "⇧⌘S" : "Shift+Ctrl+S");
+  assertEqual(formatShortcut("F5").aria, "F5");
+});
+
+test("menu button: a keyboard click opens the menu below it and focuses the first item; aria-expanded follows", () => {
+  button.focus();
+  keyboardClick(button);
+  assert(open(menu), "open");
+  assertEqual(button.getAttribute("aria-expanded"), "true");
+  assertEqual(document.activeElement, items()[0]);
+  const a = rect(button), m = rect(menu);
+  near(m.top, a.bottom, "below the button");
+});
+
+test("Down and Up move through enabled items, wrapping and skipping disabled ones; Home and End; keys are prevented", () => {
+  const [first] = items();
+  assert(key(first, "ArrowDown"), "prevented");
+  assertEqual(header(document.activeElement), "Open…");
+  key(document.activeElement, "ArrowDown");
+  key(document.activeElement, "ArrowDown");
+  assertEqual(header(document.activeElement), "Show sidebar", "skips the disabled Print…");
+  key(document.activeElement, "End");
+  assertEqual(header(document.activeElement), "Settings");
+  key(document.activeElement, "ArrowDown");
+  assertEqual(header(document.activeElement), "New", "wraps to the first");
+  key(document.activeElement, "ArrowUp");
+  assertEqual(header(document.activeElement), "Settings", "wraps to the last");
+  key(document.activeElement, "Home");
+  assertEqual(header(document.activeElement), "New");
+});
+
+test("type-ahead: typing jumps to the next item starting with the text; a repeated letter cycles", () => {
+  key(document.activeElement, "s");
+  assertEqual(header(document.activeElement), "Show sidebar");
+  key(document.activeElement, "s");
+  assertEqual(header(document.activeElement), "Small icons");
+  key(document.activeElement, "s");
+  assertEqual(header(document.activeElement), "Settings");
+});
+
+test("Right opens a submenu on its first item, at the item's end edge, its first item level with the parent item", async () => {
+  for (const mode of [false, true]) {
+    setAnchorPositioning(mode);
+    const recent = byHeader(menu, "Recent");
+    recent.focus();
+    assert(key(recent, "ArrowRight"), "prevented");
+    assert(open(sub()), "submenu open");
+    assert(open(menu), "parent stays open");
+    assertEqual(recent.getAttribute("aria-expanded"), "true");
+    assertEqual(document.activeElement, menuItems(sub())[0]);
+    const r = rect(recent), s = rect(sub()), first = rect(menuItems(sub())[0]);
+    near(s.left, r.right, `${mode ? "css" : "script"}: at the item's end edge`);
+    near(first.top, r.top, `${mode ? "css" : "script"}: first item level with the parent item`);
+    // Left closes it and returns to the parent item.
+    assert(key(document.activeElement, "ArrowLeft"), "Left prevented");
+    assert(!open(sub()), "submenu closed");
+    assertEqual(document.activeElement, recent);
+    await tick();
+    assertEqual(recent.getAttribute("aria-expanded"), "false");
+  }
+});
+
+test("submenu: Escape closes only it; Enter on the item opens it", () => {
+  const recent = byHeader(menu, "Recent");
+  keyboardClick(recent);
+  assert(open(sub()), "opened by a keyboard click");
+  assertEqual(document.activeElement, menuItems(sub())[0]);
+  assert(key(document.activeElement, "Escape"), "prevented");
+  assert(!open(sub()) && open(menu), "only the submenu closed");
+  assertEqual(document.activeElement, recent);
+});
+
+test("right to left: Left opens the submenu, Right closes it", () => {
+  document.documentElement.dir = "rtl";
+  const recent = byHeader(menu, "Recent");
+  key(recent, "ArrowLeft");
+  assert(open(sub()), "Left opens");
+  key(document.activeElement, "ArrowRight");
+  assert(!open(sub()), "Right closes");
+  document.documentElement.dir = "ltr";
+});
+
+test("Escape closes the menu and returns focus to the button", () => {
+  key(document.activeElement, "Escape");
+  assert(!open(menu), "closed");
+  assertEqual(document.activeElement, button);
+});
+
+test("Down and Up on the button open on the first and last item; Tab closes and focus goes back to the button", () => {
+  key(button, "ArrowUp");
+  assertEqual(header(document.activeElement), "Settings");
+  closeMenu(menu, { restoreFocus: true });
+  key(button, "ArrowDown");
+  assertEqual(header(document.activeElement), "New");
+  assert(!key(document.activeElement, "Tab"), "Tab is not prevented, so it moves on");
+  assert(!open(menu), "closed");
+  assertEqual(document.activeElement, button);
+});
+
+test("a pointer click opens the menu with focus on the menu itself (nothing highlighted) and closes it again", () => {
+  pointerClick(button);
+  assert(open(menu), "open");
+  assertEqual(document.activeElement, menu);
+  assert(key(menu, "ArrowDown"), "Down from the menu");
+  assertEqual(header(document.activeElement), "New");
+  pointerClick(button);
+  assert(!open(menu), "a second click closes it");
+});
+
+test("the pointer moves focus (the highlight) to the item under it; a disabled item takes none", () => {
+  openMenu(menu, button, { focus: "menu" });
+  const target = byHeader(menu, "Open…");
+  target.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+  assertEqual(document.activeElement, target);
+  byHeader(menu, "Print…").dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+  assertEqual(document.activeElement, menu, "no item highlighted over a disabled one");
+  closeAll();
+});
+
+test("choosing: a checkbox item flips, a radio item checks itself in its group, before the page's handler; the menu closes", () => {
+  openMenu(menu, button, { focus: "first" });
+  const check = byHeader(menu, "Show sidebar");
+  let seen = null;
+  check.addEventListener("click", () => { seen = check.getAttribute("aria-checked"); }, { once: true });
+  check.click();
+  assertEqual(seen, "false", "flipped before the handler ran");
+  assert(!open(menu), "closed after choosing");
+  assertEqual(document.activeElement, button, "focus back to the button");
+  openMenu(menu, button);
+  byHeader(menu, "Large icons").click();
+  assertEqual(byHeader(menu, "Large icons").getAttribute("aria-checked"), "true");
+  assertEqual(byHeader(menu, "Small icons").getAttribute("aria-checked"), "false");
+});
+
+test("a disabled item does nothing when clicked and keeps the menu open", () => {
+  openMenu(menu, button);
+  let clicked = false;
+  const print = byHeader(menu, "Print…");
+  print.addEventListener("click", () => { clicked = true; }, { once: true });
+  print.click();
+  assert(!clicked, "the page's handler did not run");
+  assert(open(menu), "still open");
+  closeAll();
+});
+
+test("context menu: a right click opens it at the pointer with nothing highlighted; Escape returns focus", () => {
+  context.focus();
+  const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: 60, clientY: 300 });
+  context.dispatchEvent(e);
+  assert(e.defaultPrevented, "the browser's menu is suppressed");
+  assert(open(contextMenu), "open");
+  near(rect(contextMenu).left, 60, "x");
+  near(rect(contextMenu).top, 300, "y");
+  assertEqual(document.activeElement, contextMenu);
+  key(contextMenu, "Escape");
+  assert(!open(contextMenu), "closed");
+  assertEqual(document.activeElement, context);
+});
+
+test("context menu: a right click inside the open menu does not open it again", () => {
+  context.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: 60, clientY: 300 }));
+  const item = menuItems(contextMenu)[1];
+  const before = rect(contextMenu).left;
+  const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: 200, clientY: 340 });
+  item.dispatchEvent(e);
+  assert(open(contextMenu), "still open");
+  near(rect(contextMenu).left, before, "not moved to the new point");
+  closeMenu(contextMenu);
+});
+
+test("context menu: Shift+F10 opens it at the element's bottom start corner on the first item", () => {
+  context.focus();
+  assert(key(context, "F10", { shiftKey: true }), "prevented");
+  assert(open(contextMenu), "open");
+  near(rect(contextMenu).left, rect(context).left, "start");
+  near(rect(contextMenu).top, rect(context).bottom, "bottom");
+  assertEqual(header(document.activeElement), "Cut");
+  key(document.activeElement, "Escape");
+});
+
+test("menu bar: role menubar with menuitem titles, one Tab stop; Left and Right move (skipping disabled), wrapping; Home, End", () => {
+  assertEqual(bar.getAttribute("role"), "menubar");
+  assertEqual(bar.getAttribute("aria-label"), "Main");
+  assert(titles().every((t) => t.getAttribute("role") === "menuitem" && t.getAttribute("aria-haspopup") === "menu"), "titles");
+  assertEqual(titles().map((t) => t.tabIndex).join(","), "0,-1,-1,-1");
+  titles()[0].focus();
+  assert(key(titles()[0], "ArrowRight"), "prevented");
+  assertEqual(document.activeElement, titles()[1]);
+  key(document.activeElement, "ArrowRight");
+  assertEqual(document.activeElement, titles()[3], "skips the disabled title");
+  key(document.activeElement, "ArrowRight");
+  assertEqual(document.activeElement, titles()[0], "wraps");
+  key(document.activeElement, "End");
+  assertEqual(document.activeElement, titles()[3]);
+  key(document.activeElement, "Home");
+  assertEqual(titles().map((t) => t.tabIndex).join(","), "0,-1,-1,-1", "the Tab stop follows focus");
+  document.documentElement.dir = "rtl";
+  key(document.activeElement, "ArrowLeft");
+  assertEqual(document.activeElement, titles()[1], "right to left: Left moves on");
+  document.documentElement.dir = "ltr";
+  titles()[0].focus();
+});
+
+test("menu bar: Down opens the menu 4 px below, its item text in line with the title's", () => {
+  for (const mode of [false, true]) {
+    setAnchorPositioning(mode);
+    titles()[0].focus();
+    key(titles()[0], "ArrowDown");
+    const m = barMenu(0);
+    assert(open(m), "open");
+    assertEqual(titles()[0].getAttribute("aria-expanded"), "true");
+    assertEqual(document.activeElement, menuItems(m)[0]);
+    near(rect(m).top, rect(titles()[0]).bottom + 4, `${mode ? "css" : "script"}: 4 px below`);
+    const titleText = parseFloat(getComputedStyle(titles()[0]).paddingLeft) + rect(titles()[0]).left;
+    const itemText = rect(menuItems(m)[0].querySelector(".ui-menu-item-header")).left;
+    near(itemText, titleText, `${mode ? "css" : "script"}: text lined up`);
+    key(document.activeElement, "Escape");
+    assertEqual(document.activeElement, titles()[0], "Escape returns to the title");
+  }
+});
+
+test("menu bar: Right and Left in an open menu move to the next and previous title's menu", () => {
+  key(titles()[0], "ArrowDown");
+  key(document.activeElement, "ArrowRight");
+  assert(!open(barMenu(0)) && open(barMenu(1)), "Edit's menu open");
+  assertEqual(document.activeElement, menuItems(barMenu(1))[0]);
+  assertEqual(titles()[1].tabIndex, 0, "the Tab stop moved too");
+  key(document.activeElement, "ArrowLeft");
+  assert(open(barMenu(0)), "back to File");
+  // Right on a submenu item opens the submenu instead.
+  const recent = menuItems(barMenu(0))[1];
+  recent.focus();
+  key(recent, "ArrowRight");
+  assert(open(document.getElementById(recent.getAttribute("aria-controls"))), "submenu opened");
+  key(document.activeElement, "ArrowRight");
+  assert(open(barMenu(1)), "Right in the submenu moves to the next title's menu");
+  key(document.activeElement, "Escape");
+});
+
+test("menu bar: while a menu is open, pointing at another title opens its menu", () => {
+  pointerClick(titles()[0]);
+  assert(open(barMenu(0)), "open by click");
+  titles()[1].dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+  assert(open(barMenu(1)) && !open(barMenu(0)), "switched");
+  titles()[2].dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+  assert(open(barMenu(1)), "a disabled title does not take over");
+  closeAll();
+});
+
+test("columns: headers line up across items with and without marks and icons; gestures end-aligned", () => {
+  openMenu(menu, button, { focus: false });
+  const lefts = items().map((i) => Math.round(rect(i.querySelector(".ui-menu-item-header")).left));
+  assert(lefts.every((l) => l === lefts[0]), `headers at ${lefts.join(",")}`);
+  const ends = items().filter((i) => i.querySelector(".ui-menu-item-gesture")).map((i) => Math.round(rect(i.querySelector(".ui-menu-item-gesture")).right));
+  assert(ends.every((r) => r === ends[0]), `gestures end at ${ends.join(",")}`);
+  const item = byHeader(menu, "New");
+  const mark = rect(byHeader(menu, "Show sidebar").querySelector(".ui-menu-item-mark"));
+  assertEqual(mark.width, 20, "mark column at the icon size");
+  near(rect(item.querySelector(".ui-menu-item-icon")).left - rect(item).left, 12 + 20 + 8, "icon after the mark column and its 8 px gap, inside the 12 px padding");
+  near(rect(item.querySelector(".ui-menu-item-header")).left - rect(item.querySelector(".ui-menu-item-icon")).right, 8, "8 px after the icon");
+  assertEqual(getComputedStyle(item.querySelector(".ui-menu-item-gesture")).marginInlineStart, "24px", "the gesture SpacingXL after the header column");
+  assertEqual(getComputedStyle(byHeader(menu, "Recent").querySelector(".ui-menu-item-caret")).marginInlineStart, "8px", "the caret SpacingS after the gesture column");
+  const caret = byHeader(menu, "Recent").querySelector(".ui-menu-item-caret");
+  near(rect(caret).width, 20, "caret at the icon size");
+  const dot = rect(byHeader(menu, "Small icons").querySelector(".ui-menu-item-dot"));
+  assertEqual(dot.width, 8, "radio dot 8 px");
+  closeAll();
+});
+
+test("look: radius 16 with 5 px inset (4 padding, 1 glass edge); items 32 high (24 compact), control radius, separator 1 px inset 8", () => {
+  openMenu(menu, button, { focus: false });
+  const m = rect(menu), first = rect(items()[0]);
+  near(first.top - m.top, 5, "top inset");
+  near(first.left - m.left, 5, "side inset");
+  assertEqual(Math.round(first.height), 32);
+  const sep = menu.querySelector(".ui-menu-separator");
+  assertEqual(rect(sep).height, 1);
+  near(rect(sep).left - m.left, 5 + 8, "separator inset");
+  assertEqual(hex(getComputedStyle(sep).backgroundColor), token("--ui-system-base-low-color"));
+  setDensity("compact");
+  assertEqual(Math.round(rect(items()[0]).height), 24);
+  assertEqual(rect(byHeader(menu, "Show sidebar").querySelector(".ui-menu-item-mark")).width, 16, "compact icon size");
+  setDensity("normal");
+  closeAll();
+});
+
+test("states: highlight ListMedium on focus or data-state hover, pressed BaseMediumLow, no ring; disabled text colour, no fill", () => {
+  openMenu(menu, button, { focus: "first" });
+  const item = items()[0];
+  const bg = (el) => getComputedStyle(el).backgroundColor;
+  assertEqual(hex(bg(item)), token("--ui-system-list-medium-color"), "focused = highlighted");
+  assertEqual(getComputedStyle(item).outlineStyle, "none", "no focus ring");
+  const other = items()[1];
+  other.dataset.state = "hover pressed";
+  assertEqual(hex(bg(other)), token("--ui-system-base-medium-low-color"), "pressed");
+  delete other.dataset.state;
+  other.blur();
+  assertEqual(bg(other), "rgba(0, 0, 0, 0)", "rest transparent");
+  const print = byHeader(menu, "Print…");
+  print.dataset.state = "hover";
+  assertEqual(getComputedStyle(print).backgroundColor, "rgba(0, 0, 0, 0)", "disabled: no fill");
+  assertEqual(hex(getComputedStyle(print).color), token("--ui-system-base-medium-low-color"), "disabled text");
+  assertEqual(hex(getComputedStyle(print.querySelector(".ui-menu-item-gesture")).color), token("--ui-system-base-medium-low-color"), "disabled gesture");
+  delete print.dataset.state;
+  assertEqual(hex(getComputedStyle(byHeader(menu, "Open…").querySelector(".ui-menu-item-gesture")).color), token("--ui-system-base-medium-color"), "gesture in secondary text");
+  assertEqual(hex(getComputedStyle(item).color), token("--ui-system-base-high-color"), "text keeps its colour");
+  closeAll();
+});
+
+test("menu bar title states: Button's hover fill on keyboard focus, pressed fill while open, no ring, no pressed scale", () => {
+  const t = titles()[0];
+  const style = getComputedStyle(t);
+  assertEqual(style.getPropertyValue("--ui-button-pressed-scale").trim(), "1");
+  t.focus();
+  key(t, "ArrowRight");
+  key(titles()[1], "ArrowLeft");
+  assert(t.matches(":focus-visible"), "keyboard focus");
+  assertEqual(getComputedStyle(t).outlineStyle, "none");
+  const hover = getComputedStyle(t).backgroundColor;
+  t.dataset.state = "hover";
+  assertEqual(getComputedStyle(t).backgroundColor, hover, "focus = Button's hover fill");
+  delete t.dataset.state;
+  key(t, "ArrowDown");
+  t.dataset.state = "pressed";
+  const pressed = getComputedStyle(t).backgroundColor;
+  delete t.dataset.state;
+  assertEqual(getComputedStyle(t).backgroundColor, pressed, "open = Button's pressed fill");
+  closeAll();
+});
+
+test("contrast: item text, gesture and highlighted text meet AA on the glass tint and the highlight, light and dark", () => {
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    const tint = token("--ui-glass-tint-color");
+    const text = token("--ui-system-base-high-color");
+    const secondary = token("--ui-system-base-medium-color");
+    assert(ratio(text, tint) >= 4.5, `${theme} text ${ratio(text, tint)}`);
+    assert(ratio(text, token("--ui-system-list-medium-color")) >= 4.5, `${theme} highlighted text`);
+    assert(ratio(text, token("--ui-system-base-medium-low-color")) >= 3, `${theme} pressed text`);
+    assert(ratio(secondary, tint) >= 4.5, `${theme} gesture ${ratio(secondary, tint).toFixed(2)}`);
+  }
+  setTheme("light");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TabControl and TabStrip tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/tabs.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<ui-tabs id="tabs" style="inline-size: 400px">
+  <ui-tab-strip id="strip" aria-label="Settings">
+    <button class="ui-tab ui-squircle ui-focus-ring" aria-selected="true">General</button>
+    <button class="ui-tab ui-squircle ui-focus-ring">Activity</button>
+    <button class="ui-tab ui-squircle ui-focus-ring" disabled>Locked</button>
+    <button class="ui-tab ui-squircle ui-focus-ring">Sharing</button>
+  </ui-tab-strip>
+  <div class="ui-tab-panel">General settings.</div>
+  <div class="ui-tab-panel">Activity settings. <button type="button">Act</button></div>
+  <div class="ui-tab-panel">Locked.</div>
+  <div class="ui-tab-panel">Sharing settings.</div>
+</ui-tabs>
+<ui-tab-strip id="lone" aria-label="Sections">
+  <button class="ui-tab ui-squircle ui-focus-ring">One</button>
+  <button class="ui-tab ui-squircle ui-focus-ring" aria-selected="true">Two</button>
+</ui-tab-strip>
+<ui-tabs id="side" placement="start">
+  <ui-tab-strip aria-label="Side">
+    <button class="ui-tab ui-squircle ui-focus-ring">Alpha</button>
+    <button class="ui-tab ui-squircle ui-focus-ring">Beta</button>
+  </ui-tab-strip>
+  <div class="ui-tab-panel">Alpha panel.</div>
+  <div class="ui-tab-panel">Beta panel.</div>
+</ui-tabs>
+<div id="probe"></div>
+<script type="module">
+import "../blocks/tabs.js";
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+
+const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+const cs = (el, pseudo) => getComputedStyle(el, pseudo);
+const frame = () => new Promise((r) => setTimeout(r, 30));
+const probe = $("probe");
+function colour(value) {
+  probe.style.color = value;
+  return cs(probe).color;
+}
+const rgbOf = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+async function withAttr(name, value, fn) {
+  const before = root.getAttribute(name);
+  root.setAttribute(name, value);
+  try { await fn(); } finally {
+    if (before === null) root.removeAttribute(name); else root.setAttribute(name, before);
+  }
+}
+const strip = $("strip");
+const tabs = () => [...strip.querySelectorAll(".ui-tab")];
+const panels = () => [...$("tabs").querySelectorAll(".ui-tab-panel")];
+const indicator = (s = strip) => s.querySelector(".ui-tab-indicator");
+// Layout positions are fractional; the underline must land within half a pixel of the header.
+const near = (actual, expected, message) =>
+  assert(Math.abs(actual - expected) < 0.5, `${message ? message + ": " : ""}expected ${expected}, got ${actual}`);
+const key = (el, k) => el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+
+// Header sizes change when Inter finishes loading; the strip follows on its next resize callback.
+// Measure after both, so the checks see the settled layout.
+test("fonts loaded and the strip settled", async () => {
+  await document.fonts.ready;
+  await frame();
+});
+
+test("roles: tablist of tabs, tabpanels linked both ways", () => {
+  assertEqual(strip.getAttribute("role"), "tablist");
+  assert(!strip.hasAttribute("aria-orientation"), "a horizontal strip has no orientation");
+  tabs().forEach((t, i) => {
+    assertEqual(t.getAttribute("role"), "tab");
+    assertEqual(t.type, "button");
+    const panel = panels()[i];
+    assertEqual(panel.getAttribute("role"), "tabpanel");
+    assertEqual(t.getAttribute("aria-controls"), panel.id);
+    assertEqual(panel.getAttribute("aria-labelledby"), t.id);
+  });
+  assertEqual(indicator().getAttribute("aria-hidden"), "true");
+  assertEqual(strip.lastElementChild, indicator(), "the underline is last, after the tabs");
+});
+
+test("selection: one selected tab, its panel shown, roving tabindex on it", () => {
+  assertEqual(tabs().map((t) => t.getAttribute("aria-selected")).join(), "true,false,false,false");
+  assertEqual(tabs().map((t) => t.tabIndex).join(), "0,-1,-1,-1");
+  assertEqual(panels().map((p) => p.hidden).join(), "false,true,true,true");
+  assertEqual($("lone").selectedIndex, 1, "aria-selected in markup sets the selection");
+  assertEqual([...$("lone").querySelectorAll(".ui-tab")].map((t) => t.tabIndex).join(), "-1,0");
+});
+
+test("a panel with nothing focusable is a Tab stop, with the focus ring; one with a control is not", () => {
+  assertEqual(panels()[0].tabIndex, 0);
+  assert(panels()[0].classList.contains("ui-focus-ring") && panels()[0].classList.contains("ui-squircle"), "ring classes");
+  panels()[0].hidden = false;
+  panels()[0].focus({ focusVisible: true });
+  assertEqual(cs(panels()[0]).outlineStyle, "solid");
+  assertEqual(cs(panels()[0]).outlineColor, colour("var(--ui-system-accent-color)"));
+  panels()[0].blur();
+  panels()[0].hidden = strip.selectedIndex !== 0;
+  assert(!panels()[1].hasAttribute("tabindex"), "the panel with a button takes no tabindex");
+});
+
+test("keys: Right and Left move and select, skipping disabled, stopping at the ends", () => {
+  const changes = [];
+  const onChange = () => changes.push(strip.selectedIndex);
+  strip.addEventListener("change", onChange);
+  tabs()[0].focus();
+  key(tabs()[0], "ArrowRight");
+  assertEqual(document.activeElement, tabs()[1]);
+  assertEqual(strip.selectedIndex, 1);
+  assertEqual(panels().map((p) => p.hidden).join(), "true,false,true,true");
+  key(tabs()[1], "ArrowRight");
+  assertEqual(document.activeElement, tabs()[3], "the disabled tab is skipped");
+  key(tabs()[3], "ArrowRight");
+  assertEqual(document.activeElement, tabs()[3], "stops at the end");
+  key(tabs()[3], "Home");
+  assertEqual(document.activeElement, tabs()[0]);
+  key(tabs()[0], "ArrowLeft");
+  assertEqual(document.activeElement, tabs()[0], "stops at the start");
+  key(tabs()[0], "End");
+  assertEqual(strip.selectedIndex, 3);
+  assertEqual(tabs().map((t) => t.tabIndex).join(), "-1,-1,-1,0");
+  key(tabs()[3], "ArrowLeft");
+  assertEqual(strip.selectedIndex, 1);
+  assertEqual(changes.join(), "1,3,0,3,1", "one change event per selection change");
+  strip.removeEventListener("change", onChange);
+});
+
+test("navigation keys are consumed; others are not", () => {
+  tabs()[0].focus();
+  const right = new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true });
+  tabs()[0].dispatchEvent(right);
+  assert(right.defaultPrevented, "ArrowRight prevented");
+  const down = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true });
+  document.activeElement.dispatchEvent(down);
+  assert(!down.defaultPrevented, "ArrowDown is not a key of a horizontal strip");
+});
+
+test("click selects; a disabled tab cannot be selected", () => {
+  tabs()[0].click();
+  assertEqual(strip.selectedIndex, 0);
+  tabs()[2].click();
+  assertEqual(strip.selectedIndex, 0);
+});
+
+test("selectedIndex sets the selection from script", () => {
+  strip.selectedIndex = 3;
+  assertEqual(tabs()[3].getAttribute("aria-selected"), "true");
+  assertEqual(panels()[3].hidden, false);
+  strip.selectedIndex = 0;
+});
+
+test("right to left: Left and Right swap", () => {
+  $("tabs").dir = "rtl";
+  tabs()[0].focus();
+  key(tabs()[0], "ArrowLeft");
+  assertEqual(strip.selectedIndex, 1);
+  key(tabs()[1], "ArrowRight");
+  assertEqual(strip.selectedIndex, 0);
+  $("tabs").removeAttribute("dir");
+});
+
+test("right to left: the underline stays under its header when the direction flips", async () => {
+  await withAttr("data-reduce-motion", "true", async () => {
+    $("tabs").dir = "rtl";
+    await frame();
+    let t = tabs()[0].getBoundingClientRect();
+    near(indicator().getBoundingClientRect().right, t.right - 12, "under the header in RTL");
+    $("tabs").removeAttribute("dir");
+    await frame();
+    t = tabs()[0].getBoundingClientRect();
+    near(indicator().getBoundingClientRect().left, t.left + 12, "back under it in LTR");
+  });
+});
+
+test("beside the panels: vertical strip, Up and Down, underline on the inner edge", async () => {
+  const side = $("side").querySelector("ui-tab-strip");
+  assertEqual(side.getAttribute("aria-orientation"), "vertical");
+  const [a, b] = side.querySelectorAll(".ui-tab");
+  a.focus();
+  key(a, "ArrowDown");
+  assertEqual(document.activeElement, b);
+  key(b, "ArrowUp");
+  assertEqual(document.activeElement, a);
+  await frame();
+  const line = cs(side, "::after");
+  assertEqual(line.width, "1px");
+  assertEqual(cs(side).paddingRight, "8px", "8 px between the headers and the underline");
+  const ind = indicator(side).getBoundingClientRect();
+  const box = side.getBoundingClientRect();
+  near(ind.width, 3);
+  near(ind.right, box.right, "on the inner (end) edge");
+});
+
+test("header: Body text, 32 px tall with 12 px sides; Compact 24 and 8", async () => {
+  const t = cs(tabs()[0]);
+  assertEqual(t.fontSize, "14px");
+  assertEqual(t.fontWeight, "400");
+  assertEqual(t.height, "32px");
+  assertEqual(t.paddingLeft, "12px");
+  assertEqual(t.backgroundColor, "rgba(0, 0, 0, 0)");
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs(tabs()[0]).height, "24px");
+    assertEqual(cs(tabs()[0]).paddingLeft, "8px");
+  });
+});
+
+test("the selected header keeps the regular weight", () => {
+  assertEqual(cs(tabs()[0]).fontWeight, "400");
+});
+
+test("underline: 3 px accent pill spanning the header's content, at the strip's bottom", async () => {
+  await frame();
+  const t = tabs()[0].getBoundingClientRect();
+  const ind = indicator();
+  const r = ind.getBoundingClientRect();
+  near(r.height, 3);
+  near(r.left, t.left + 12);
+  near(r.width, t.width - 24);
+  near(r.bottom, t.bottom);
+  assertEqual(cs(ind).borderTopLeftRadius, "1.5px");
+  assertEqual(cs(ind).backgroundColor, colour("var(--ui-system-accent-color)"));
+  await withAttr("data-density", "compact", async () => {
+    await frame();
+    const t2 = tabs()[0].getBoundingClientRect();
+    near(ind.getBoundingClientRect().width, t2.width - 16, "follows the padding at once");
+  });
+});
+
+test("underline slides over MotionNormal with the ease-out; instant under reduce motion", async () => {
+  await withAttr("data-reduce-motion", "false", () => {
+    const s = cs(indicator());
+    assertEqual(s.transitionDuration, "0.2s, 0.2s, 0.2s, 0.2s");
+    assert(s.transitionProperty.includes("inset-inline-start"), s.transitionProperty);
+  });
+  await withAttr("data-reduce-motion", "true", () => assertEqual(cs(indicator()).transitionDuration, "0s, 0s, 0s, 0s"));
+});
+
+test("the underline moves to the new selection", async () => {
+  await withAttr("data-reduce-motion", "true", async () => {
+    strip.selectedIndex = 1;
+    await frame();
+    const t = tabs()[1].getBoundingClientRect();
+    near(indicator().getBoundingClientRect().left, t.left + 12);
+    strip.selectedIndex = 0;
+  });
+});
+
+test("hairline: 1 px in the line colour along the whole strip", () => {
+  const line = cs(strip, "::after");
+  assertEqual(line.height, "1px");
+  assertEqual(line.width, cs(strip).width);
+  assertEqual(line.backgroundColor, colour("var(--ui-system-base-low-color)"));
+});
+
+test("panel: the tab's side padding and 12 above and below; Compact 8 at the sides", async () => {
+  const p = cs(panels()[0]);
+  assertEqual(`${p.paddingTop} ${p.paddingLeft}`, "12px 12px");
+  await withAttr("data-density", "compact", () => {
+    const c = cs(panels()[0]);
+    assertEqual(`${c.paddingTop} ${c.paddingLeft}`, "12px 8px");
+  });
+});
+
+test("text colours by state, and the focused header is raised over the underline", async () => {
+  await withAttr("data-reduce-motion", "true", () => {
+    const [sel, other, locked] = tabs();
+    assertEqual(cs(other).color, colour("var(--ui-system-base-medium-color)"));
+    assertEqual(cs(sel).color, colour("var(--ui-system-base-high-color)"));
+    other.dataset.state = "hover";
+    assertEqual(cs(other).color, colour("var(--ui-system-base-medium-high-color)"));
+    other.dataset.state = "pressed";
+    assertEqual(cs(other).color, colour("var(--ui-system-base-medium-high-color)"));
+    sel.dataset.state = "hover";
+    assertEqual(cs(sel).color, colour("var(--ui-system-base-medium-high-color)"));
+    sel.dataset.state = "focus";
+    assertEqual(cs(sel).zIndex, "2");
+    assertEqual(cs(sel).outlineStyle, "solid");
+    assertEqual(cs(locked).color, colour("var(--ui-system-base-medium-low-color)"));
+    delete sel.dataset.state;
+    delete other.dataset.state;
+  });
+});
+
+test("contrast: every enabled header colour reaches 4.5:1 on the page, light and dark", async () => {
+  for (const theme of ["light", "dark"]) {
+    await withAttr("data-theme", theme, () => {
+      const page = rgbOf(colour("var(--ui-system-region-color)"));
+      for (const token of ["--ui-tab-foreground", "--ui-tab-foreground-pointer-over", "--ui-tab-foreground-selected", "--ui-tab-foreground-selected-pointer-over"]) {
+        const text = rgbOf(colour(cs(strip).getPropertyValue(token)));
+        const ratio = contrastRatio(text, page);
+        assert(ratio >= 4.5, `${theme} ${token}: ${ratio.toFixed(2)}`);
+      }
+    });
+  }
+});
+
+test("tabs added later join the strip", async () => {
+  const lone = $("lone");
+  const extra = document.createElement("button");
+  extra.className = "ui-tab";
+  extra.textContent = "Three";
+  lone.insertBefore(extra, lone.querySelector(".ui-tab-indicator"));
+  await frame();
+  assertEqual(extra.getAttribute("role"), "tab");
+  assertEqual(extra.getAttribute("aria-selected"), "false");
+  assertEqual(extra.tabIndex, -1);
+  assertEqual(lone.lastElementChild.className, "ui-tab-indicator");
+  extra.remove();
+});
+</script>
+</body>
+</html>

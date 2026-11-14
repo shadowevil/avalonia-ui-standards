@@ -12,7 +12,15 @@ import button from "./button.js";
 import buttonFamily from "./button-family.js";
 import listBox from "./list-box.js";
 import icon from "./icon.js";
+import textInput from "./text-input.js";
+import toggles from "./toggles.js";
+import segmented from "./segmented-control.js";
 import ranges from "./ranges.js";
+import tabs from "./tabs.js";
+import expander from "./expander.js";
+import menusAndFlyouts from "./menus-and-flyouts.js";
+import tooltipNotification from "./tooltip-notification.js";
+import separator from "./separator.js";
 
 export const pages = Object.freeze([
   colours,
@@ -25,5 +33,13 @@ export const pages = Object.freeze([
   buttonFamily,
   listBox,
   icon,
+  textInput,
+  toggles,
+  segmented,
   ranges,
+  tabs,
+  expander,
+  menusAndFlyouts,
+  tooltipNotification,
+  separator,
 ]);

@@ -11,6 +11,8 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const MINIMAL_BELOW = 64;
 const MAP_SCALE = 0.5;
 const PROPERTY = "--ui-glass-refraction";
+// Elements in the top layer, where glass levels start a new count (glass.css).
+const TOP_LAYER = "[popover], dialog:modal";
 
 let svg = null;
 let resizeObserver = null;
@@ -56,7 +58,7 @@ function start() {
     frame ||= requestAnimationFrame(flushSizes);
   });
   mutationObserver = new MutationObserver(scheduleScan);
-  mutationObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+  mutationObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "popover", "open"] });
   scan();
 }
 
@@ -94,6 +96,11 @@ if (supported) {
  */
 export function refreshGlassRefraction() {
   if (!svg) return;
+  // Sizes queued before now (a popover's 0 x 0 while it was closed) are stale: a later frame would
+  // apply them over the sizes read here.
+  cancelAnimationFrame(frame);
+  frame = 0;
+  pendingSizes.clear();
   scan();
   for (const element of surfaces.keys()) {
     update(element, { inlineSize: element.offsetWidth, blockSize: element.offsetHeight });
@@ -110,9 +117,17 @@ function scheduleScan() {
   });
 }
 
-// First-level glass gets a filter; nested glass is minimal or solid and needs none.
+// First-level glass gets a filter; nested glass is minimal or solid and needs none. Levels count
+// within one layer (glass.css): glass in the top layer ([popover], a modal dialog) is first level,
+// and so is glass whose nearest such element above it is not glass.
+function firstLevel(element) {
+  if (element.matches(TOP_LAYER)) return true;
+  const above = element.parentElement?.closest(`.ui-glass, ${TOP_LAYER}`);
+  return !above || !above.matches(".ui-glass");
+}
+
 function scan() {
-  const wanted = new Set([...document.querySelectorAll(".ui-glass")].filter((e) => !e.parentElement?.closest(".ui-glass")));
+  const wanted = new Set([...document.querySelectorAll(".ui-glass")].filter(firstLevel));
   for (const element of surfaces.keys()) if (!wanted.has(element)) release(element);
   for (const element of wanted) {
     if (surfaces.has(element)) continue;

@@ -36,7 +36,8 @@
   root: glass inside it blurs the page with this glass drawn on it, as on the desktop. The rim
   (or the solid fallback's border) is on ::after, above the content.
   Levels and quality (0015): the second level is minimal glass (no refraction), the third level
-  and deeper is solid; data-glass-quality on <html> makes every level minimal or solid.
+  and deeper is solid, counted within one layer (below); data-glass-quality on <html> makes every
+  level minimal or solid.
   Refraction needs glass.js (Chromium only); without it, glass is minimal everywhere.
 */
 .ui-glass {
@@ -77,21 +78,47 @@
     inset 0 0 0 1px color-mix(in srgb, var(--ui-glass-border-brush) calc(var(--ui-glass-solid) * 100%), transparent);
 }
 
-/* Minimal glass: the second level, or every level with quality minimal. */
-.ui-glass .ui-glass::before,
+/*
+  Levels count within one layer. An element in the top layer ([popover], a modal <dialog>) starts
+  a new count wherever it sits in the DOM, as desktop overlays open in the window's overlay layer,
+  outside the panel's glass (0036): a glass overlay is first level, and glass inside it second.
+  It takes the page's solid state (reduce transparency), not that of a solid glass around it.
+*/
+:root {
+  --ui-glass-solid-base: var(--ui-glass-solid);
+}
+
+:is([popover], dialog:modal) {
+  --ui-glass-solid: var(--ui-glass-solid-base);
+}
+
+/* Every level minimal with quality minimal. */
 :root[data-glass-quality="minimal"] .ui-glass::before {
   backdrop-filter: blur(calc(var(--ui-glass-blur-sigma) * (1 - var(--ui-glass-solid))));
 }
 
-/* Solid: the third level and deeper, or every level with quality solid. */
-.ui-glass .ui-glass .ui-glass,
+@scope (.ui-glass) to (:is([popover], dialog:modal)) {
+  /* Minimal glass: the second level. */
+  :scope .ui-glass::before {
+    backdrop-filter: blur(calc(var(--ui-glass-blur-sigma) * (1 - var(--ui-glass-solid))));
+  }
+
+  /* Solid: the third level and deeper. */
+  :scope .ui-glass .ui-glass {
+    --ui-glass-solid: 1;
+  }
+
+  :scope .ui-glass .ui-glass::before {
+    backdrop-filter: none;
+  }
+}
+
+/* Solid with quality solid; solid draws no backdrop at all. (An app that sets --ui-glass-solid
+   itself gets the solid look over a zero blur.) */
 :root[data-glass-quality="solid"] .ui-glass {
   --ui-glass-solid: 1;
 }
 
-/* Solid draws no backdrop at all. (An app that sets --ui-glass-solid itself gets the solid look
-   over a zero blur.) */
-.ui-glass .ui-glass .ui-glass::before,
 :root[data-glass-quality="solid"] .ui-glass::before,
 :root[data-reduce-transparency="true"] .ui-glass::before {
   backdrop-filter: none;

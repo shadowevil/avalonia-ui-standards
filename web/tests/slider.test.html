@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Slider tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/slider.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host" style="inline-size: 160px">
+  <input id="plain" type="range" class="ui-slider" min="0" max="100" value="40" aria-label="Volume">
+  <input id="ticks" type="range" class="ui-slider ui-ticks-outside" min="0" max="100" value="60" data-tick-frequency="10" aria-label="Ticks">
+  <input id="top" type="range" class="ui-slider ui-ticks-top-left" min="0" max="50" value="10" data-tick-frequency="5" aria-label="Top ticks">
+  <input id="vertical" type="range" class="ui-slider ui-vertical" min="0" max="100" value="70" style="inline-size: 100px" aria-label="Vertical">
+  <input id="off" type="range" class="ui-slider" value="40" disabled aria-label="Off">
+  <input id="bad" type="range" class="ui-slider" value="40" aria-invalid="true" aria-label="Bad">
+</div>
+<div id="probe"></div>
+<script type="module">
+import "../blocks/slider.js";
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+
+const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+const cs = (el) => getComputedStyle(el);
+const frame = () => new Promise((r) => setTimeout(r, 20));
+const probe = $("probe");
+function colour(value) {
+  probe.style.color = value;
+  return cs(probe).color;
+}
+const resolved = (el, name) => colour(cs(el).getPropertyValue(name));
+function length(value) {
+  probe.style.width = value;
+  return cs(probe).width;
+}
+const fraction = (el) => cs(el).getPropertyValue("--ui-slider-fraction");
+async function withAttr(name, value, fn) {
+  const before = root.getAttribute(name);
+  root.setAttribute(name, value);
+  try { await fn(); } finally {
+    if (before === null) root.removeAttribute(name); else root.setAttribute(name, before);
+  }
+}
+function rule(selector) {
+  for (const sheet of document.styleSheets) {
+    for (const r of sheet.cssRules) if (r.selectorText === selector) return r.style;
+  }
+  throw new Error(`no rule for ${selector}`);
+}
+const rgbOf = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+const hex = (rgb) => "#" + rgb.match(/\d+/g).slice(0, 3).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+
+test("native range input with a name: no role or value attributes added", () => {
+  for (const el of document.querySelectorAll(".ui-slider")) {
+    assertEqual(el.type, "range");
+    assert(el.getAttribute("aria-label"), `${el.id} has no name`);
+    assert(!el.hasAttribute("role"), `${el.id} repeats the native role`);
+    assert(!el.hasAttribute("aria-valuenow"), `${el.id} repeats the native value`);
+  }
+});
+
+test("the fraction follows the value, min and max", async () => {
+  await frame();
+  assertEqual(fraction($("plain")), "0.4");
+  assertEqual(fraction($("top")), "0.2");
+  $("top").max = "20";
+  await frame();
+  assertEqual(fraction($("top")), "0.5");
+  $("top").max = "50";
+  await frame();
+});
+
+test("script value changes update the track: value, valueAsNumber, stepUp, stepDown", () => {
+  const s = $("plain");
+  s.value = "25";
+  assertEqual(fraction(s), "0.25");
+  assertEqual(s.value, "25", "the native value still works");
+  s.valueAsNumber = 75;
+  assertEqual(fraction(s), "0.75");
+  s.stepDown(5);
+  assertEqual(fraction(s), "0.7");
+  s.stepUp(10);
+  assertEqual(fraction(s), "0.8");
+  s.value = "40";
+});
+
+test("user input (the input event) updates the track", () => {
+  const s = $("plain");
+  HTMLInputElement.prototype.__lookupSetter__("value").call(s, "60");
+  s.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(fraction(s), "0.6");
+  s.value = "40";
+});
+
+test("a form reset updates the track", async () => {
+  const form = document.createElement("form");
+  const s = $("plain").cloneNode();
+  form.append(s);
+  document.body.append(form);
+  await frame();
+  s.value = "90";
+  form.reset();
+  await frame();
+  assertEqual(fraction(s), "0.4");
+  form.remove();
+});
+
+test("a slider added later is picked up", async () => {
+  const s = document.createElement("input");
+  s.type = "range";
+  s.className = "ui-slider";
+  s.value = "30";
+  document.body.append(s);
+  await frame();
+  assertEqual(fraction(s), "0.3");
+  s.value = "50";
+  assertEqual(fraction(s), "0.5", "the added slider's value setter is hooked");
+  s.remove();
+});
+
+test("row 32 px with a 20 px thumb; Compact 24 and 16", async () => {
+  assertEqual(cs($("plain")).height, "32px");
+  assertEqual(length(cs($("plain")).getPropertyValue("--ui-slider-thumb-size")), "20px");
+  assertEqual(length(cs($("plain")).getPropertyValue("--ui-slider-track-thickness")), "4px");
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs($("plain")).height, "24px");
+    assertEqual(length(cs($("plain")).getPropertyValue("--ui-slider-thumb-size")), "16px");
+    assertEqual(length(cs($("plain")).getPropertyValue("--ui-slider-track-thickness")), "4px");
+  });
+});
+
+test("it stretches along its track", () => {
+  assertEqual(cs($("plain")).width, "160px");
+});
+
+test("ticks: both sides 36 px (Compact 32), one side fits the row; 4 px long, 4 px from the thumb", async () => {
+  assertEqual(cs($("ticks")).height, "36px");
+  assertEqual(cs($("top")).height, "32px");
+  assertEqual(cs($("ticks")).getPropertyValue("--ui-slider-tick-count"), "10");
+  assertEqual(cs($("top")).getPropertyValue("--ui-slider-tick-count"), "10");
+  // Thumb start across the row: both sides 8; one side centred in what the ticks leave (10).
+  assertEqual(length(cs($("ticks")).getPropertyValue("--_thumb-start")), "8px");
+  assertEqual(length(cs($("top")).getPropertyValue("--_thumb-start")), "10px");
+  assertEqual(length(cs($("ticks")).getPropertyValue("--_tick-before")), "0px");
+  assertEqual(length(cs($("ticks")).getPropertyValue("--_tick-after")), "32px");
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs($("ticks")).height, "32px");
+    assertEqual(cs($("top")).height, "24px");
+  });
+  assert(cs($("ticks")).backgroundImage.includes("repeating-linear-gradient"), "ticks drawn");
+  assertEqual(cs($("plain")).backgroundImage, "none", "no ticks without a placement");
+});
+
+test("vertical: the browser's vertical range, 32 px wide, filling from the bottom", () => {
+  const s = cs($("vertical"));
+  assertEqual(s.writingMode, "vertical-lr");
+  assertEqual(s.direction, "rtl");
+  assertEqual(s.width, "32px");
+  assertEqual(s.height, "100px");
+  assertEqual(s.getPropertyValue("--_fill-direction").trim(), "to top");
+});
+
+// Theme switches cross-fade the registered track colours, so these read them with motion reduced.
+test("colours: accent value, SliderTrackFill rest, white thumb with its edge", async () => {
+  await withAttr("data-reduce-motion", "true", () => withColours());
+});
+async function withColours() {
+  await withAttr("data-theme", "light", () => {
+    assertEqual(resolved($("plain"), "--_ui-slider-value"), colour("var(--ui-accent-fill-color)"));
+    assertEqual(hex(resolved($("plain"), "--_ui-slider-rest")), "#a6a6a6");
+    assertEqual(hex(resolved($("plain"), "--ui-slider-thumb-fill")), "#ffffff");
+    assertEqual(resolved($("plain"), "--ui-slider-thumb-edge"), "rgba(0, 0, 0, 0.12)");
+  });
+  await withAttr("data-theme", "dark", () => {
+    assertEqual(hex(resolved($("plain"), "--_ui-slider-rest")), "#6b6b6b");
+    assertEqual(hex(resolved($("plain"), "--ui-slider-thumb-fill")), "#ffffff", "white in both themes");
+  });
+}
+
+test("hover and pressed: accent steps, rest steps, thumb grows 10 % and 20 %", async () => {
+  await withAttr("data-reduce-motion", "true", async () => {
+    const s = $("plain");
+    s.dataset.state = "hover";
+    assertEqual(resolved(s, "--_ui-slider-value"), colour("var(--ui-accent-fill-color-pointer-over)"));
+    assertEqual(resolved(s, "--_ui-slider-rest"), colour("var(--ui-system-base-medium-color)"));
+    assertEqual(cs(s).getPropertyValue("--ui-slider-thumb-scale").trim(), "1.1");
+    s.dataset.state = "pressed";
+    assertEqual(resolved(s, "--_ui-slider-value"), colour("var(--ui-accent-fill-color-pressed)"));
+    assertEqual(resolved(s, "--_ui-slider-rest"), colour("var(--ui-system-base-medium-low-color)"));
+    assertEqual(cs(s).getPropertyValue("--ui-slider-thumb-scale").trim(), "1.2");
+    delete s.dataset.state;
+  });
+});
+
+test("disabled: base-medium-low value, SliderTrackFillDisabled rest, base-low thumb, no hover", async () => {
+  const s = $("off");
+  await withAttr("data-reduce-motion", "true", async () => {
+    await withAttr("data-theme", "light", () => {
+      s.dataset.state = "hover";
+      assertEqual(resolved(s, "--_ui-slider-value"), colour("var(--ui-system-base-medium-low-color)"));
+      assertEqual(hex(resolved(s, "--_ui-slider-rest")), "#cccccc");
+      assertEqual(resolved(s, "--ui-slider-thumb-fill"), colour("var(--ui-system-base-low-color)"));
+      assertEqual(cs(s).getPropertyValue("--ui-slider-thumb-scale").trim(), "1");
+      delete s.dataset.state;
+    });
+  });
+  await withAttr("data-theme", "dark", () => assertEqual(hex(resolved(s, "--ui-slider-track-fill-disabled")), "#333333"));
+});
+
+test("error: Fluent's error-coloured thumb", async () => {
+  await withAttr("data-theme", "light", () => assertEqual(hex(resolved($("bad"), "--ui-slider-thumb-fill")), "#c50500"));
+  await withAttr("data-theme", "dark", () => assertEqual(hex(resolved($("bad"), "--ui-slider-thumb-fill")), "#fff000"));
+});
+
+test("focus: the ring goes around the thumb, not the input", () => {
+  $("plain").focus({ focusVisible: true });
+  assertEqual(document.activeElement, $("plain"));
+  assertEqual(cs($("plain")).outlineStyle, "none");
+  const ring = rule('.ui-slider:is(:focus-visible, [data-state~="focus"])::-webkit-slider-thumb');
+  assertEqual(ring.outline, "var(--ui-focus-ring-width) solid var(--ui-focus-ring-color)");
+  assertEqual(ring.outlineOffset, "var(--ui-focus-ring-offset)");
+  $("plain").blur();
+});
+
+test("the thumb pseudo-element: circle, centred on the 4 px track, scaled by state", () => {
+  const thumb = rule(".ui-slider::-webkit-slider-thumb");
+  assertEqual(thumb.borderRadius, "50%");
+  assertEqual(thumb.scale, "var(--ui-slider-thumb-scale)");
+  assertEqual(thumb.marginBlockStart, "calc((var(--ui-slider-track-thickness) - var(--ui-slider-thumb-size)) / 2)");
+  assertEqual(thumb.boxShadow, "var(--ui-slider-thumb-shadow)");
+  assertEqual(cs($("plain")).getPropertyValue("--ui-slider-thumb-shadow").trim(), "0 1px 3px #00000040");
+  const track = rule(".ui-slider::-webkit-slider-runnable-track");
+  assertEqual(track.blockSize, "var(--ui-slider-track-thickness)");
+  assert(track.background.includes("var(--_fraction)"), "the split follows the fraction");
+});
+
+test("motion: colours and thumb over MotionFast; instant under reduce motion", async () => {
+  await withAttr("data-reduce-motion", "false", () => {
+    assertEqual(cs($("plain")).transitionDuration, "0.1s, 0.1s");
+  });
+  await withAttr("data-reduce-motion", "true", () => {
+    assertEqual(cs($("plain")).transitionDuration, "0s, 0s");
+  });
+});
+
+test("right to left: the value part fills from the right", () => {
+  const wrap = document.createElement("div");
+  wrap.dir = "rtl";
+  const s = $("plain").cloneNode();
+  wrap.append(s);
+  document.body.append(wrap);
+  assertEqual(cs(s).getPropertyValue("--_fill-direction").trim(), "to left");
+  wrap.remove();
+});
+
+test("contrast: the value fill reaches 3:1 against the page, light and dark", async () => {
+  for (const theme of ["light", "dark"]) {
+    await withAttr("data-theme", theme, () => {
+      const page = rgbOf(colour("var(--ui-system-region-color)"));
+      const fill = rgbOf(colour("var(--ui-accent-fill-color)"));
+      const ratio = contrastRatio(fill, page);
+      assert(ratio >= 3, `${theme}: value fill on page ${ratio.toFixed(2)}`);
+    });
+  }
+});
+</script>
+</body>
+</html>

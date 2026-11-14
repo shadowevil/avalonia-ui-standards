@@ -1,0 +1,154 @@
+/*
+  Segmented control (0032): one of a few options of a single setting.
+
+    <ui-segmented-control class="ui-squircle ui-focus-ring-within" aria-label="Range" name="range">
+      <span class="ui-segmented-control-item ui-squircle" data-value="day" aria-checked="true">Day</span>
+      <span class="ui-segmented-control-item ui-squircle" data-value="week">Week</span>
+      <span class="ui-segmented-control-item ui-squircle" aria-label="Grid" title="Grid"><svg class="ui-icon" …></svg></span>
+    </ui-segmented-control>
+
+  A squircle track in Button's Standard fill (radius 8, the control height of the density) holds
+  equal-width segments inset 2 px; the segments and the pill take the track's radius less the
+  inset, so the curves are concentric. The selected segment (aria-checked="true") shows the one
+  neutral pill, which segmented-control.js slides between segments; the segments add no fill of
+  their own when selected. Unselected segments take Button's hover fill on hover and while
+  pressed. The focus ring is drawn around the whole control (ui-focus-ring-within), not around a
+  segment. Disabled: disabled on the control (aria-disabled is set from it), aria-disabled="true"
+  on a segment. Forced states for renders and tests: data-state="hover" or "pressed" on a segment,
+  data-state="focus" on the control.
+*/
+:where(ui-segmented-control) {
+  --ui-segmented-control-radius: var(--ui-corner-radius-control);
+  --ui-segmented-control-inset: 2px;
+  --ui-segmented-control-background: var(--ui-system-base-low-color);
+  --ui-segmented-control-background-disabled: var(--ui-system-base-low-color);
+  --ui-segmented-control-foreground: var(--ui-system-base-high-color);
+  --ui-segmented-control-foreground-disabled: var(--ui-system-base-medium-low-color);
+  /* Button's hover fill (BaseHigh at 10 %), on hover and while pressed. */
+  --ui-segmented-control-item-background-pointer-over: color-mix(in srgb, var(--ui-system-base-high-color) 10%, transparent);
+  /* The pill: the palette's AltHigh in light and BaseMediumLow in dark, raised from the track. */
+  --ui-segmented-control-pill: light-dark(#FFFFFF, #6B6B6B);
+  /* A disabled control's pill: AltHigh in light, ChromeHigh in dark. */
+  --ui-segmented-control-pill-disabled: light-dark(#FFFFFF, #525252);
+  /* A disabled selected segment's text: BaseMediumLow in light, BaseMedium in dark. */
+  --ui-segmented-control-foreground-disabled-selected: light-dark(#A6A6A6, #9E9E9E);
+  /* Button's side padding, 12 at Normal and 8 at Compact. */
+  --ui-segmented-control-item-padding: var(--ui-spacing-m);
+}
+
+:root[data-density="compact"] :where(ui-segmented-control) {
+  --ui-segmented-control-item-padding: var(--ui-spacing-s);
+}
+
+ui-segmented-control {
+  --ui-squircle-radius: var(--ui-segmented-control-radius);
+  /* The padding: the inset (less the forced-colours edge). */
+  --_pad: var(--ui-segmented-control-inset);
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  box-sizing: border-box;
+  /* Never squeezed below its content, where the columns would no longer be equal. */
+  min-inline-size: max-content;
+  min-block-size: var(--ui-control-min-height);
+  padding: var(--_pad);
+  background-color: var(--ui-segmented-control-background);
+  color: var(--ui-segmented-control-foreground);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  vertical-align: middle;
+  user-select: none;
+  cursor: default;
+}
+
+ui-segmented-control[aria-disabled="true"] {
+  background-color: var(--ui-segmented-control-background-disabled);
+}
+
+.ui-segmented-control-item {
+  --ui-squircle-radius: max(0px, var(--ui-segmented-control-radius) - var(--ui-segmented-control-inset));
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-spacing-s);
+  box-sizing: border-box;
+  min-block-size: calc(var(--ui-control-min-height) - 2 * var(--ui-segmented-control-inset));
+  padding-inline: var(--ui-segmented-control-item-padding);
+  background-color: transparent;
+  color: inherit;
+  white-space: nowrap;
+  transition: background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+/* The ring is drawn around the whole control (ui-focus-ring-within). */
+.ui-segmented-control-item:focus-visible {
+  outline: none;
+}
+
+ui-segmented-control:not([aria-disabled="true"]) > .ui-segmented-control-item:not([aria-checked="true"], [aria-disabled="true"]):is(:hover, :active, [data-state~="hover"], [data-state~="pressed"]) {
+  background-color: var(--ui-segmented-control-item-background-pointer-over);
+}
+
+.ui-segmented-control-item[aria-disabled="true"],
+ui-segmented-control[aria-disabled="true"] > .ui-segmented-control-item {
+  color: var(--ui-segmented-control-foreground-disabled);
+}
+
+ui-segmented-control[aria-disabled="true"] > .ui-segmented-control-item[aria-checked="true"] {
+  color: var(--ui-segmented-control-foreground-disabled-selected);
+}
+
+/* The pill, added by segmented-control.js under the selected segment. The segments are equal, so
+   its place follows from the selected index and the segment count the script sets: it slides over
+   MotionNormal when the index changes (instant under reduce motion) and moves with the layout at
+   once. */
+.ui-segmented-control-pill {
+  --ui-squircle-radius: max(0px, var(--ui-segmented-control-radius) - var(--ui-segmented-control-inset));
+  --_segment: calc((100% - 2 * var(--_pad)) / var(--ui-segmented-control-count, 1));
+  position: absolute;
+  inset-block: var(--_pad);
+  inset-inline-start: calc(var(--_pad) + var(--ui-segmented-control-index, 0) * var(--_segment));
+  inline-size: var(--_segment);
+  background-color: var(--ui-segmented-control-pill);
+  pointer-events: none;
+  transition:
+    inset-inline-start var(--ui-motion-normal) var(--ui-motion-easing),
+    background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-segmented-control-pill[hidden] {
+  display: none;
+}
+
+ui-segmented-control[aria-disabled="true"] > .ui-segmented-control-pill {
+  background-color: var(--ui-segmented-control-pill-disabled);
+}
+
+/* Before the script runs, the selected segment carries the pill's colour itself. */
+ui-segmented-control:not(:defined) > .ui-segmented-control-item[aria-checked="true"] {
+  background-color: var(--ui-segmented-control-pill);
+}
+
+/* Forced colours: the track gets an edge, and the selection system colours. */
+@media (forced-colors: active) {
+  ui-segmented-control {
+    --_pad: calc(var(--ui-segmented-control-inset) - 1px);
+    border: 1px solid CanvasText;
+  }
+
+  .ui-segmented-control-pill {
+    background-color: Highlight;
+    forced-color-adjust: none;
+  }
+
+  .ui-segmented-control-item[aria-checked="true"] {
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  ui-segmented-control[aria-disabled="true"] > .ui-segmented-control-pill {
+    background-color: GrayText;
+  }
+}
