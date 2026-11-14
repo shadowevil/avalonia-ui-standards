@@ -39,6 +39,10 @@ public class StandardsTheme : Styles
         AvaloniaProperty.RegisterDirect<StandardsTheme, bool?>(
             nameof(ReduceTransparency), o => o.ReduceTransparency, (o, v) => o.ReduceTransparency = v);
 
+    public static readonly DirectProperty<StandardsTheme, GlassQuality> GlassQualityProperty =
+        AvaloniaProperty.RegisterDirect<StandardsTheme, GlassQuality>(
+            nameof(GlassQuality), o => o.GlassQuality, (o, v) => o.GlassQuality = v);
+
     public static readonly DirectProperty<StandardsTheme, bool> HighRefreshRateProperty =
         AvaloniaProperty.RegisterDirect<StandardsTheme, bool>(
             nameof(HighRefreshRate), o => o.HighRefreshRate, (o, v) => o.HighRefreshRate = v);
@@ -80,6 +84,7 @@ public class StandardsTheme : Styles
     private bool? _reduceTransparency;
     private bool _isTransparencyReduced;
     private bool _highRefreshRate;
+    private GlassQuality _glassQuality;
     private bool _isMotionReduced;
 
     /// <summary>Creates the theme, reading the OS reduce-motion and reduce-transparency settings.</summary>
@@ -162,6 +167,7 @@ public class StandardsTheme : Styles
                 new Setter(GlassBorder.RimSpreadWhiteProperty, new DynamicResourceExtension(GlassBorder.RimSpreadWhiteKey)),
                 new Setter(GlassBorder.SmoothingProperty, new DynamicResourceExtension("CornerSmoothing")),
                 new Setter(GlassBorder.ReduceTransparencyProperty, this.GetObservable(IsTransparencyReducedProperty).ToBinding()),
+                new Setter(GlassBorder.QualityProperty, this.GetObservable(GlassQualityProperty).ToBinding()),
             },
         });
     }
@@ -227,6 +233,20 @@ public class StandardsTheme : Styles
     }
 
     internal bool IsTransparencyReduced => _isTransparencyReduced;
+
+    /// <summary>
+    /// How glass draws app-wide. <see cref="AvaloniaUiStandards.GlassQuality.Full"/> (the default)
+    /// is full glass at the first level, minimal glass at the second level and on small surfaces,
+    /// and solid from the third; <see cref="AvaloniaUiStandards.GlassQuality.Minimal"/> makes every
+    /// glass surface minimal (blur, tint and rim; no refraction or dispersion);
+    /// <see cref="AvaloniaUiStandards.GlassQuality.Solid"/> makes every one solid. Reduce
+    /// transparency makes glass solid whatever this is.
+    /// </summary>
+    public GlassQuality GlassQuality
+    {
+        get => _glassQuality;
+        set => SetAndRaise(GlassQualityProperty, ref _glassQuality, value);
+    }
 
     /// <summary>
     /// The app-wide default for <see cref="Modules.StandardsWindow.HighRefreshRate"/>: whether
