@@ -2,7 +2,7 @@
 
 ## Decisions
 - [0001 — Built on Avalonia](decisions/0001-avalonia-base.md) — why Avalonia and C#
-- [0002 — Desktop first, web decided later](decisions/0002-desktop-first.md) — when the web decision is due and between what
+- [0002 — Desktop first, web decided later](decisions/0002-desktop-first.md) — why desktop came first; the web side is decided in 0045
 - [0003 — Restyle Fluent, not a theme from scratch](decisions/0003-restyle-fluent.md) — which controls are restyled and which get new templates
 - [0004 — Tiers: Style → Blocks → Modules → Screens](decisions/0004-tier-names.md) — what belongs in each tier and where Fluent overrides live
 - [0005 — No AI tool files in the repo](decisions/0005-no-ai-files-in-repo.md) — which AI tool files are kept out of git and why
@@ -44,6 +44,9 @@
 - [0041 — ColorPicker and ColorView](decisions/0041-colorpicker.md) — the ColorPicker package and how it is included, the picker field and its glass flyout, the ColorView's tabs and pages, the colour chip, thumb, sliders, spectrum, palette and previewer
 - [0042 — Accent flag](decisions/0042-accent-flag.md) — the SelectionOptions.AccentFlag option: the bar on a selected item's leading edge, its width, colour, corners, motion and focus ring, and which lists it reaches
 - [0043 — Toolbar band](decisions/0043-toolbar-band.md) — the ToolbarBand Module: its window slot, height and spacing, item kinds, zones, overflow into the "…" menu, keyboard, automation and window drag
+- [0045 — Web library in plain HTML, CSS and JavaScript](decisions/0045-web-library.md) — what the web library is, where it lives, how it shares decisions with desktop and why no framework
+- [0046 — Web browsers, markup and naming](decisions/0046-web-browsers-markup-naming.md) — which browsers the web library supports, native elements versus custom elements, and the ui- naming of properties, classes, elements and theme attributes
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions
+- [Web roadmap](plan/web-roadmap.md) — the web library's ordered milestones and open questions

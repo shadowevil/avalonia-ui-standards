@@ -42,7 +42,7 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
      8. Search field: a search box with suggestions and recent searches, for the toolbar band or the sidebar.
 5. **M5 First Screen:** the app shell ([0022](../decisions/0022-window-layout.md)).
 
-Then the web decision is due ([0002](../decisions/0002-desktop-first.md)).
+The web library is decided in [0045](../decisions/0045-web-library.md); its milestones are in the [web roadmap](web-roadmap.md).
 
 ## Open questions
 
