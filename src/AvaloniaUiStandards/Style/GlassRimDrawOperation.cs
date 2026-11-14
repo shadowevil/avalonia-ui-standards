@@ -7,19 +7,34 @@ using SkiaSharp;
 
 namespace AvaloniaUiStandards.Style;
 
+/// <summary>How the rim is drawn.</summary>
+internal enum RimMethod
+{
+    /// <summary>The edge strip where the surface can be read, else the filter rim.</summary>
+    Auto,
+
+    /// <summary>The edge strip (<see cref="GlassRimStrip"/>) only.</summary>
+    Strip,
+
+    /// <summary>The backdrop-filter rim (<see cref="GlassRimFilter"/>) only.</summary>
+    Filter,
+}
+
 /// <summary>
 /// Draws the glass rim: a hairline on the squircle edge that takes a light tint of the backdrop
-/// directly outside each point of the edge. Each rim pixel samples the backdrop a little outward
-/// along the edge's normal, lightens it towards white with its hue kept,
-/// and shows it at an opacity that follows its luminance, so the rim is faint over dark areas and
-/// never uniform. Its width follows the same brightness: a hairline over dim areas, swelling
-/// smoothly inward where the backdrop is bright, and bright stretches are amplified a little more
-/// so they catch the light. A bright feature touching the edge, even a thin line, carries its light
-/// a short way along the rim in both directions, and a soft glow falls inward from the rim. The top
-/// edge and the corners catch a little more.
-/// It is drawn above the glass's child; outside the shape the backdrop is still unchanged. Only
-/// thin strips along the edges are filtered (small glass in one layer), and the rim's geometry is rasterised
-/// once per size and device scale. Without Skia it draws the fixed border.
+/// directly outside each point of the edge. Each rim pixel takes the backdrop a little outward
+/// along the edge's normal, lightens it towards white with its hue kept, and shows it at an
+/// opacity that follows its luminance, so the rim is faint over dark areas and never uniform. Its
+/// width follows the same brightness: a hairline over dim areas, swelling smoothly inward where
+/// the backdrop is bright, and bright stretches are amplified a little more so they catch the
+/// light. A bright feature touching the edge, even a thin line, carries its light a short way
+/// along the rim in both directions, and a soft glow falls inward from the rim. The top edge and
+/// the corners catch a little more.
+/// It is drawn above the glass's child; outside the shape the backdrop is unchanged. By default it
+/// reads the backdrop along the edge into a strip and works along it (<see cref="GlassRimStrip"/>);
+/// where the surface cannot be read as drawn so far (inside an effect or opacity-mask layer, or
+/// without a surface) it uses Skia backdrop filters (<see cref="GlassRimFilter"/>). Without Skia
+/// it draws the fixed border.
 /// </summary>
 internal sealed class GlassRimDrawOperation : ICustomDrawOperation
 {
@@ -44,15 +59,16 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     /// <summary>
     /// Light carried along the edge: a bright feature touching the edge (even a 1 px line) lights
     /// the rim at full strength for this many px either side along the edge, then fades over about
-    /// two <see cref="SpreadSigma"/>. It is a maximum over the rim's band only, so the light stays on
-    /// the rim, rounds corners, never takes in the glass inside, and leaves broad areas unchanged.
+    /// two <see cref="SpreadSigma"/>. It stays on the rim, rounds corners and leaves broad areas unchanged.
     /// </summary>
     internal const double Spread = 12;
     internal const double SpreadSigma = 4;
 
-    // The carried light's excess over the local sample is passed to the blender in alpha as
-    // 1 - ExcessScale · excess (kept well above zero so the colour keeps its precision).
-    private const double ExcessScale = 0.75;
+    /// <summary>
+    /// The carried light's excess over the darkest backdrop along the edge within the spread is
+    /// passed on as 1 - ExcessScale · excess (kept well above zero so the colour keeps its precision).
+    /// </summary>
+    internal const double ExcessScale = 0.75;
 
     /// <summary>
     /// How strongly carried light catches: its excess over the local brightness counts this many
@@ -69,61 +85,16 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     /// <summary>How far outward, in px, the rim samples the backdrop.</summary>
     internal const double SampleOffset = 1.5;
 
-    // How far past its strip each strip's filter sees the backdrop, in px: the outward sample, the
-    // spread and the fade all reach that far.
-    private const double Margin = 24;
+    /// <summary>The widest strip row, in texels; longer edges wrap onto further rows.</summary>
+    internal const int MaxStripRow = 16384;
 
-    private const double SingleLayerArea = 1.5;
-
-    // The depth range the depth picture encodes (red 0..1 = 0..DepthRange px from the edge: the
-    // widest rim, its glow and a soft edge), and its steps: concentric fills of the exact
-    // squircle, blended smoothly by their antialiasing.
-    private double DepthRange => MaxWidth + _p.Glow + 0.75;
-    private const double DepthStep = 0.25;
-
-    // The farthest a rim pixel samples, in px: from the band's inner side out past the edge.
-    private double MaxOffset => DepthRange + SampleOffset;
-
-    // The outward displacement (mode 0: encoded 0.5 + n · offset / maxOffset / 2, for Skia's
-    // displacement filter, so each rim pixel samples sampleOffset px outside the edge whatever its
-    // depth), or the depth (red, a uniform per fill) and the light bias (green; mode 1), from a
-    // rounded-rectangle distance field close to the squircle.
-    private const string ShaderSource = """
-        uniform float2 size;
-        uniform float4 radii;
-        uniform float mode;
-        uniform float depth;
-        uniform float sampleOffset;
-        uniform float maxOffset;
-
-        half4 main(float2 coord) {
-            float2 halfSize = size * 0.5;
-            float2 p = coord - halfSize;
-            float r = p.x < 0.0 ? (p.y < 0.0 ? radii.x : radii.w) : (p.y < 0.0 ? radii.y : radii.z);
-            r = min(max(r, 1.0), min(halfSize.x, halfSize.y));
-            float2 q = abs(p) - halfSize + r;
-            float2 n = (q.x > 0.0 && q.y > 0.0) ? normalize(q) : (q.x > q.y ? float2(1.0, 0.0) : float2(0.0, 1.0));
-            n *= float2(p.x < 0.0 ? -1.0 : 1.0, p.y < 0.0 ? -1.0 : 1.0);
-            if (mode < 0.5)
-            {
-                float inside = max(-(min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r), 0.0);
-                float k = clamp((inside + sampleOffset) / maxOffset, 0.0, 1.0);
-                return half4(half2(0.5 + n * k * 0.5), 0.5, 1.0);
-            }
-            // Light from above: the top edge full, the sides and bottom less, the corners a little more.
-            float light = clamp(0.7 + 0.3 * max(-n.y, 0.0) + 0.6 * n.x * n.x * n.y * n.y, 0.0, 1.0);
-            return half4(half(depth), half(light), 0.0, 1.0);
-        }
-        """;
-
-    // src: the depth picture (red: depth, green: light bias); dst: the sampled backdrop. The width
-    // follows the backdrop's luminance; coverage falls off over one device pixel at that width.
-    private const string BlenderSource = """
+    // The rim's colour from the spread colour c, e = 1 - ExcessScale · excess, the depth d in px
+    // and the light bias (times the edge's coverage): premultiplied. Shared by both methods.
+    internal const string RimCode = """
         uniform float absorption;
         uniform float lighten;
         uniform float minWidth;
         uniform float maxWidth;
-        uniform float depthRange;
         uniform float pixel;
         uniform float boost;
         uniform float boostFrom;
@@ -134,53 +105,57 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         uniform float excessGain;
         uniform float glow;
 
-        half4 main(half4 src, half4 dst) {
-            // dst: the spread colour (premultiplied), its alpha encoding how much brighter it is
-            // than the local sample (the light carried in along the edge).
-            float3 c = dst.a > 0.0 ? float3(dst.rgb) / float(dst.a) : float3(0.0);
+        half4 rim(float3 c, float e, float d, float light) {
             // The carried light's excess, amplified by excessGain; a clear catch takes the full white-mix.
-            float excess = clamp((1.0 - float(dst.a)) / excessScale, 0.0, 1.0) * excessGain;
+            float excess = clamp((1.0 - e) / excessScale, 0.0, 1.0) * excessGain;
             float x = smoothstep(0.0, 0.35, excess);
             // Its brightness: the spread colour's, plus the amplified part of the excess.
             float l = min(dot(c, float3(0.2126, 0.7152, 0.0722)) + excess * (1.0 - 1.0 / excessGain), 1.0);
             float bright = boost > 0.0 ? smoothstep(boostFrom, boostTo, l) : 0.0;
             // Bright stretches also widen a little, within the maximum width.
             float width = min(mix(minWidth, maxWidth, l) + boostWidth * bright, maxWidth);
-            float d = float(src.r) * depthRange;
             float coverage = clamp((width - d) / pixel + 0.5, 0.0, 1.0);
-            // The optional glow: a soft halo inward beyond the hairline, at half strength, fading out.
+            // The glow: a soft halo inward beyond the hairline, at half strength, fading out.
             if (glow > 0.0)
                 coverage = max(coverage, 0.5 * pow(clamp(1.0 - (d - width) / glow, 0.0, 1.0), 2.0));
-            float a = clamp(absorption * l * float(src.g) * coverage, 0.0, 1.0);
-            // Bright stretches pop: a gain of up to 1 + boost, applied so that it adds about boost
-            // where the rim is faint and less towards full opacity, never past it.
+            float a = clamp(absorption * l * light * coverage, 0.0, 1.0);
+            // Bright stretches pop: a gain of up to 1 + boost, adding about boost where the rim is
+            // faint and less towards full opacity, never past it.
             float gain = 1.0 + boost * bright;
             a = 1.0 - pow(1.0 - a, gain);
-            // Carried light: towards white by spreadWhite (dark), and lightened less as
-            // spreadWhite falls (light), so the feature's own colour shows on light glass.
+            // Carried light: towards white by spreadWhite, and lightened less as spreadWhite falls,
+            // so the feature's own colour shows on light glass.
             float3 rgb = mix(c, float3(1.0), lighten * (1.0 - x * (1.0 - spreadWhite)));
             rgb = mix(rgb, float3(1.0), spreadWhite * x);
             // The colour brightens by the same gain, compressed towards white.
             rgb = 1.0 - (1.0 - rgb) / gain;
             return half4(half3(rgb * a), half(a));
         }
+
+        // Light from above: the top edge full, the sides and bottom less, the corners a little more.
+        float lightBias(float2 n) {
+            return clamp(0.7 + 0.3 * max(-n.y, 0.0) + 0.6 * n.x * n.x * n.y * n.y, 0.0, 1.0);
+        }
         """;
 
-    private static readonly Lazy<SKRuntimeEffect?> LazyShader = new(() => SKRuntimeEffect.CreateShader(ShaderSource, out _));
-    private static readonly Lazy<SKRuntimeEffect?> LazyBlender = new(() => SKRuntimeEffect.CreateBlender(BlenderSource, out _));
-
     /// <summary>The compiled effects, or null when Skia runtime effects are not available.</summary>
-    internal static SKRuntimeEffect? Effect => LazyShader.Value is not null && LazyBlender.Value is not null ? LazyShader.Value : null;
+    internal static SKRuntimeEffect? Effect => GlassRimFilter.Available && GlassRimStrip.Available ? GlassRimFilter.Blender : null;
 
-    internal readonly record struct Parameters(Rect Rect, CornerRadius CornerRadius, double Smoothing, double Absorption, double Lighten, double Boost, double Spread, double SpreadWhite, double Glow, Color FallbackBorder, bool CacheGeometry = true);
+    internal readonly record struct Parameters(
+        Rect Rect, CornerRadius CornerRadius, double Smoothing, double Absorption, double Lighten, double Boost,
+        double Spread, double SpreadWhite, double Glow, Color FallbackBorder, RimMethod Method = RimMethod.Auto,
+        int StripRow = MaxStripRow)
+    {
+        /// <summary>The widest rim with its glow and a soft edge, in px: how deep the band reaches.</summary>
+        public double DepthRange => MaxWidth + Glow + 0.75;
+
+        /// <summary>The band the rim can cover, in px from the edge.</summary>
+        public double BandWidth => MaxWidth + Glow + 1;
+    }
 
     private readonly Parameters _p;
-    private SKPath? _ring;
-    private SKPicture? _depth;
-    private SKPicture? _band;
-    private SKPicture? _normal;
-    private SKImageFilter[]? _stripFilters;
-    private readonly List<SKImage> _images = [];
+    private GlassRimStrip? _strip;
+    private GlassRimFilter? _filter;
     private double _deviceScale;
 
     public GlassRimDrawOperation(Parameters parameters) => _p = parameters;
@@ -195,6 +170,9 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
 
     public override int GetHashCode() => _p.GetHashCode();
 
+    /// <summary>Which method drew the last frame (for tests).</summary>
+    internal RimMethod LastMethod { get; private set; }
+
     public void Render(ImmediateDrawingContext context)
     {
         if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>() is not { } leaseFeature)
@@ -208,276 +186,89 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         var canvas = lease.SkCanvas;
         var m = canvas.TotalMatrix;
         var deviceScale = Math.Max(Math.Sqrt(m.ScaleX * m.ScaleX + m.SkewY * m.SkewY), 0.01);
-        _ring ??= BuildRing();
-        if (_stripFilters is null || deviceScale != _deviceScale)
+        if (deviceScale != _deviceScale)
         {
-            DisposeFilters();
+            DisposeMethods();
             _deviceScale = deviceScale;
-            _stripFilters = BuildStripFilters(1 / deviceScale);
         }
-        if (_stripFilters is null)
+        var opacity = Math.Clamp(lease.CurrentOpacity, 0, 1);
+
+        if (_p.Method != RimMethod.Filter && lease.SkSurface is { } surface)
+        {
+            _strip ??= GlassRimStrip.Create(_p, deviceScale);
+            if (_strip is not null && _strip.Draw(canvas, surface, lease.GrContext, opacity))
+            {
+                LastMethod = RimMethod.Strip;
+                return;
+            }
+        }
+        if (_p.Method == RimMethod.Strip)
             return;
-
-        canvas.Save();
-        canvas.ClipPath(_ring, SKClipOperation.Intersect, true);
-        using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Round(Math.Clamp(lease.CurrentOpacity, 0, 1) * 255)) };
-        // Each strip's layer is clipped to the strip plus a margin, so its filter sees the backdrop
-        // around the strip (the spread and blurs reach past it); the filter keeps only the strip's
-        // own rectangle, so neighbouring strips never draw the rim twice.
-        var strips = Strips().ToArray();
-        for (var i = 0; i < strips.Length; i++)
-        {
-            var reach = SKRect.Inflate(strips[i], (float)Margin, (float)Margin);
-            canvas.Save();
-            canvas.ClipRect(reach);
-            var layer = new SKCanvasSaveLayerRec { Bounds = reach, Backdrop = _stripFilters[i], Paint = lease.CurrentOpacity < 1 ? paint : null };
-            canvas.SaveLayer(in layer);
-            canvas.Restore();
-            canvas.Restore();
-        }
-        canvas.Restore();
+        _filter ??= GlassRimFilter.Create(_p, deviceScale);
+        _filter?.Draw(canvas, opacity);
+        LastMethod = RimMethod.Filter;
     }
 
-    public void Dispose()
+    public void Dispose() => DisposeMethods();
+
+    private void DisposeMethods()
     {
-        _ring?.Dispose();
-        _depth?.Dispose();
-        _band?.Dispose();
-        _normal?.Dispose();
-        DisposeFilters();
+        _strip?.Dispose();
+        _strip = null;
+        _filter?.Dispose();
+        _filter = null;
     }
 
-    private void DisposeFilters()
+    /// <summary>Sets the uniforms of <see cref="RimCode"/>.</summary>
+    internal static void SetRimUniforms(SKRuntimeEffectUniforms u, in Parameters p, double pixel)
     {
-        foreach (var filter in _stripFilters ?? [])
-            filter.Dispose();
-        _stripFilters = null;
-        foreach (var image in _images)
-            image.Dispose();
-        _images.Clear();
+        u["absorption"] = (float)p.Absorption;
+        u["lighten"] = (float)p.Lighten;
+        u["minWidth"] = (float)MinWidth;
+        u["maxWidth"] = (float)MaxWidth;
+        u["pixel"] = (float)pixel;
+        u["boost"] = (float)p.Boost;
+        u["boostFrom"] = (float)BoostFrom;
+        u["boostTo"] = (float)BoostTo;
+        u["boostWidth"] = (float)BoostWidth;
+        u["spreadWhite"] = (float)p.SpreadWhite;
+        u["excessScale"] = (float)ExcessScale;
+        u["excessGain"] = (float)ExcessGain;
+        u["glow"] = (float)p.Glow;
     }
 
-    // The rim's filter per strip, cropped to that strip's rectangle. Its geometry (the outward
-    // normal, the band and the depth) is rasterised once per size and device scale, for the
-    // strip's reach only, so each frame samples cached images instead of re-drawing paths.
-    private SKImageFilter[]? BuildStripFilters(double pixel)
+    /// <summary>Sets the uniforms of <see cref="SquircleDistance.Code"/>.</summary>
+    internal static void SetShapeUniforms(SKRuntimeEffectUniforms u, in Parameters p)
     {
-        if (LazyShader.Value is not { } shaderEffect || LazyBlender.Value is not { } blenderEffect)
-            return null;
-        _depth ??= BuildDepth(shaderEffect);
-        _band ??= BuildBand();
-        _normal ??= BuildNormal(shaderEffect);
-        var shape = ToSkRect(_p.Rect);
-        return Strips().Select(strip =>
-        {
-            var reach = SKRect.Inflate(strip, (float)Margin, (float)Margin);
-            var region = SKRect.Intersect(reach, shape);
-            using var filter = BuildFilter(blenderEffect, pixel, region);
-            return _p.CacheGeometry ? SKImageFilter.CreateOffset(0, 0, filter, strip) : KeepToStrip(filter, strip);
-        }).ToArray();
+        var (points, extents) = SquircleDistance.Corners(new Rect(p.Rect.Size), p.CornerRadius, p.Smoothing);
+        u["size"] = new[] { (float)p.Rect.Width, (float)p.Rect.Height };
+        u["cornerP"] = extents;
+        u["pts"] = points;
     }
 
-    // The reference without the cache: the filter kept to the strip by a picture of it.
-    private static SKImageFilter KeepToStrip(SKImageFilter filter, SKRect strip)
+    /// <summary>
+    /// Where the rim's band lies: the top and bottom strips hold the corners; the side strips are
+    /// just wider than the band. Small glass, whose whole area (with <paramref name="margin"/>) is
+    /// at most 1.5 times the strips' area, takes one rectangle instead.
+    /// </summary>
+    internal static SKRect[] Strips(in Parameters p, double margin)
     {
-        using var recorder = new SKPictureRecorder();
-        var canvas = recorder.BeginRecording(strip);
-        using (var paint = new SKPaint { Color = SKColors.White })
-            canvas.DrawRect(strip, paint);
-        using var picture = recorder.EndRecording();
-        using var stripFilter = SKImageFilter.CreatePicture(picture, strip);
-        return SKImageFilter.CreateBlendMode(SKBlendMode.DstIn, filter, stripFilter);
+        var r = p.Rect;
+        var c = p.CornerRadius;
+        var top = Math.Max(c.TopLeft, c.TopRight) + 3 + p.Glow;
+        var bottom = Math.Max(c.BottomLeft, c.BottomRight) + 3 + p.Glow;
+        var side = (float)(MaxWidth + 2 + p.Glow);
+        double Reach(double w, double h) => (w + 2 * margin) * (h + 2 * margin);
+        if (top + bottom >= r.Height || Reach(r.Width, r.Height) <= 1.5 * (2 * Reach(r.Width, top) + 2 * Reach(side, r.Height - top - bottom)))
+            return [ToSkRect(r)];
+        return
+        [
+            new SKRect((float)r.X, (float)r.Y, (float)r.Right, (float)(r.Y + top)),
+            new SKRect((float)r.X, (float)(r.Bottom - bottom), (float)r.Right, (float)r.Bottom),
+            new SKRect((float)r.X, (float)(r.Y + top), (float)r.X + side, (float)(r.Bottom - bottom)),
+            new SKRect((float)r.Right - side, (float)(r.Y + top), (float)r.Right, (float)(r.Bottom - bottom)),
+        ];
     }
 
-    // The picture rasterised at device resolution over the region (snapped out to device pixels),
-    // as a filter that places it back in the layer's coordinates. Without the cache (the
-    // reference), the picture itself, drawn again on every frame.
-    private SKImageFilter Geometry(SKPicture picture, SKRect region)
-    {
-        if (!_p.CacheGeometry)
-            return SKImageFilter.CreatePicture(picture, ToSkRect(_p.Rect));
-
-        var s = (float)_deviceScale;
-        var left = MathF.Floor(region.Left * s);
-        var top = MathF.Floor(region.Top * s);
-        var size = new SKSizeI((int)(MathF.Ceiling(region.Right * s) - left), (int)(MathF.Ceiling(region.Bottom * s) - top));
-        using var surface = SKSurface.Create(new SKImageInfo(Math.Max(size.Width, 1), Math.Max(size.Height, 1), SKColorType.Rgba8888, SKAlphaType.Premul));
-        surface.Canvas.Translate(-left, -top);
-        surface.Canvas.Scale(s);
-        surface.Canvas.DrawPicture(picture);
-        var image = surface.Snapshot();
-        _images.Add(image);
-        return SKImageFilter.CreateImage(image, new SKRect(0, 0, image.Width, image.Height),
-            new SKRect(left / s, top / s, (left + image.Width) / s, (top + image.Height) / s), ImageSampling);
-    }
-
-    private static readonly SKSamplingOptions ImageSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
-
-    // The band the rim can cover: the shape minus the shape inset by the widest rim and its soft edge.
-    private SKPath BuildRing()
-    {
-        using var outer = SquircleGeometry.CreateSkPath(_p.Rect, _p.CornerRadius, _p.Smoothing);
-        var (innerRect, innerRadius) = SquircleGeometry.Inset(_p.Rect, _p.CornerRadius, MaxWidth + _p.Glow + 1);
-        using var inner = SquircleGeometry.CreateSkPath(innerRect, innerRadius, _p.Smoothing);
-        return outer.Op(inner, SKPathOp.Difference) ?? new SKPath();
-    }
-
-    // The backdrop sampled outward along the normal; kept only in the rim's
-    // band, so light then carried along it (a maximum, then a fade) stays on the rim and never takes
-    // in the glass inside; blended with the depth picture into the rim (width, opacity and
-    // lightening from its luminance, times the light bias). The blender's colour is the band's
-    // premultiplied colour over its alpha, so the fade averages along the rim: broad areas keep
-    // their colour, a thin bright feature lights a short stretch that fades at its ends.
-    private SKImageFilter BuildFilter(SKRuntimeEffect blenderEffect, double pixel, SKRect region)
-    {
-        using var normal = Geometry(_normal!, region);
-        // The backdrop exactly SampleOffset px outside the edge (unblurred: a blur there would
-        // reach into the glass and mute thin features).
-        var local = SKImageFilter.CreateDisplacementMapEffect(SKColorChannel.R, SKColorChannel.G, (float)(2 * MaxOffset), normal, null);
-        using var sampled = _p.Spread > 0 ? Carry(local, region) : local;
-        if (!ReferenceEquals(sampled, local))
-            local.Dispose();
-
-        using var depth = Geometry(_depth!, region);
-
-        using var uniforms = new SKRuntimeEffectUniforms(blenderEffect)
-        {
-            ["absorption"] = (float)_p.Absorption,
-            ["lighten"] = (float)_p.Lighten,
-            ["minWidth"] = (float)MinWidth,
-            ["maxWidth"] = (float)MaxWidth,
-            ["depthRange"] = (float)DepthRange,
-            ["pixel"] = (float)pixel,
-            ["boost"] = (float)_p.Boost,
-            ["boostFrom"] = (float)BoostFrom,
-            ["boostTo"] = (float)BoostTo,
-            ["boostWidth"] = (float)BoostWidth,
-            ["spreadWhite"] = (float)_p.SpreadWhite,
-            ["excessScale"] = (float)ExcessScale,
-            ["excessGain"] = (float)ExcessGain,
-            ["glow"] = (float)_p.Glow,
-        };
-        using var children = new SKRuntimeEffectChildren(blenderEffect);
-        using var blender = blenderEffect.ToBlender(uniforms, children);
-        return SKImageFilter.CreateBlendMode(blender, sampled, depth);
-    }
-
-    // The local sample kept in the rim's band, its bright features spread along the band (a
-    // maximum) and faded (a blur, normalised by the band), packed with how much brighter that
-    // spread colour is than its surroundings: (spread colour · e, e), e = 1 - ExcessScale · excess.
-    private SKImageFilter Carry(SKImageFilter local, SKRect region)
-    {
-        using var band = Geometry(_band!, region);
-        using var masked = SKImageFilter.CreateBlendMode(SKBlendMode.DstIn, local, band);
-        var spread = (float)_p.Spread;
-        var fade = (float)SpreadSigma;
-        using var carried = SKImageFilter.CreateDilate(spread, spread, masked);
-        using var faded = SKImageFilter.CreateBlur(fade, fade, SKShaderTileMode.Decal, carried);
-
-        // The faded colour over its band coverage, made opaque: the spread colour.
-        using var opaqueMatrix = SKColorFilter.CreateColorMatrix([1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1]);
-        using var spreadColour = SKImageFilter.CreateColorFilter(opaqueMatrix, faded);
-
-        // Luminance in the colour channels, opaque, for the spread colour and the local sample.
-        float[] luma = [0.2126f, 0.7152f, 0.0722f, 0, 0, 0.2126f, 0.7152f, 0.0722f, 0, 0, 0.2126f, 0.7152f, 0.0722f, 0, 0, 0, 0, 0, 0, 1];
-        using var lumaMatrix = SKColorFilter.CreateColorMatrix(luma);
-        using var spreadLuma = SKImageFilter.CreateColorFilter(lumaMatrix, spreadColour);
-        using var localLuma = SKImageFilter.CreateColorFilter(lumaMatrix, local);
-
-        // The baseline: the darkest local brightness along the band within the spread (outside the
-        // band counts as white, so it is ignored). A thin bright line drops out of it, so the
-        // crossing itself catches as strongly as its neighbours; uniform areas keep their own.
-        using var outsideWhite = SKImageFilter.CreateArithmetic(1, 0, -1, 1, false, band, localLuma);
-        using var baseline = SKImageFilter.CreateErode(spread, spread, outsideWhite);
-
-        // e = 1 - k (spread - baseline), clamped to at most 1, in the colour channels, opaque.
-        var k = (float)ExcessScale;
-        using var e = SKImageFilter.CreateArithmetic(0, -k, k, 1, false, baseline, spreadLuma);
-        // e as (1, 1, 1) at alpha e, premultiplied (e, e, e, e).
-        using var alphaMatrix = SKColorFilter.CreateColorMatrix([0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0]);
-        using var eAlpha = SKImageFilter.CreateColorFilter(alphaMatrix, e);
-        return SKImageFilter.CreateArithmetic(1, 0, 0, 0, true, eAlpha, spreadColour);
-    }
-
-    // The outward normal over the whole shape (the shader's mode 0).
-    private SKPicture BuildNormal(SKRuntimeEffect effect)
-    {
-        using var recorder = new SKPictureRecorder();
-        var rect = ToSkRect(_p.Rect);
-        var canvas = recorder.BeginRecording(rect);
-        using var shader = Shader(effect, 0, 0);
-        using var paint = new SKPaint { Shader = shader };
-        canvas.DrawRect(rect, paint);
-        return recorder.EndRecording();
-    }
-
-    // The rim's band, opaque.
-    private SKPicture BuildBand()
-    {
-        using var recorder = new SKPictureRecorder();
-        var canvas = recorder.BeginRecording(ToSkRect(_p.Rect));
-        _ring ??= BuildRing();
-        using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true };
-        canvas.DrawPath(_ring, paint);
-        return recorder.EndRecording();
-    }
-
-    // Concentric fills of the shape inset in DepthStep steps, each carrying its depth; the
-    // antialiased edges blend neighbouring depths smoothly.
-    private SKPicture BuildDepth(SKRuntimeEffect effect)
-    {
-        using var recorder = new SKPictureRecorder();
-        var canvas = recorder.BeginRecording(ToSkRect(_p.Rect));
-        for (var inset = 0.0; inset <= DepthRange + 1e-6; inset += DepthStep)
-        {
-            var (rect, radius) = SquircleGeometry.Inset(_p.Rect, _p.CornerRadius, inset);
-            if (rect.Width <= 0 || rect.Height <= 0)
-                break;
-            using var path = SquircleGeometry.CreateSkPath(rect, radius, _p.Smoothing);
-            using var shader = Shader(effect, 1, inset / DepthRange);
-            using var paint = new SKPaint { Shader = shader, IsAntialias = true };
-            canvas.DrawPath(path, paint);
-        }
-        return recorder.EndRecording();
-    }
-
-    private SKShader Shader(SKRuntimeEffect effect, float mode, double depth)
-    {
-        using var uniforms = new SKRuntimeEffectUniforms(effect)
-        {
-            ["size"] = new[] { (float)_p.Rect.Width, (float)_p.Rect.Height },
-            ["radii"] = new[] { (float)_p.CornerRadius.TopLeft, (float)_p.CornerRadius.TopRight, (float)_p.CornerRadius.BottomRight, (float)_p.CornerRadius.BottomLeft },
-            ["mode"] = mode,
-            ["depth"] = (float)depth,
-            ["sampleOffset"] = (float)SampleOffset,
-            ["maxOffset"] = (float)MaxOffset,
-        };
-        using var children = new SKRuntimeEffectChildren(effect);
-        return effect.ToShader(uniforms, children, SKMatrix.CreateTranslation((float)_p.Rect.X, (float)_p.Rect.Y));
-    }
-
-    // The top and bottom strips hold the corners; the side strips are just wider than the rim. Small
-    // glass, whose whole area (with the margin) is at most SingleLayerArea times the strips' area, takes
-    // one layer instead: each layer costs a backdrop copy and a pass per filter step, which outweighs
-    // the larger area there.
-    private IEnumerable<SKRect> Strips()
-    {
-        var r = _p.Rect;
-        var c = _p.CornerRadius;
-        var top = Math.Max(c.TopLeft, c.TopRight) + 3 + _p.Glow;
-        var bottom = Math.Max(c.BottomLeft, c.BottomRight) + 3 + _p.Glow;
-        var side = (float)(MaxWidth + 2 + _p.Glow);
-        double Reach(double w, double h) => (w + 2 * Margin) * (h + 2 * Margin);
-        if (top + bottom >= r.Height || Reach(r.Width, r.Height) <= SingleLayerArea * (2 * Reach(r.Width, top) + 2 * Reach(side, r.Height - top - bottom)))
-        {
-            yield return ToSkRect(r);
-            yield break;
-        }
-        yield return new SKRect((float)r.X, (float)r.Y, (float)r.Right, (float)(r.Y + top));
-        yield return new SKRect((float)r.X, (float)(r.Bottom - bottom), (float)r.Right, (float)r.Bottom);
-        yield return new SKRect((float)r.X, (float)(r.Y + top), (float)r.X + side, (float)(r.Bottom - bottom));
-        yield return new SKRect((float)r.Right - side, (float)(r.Y + top), (float)r.Right, (float)(r.Bottom - bottom));
-    }
-
-    private static SKRect ToSkRect(Rect r) => new((float)r.X, (float)r.Y, (float)r.Right, (float)r.Bottom);
+    internal static SKRect ToSkRect(Rect r) => new((float)r.X, (float)r.Y, (float)r.Right, (float)r.Bottom);
 }

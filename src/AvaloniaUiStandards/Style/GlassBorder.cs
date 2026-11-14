@@ -97,10 +97,13 @@ public class GlassBorder : Decorator
     internal static readonly StyledProperty<double> RimGlowProperty =
         AvaloniaProperty.Register<GlassBorder, double>("RimGlow", GlassRimDrawOperation.GlowWidth);
 
-    // Whether the rim's geometry is rasterised once and reused; tests set false to render the
-    // reference, which draws it again on every frame.
-    internal static readonly StyledProperty<bool> RimCacheGeometryProperty =
-        AvaloniaProperty.Register<GlassBorder, bool>("RimCacheGeometry", true);
+    // How the rim is drawn; tests force one method to compare them.
+    internal static readonly StyledProperty<RimMethod> RimMethodProperty =
+        AvaloniaProperty.Register<GlassBorder, RimMethod>("RimMethod", RimMethod.Auto);
+
+    // The rim strip's widest row in texels; tests set it small to check that wrapping changes nothing.
+    internal static readonly StyledProperty<int> RimStripRowProperty =
+        AvaloniaProperty.Register<GlassBorder, int>("RimStripRow", GlassRimDrawOperation.MaxStripRow);
 
     /// <summary>The fraction of the device resolution at which refraction and blur run (1 = full).</summary>
     internal const double DefaultBackdropScale = 0.5;
@@ -127,10 +130,26 @@ public class GlassBorder : Decorator
         AffectsRender<GlassBorder>(
             TintColorProperty, TintOpacityProperty, BlurSigmaProperty, CornerRadiusProperty, BorderBrushProperty,
             RefractionStrengthProperty, RefractionEdgeProperty, ChromaticDispersionProperty,
-            RimAbsorptionProperty, RimLightenProperty, RimBoostProperty, RimSpreadProperty, RimSpreadWhiteProperty, RimGlowProperty, RimCacheGeometryProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty);
+            RimAbsorptionProperty, RimLightenProperty, RimBoostProperty, RimSpreadProperty, RimSpreadWhiteProperty, RimGlowProperty, RimMethodProperty, RimStripRowProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty);
         AffectsArrange<GlassBorder>(CornerRadiusProperty, SmoothingProperty);
         ChildProperty.Changed.AddClassHandler<GlassBorder>((b, _) => b._borderOverlay.MoveToTop(b.VisualChildren));
+        // An effect or opacity mask draws its visual into a layer, where the rim strip cannot read
+        // the surface: the glass inside redraws its rim, choosing again.
+        EffectProperty.Changed.AddClassHandler<Visual>((v, _) => InvalidateRims(v));
+        OpacityMaskProperty.Changed.AddClassHandler<Visual>((v, _) => InvalidateRims(v));
     }
+
+    private static void InvalidateRims(Visual v)
+    {
+        foreach (var glass in v.GetSelfAndVisualDescendants().OfType<GlassBorder>())
+            glass._borderOverlay.InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Whether the rim reads the surface as drawn so far (the edge strip): not when the glass or an
+    /// ancestor has an effect or an opacity mask, which draw into a layer the surface does not hold.
+    /// </summary>
+    internal bool RimReadsSurface => !this.GetSelfAndVisualAncestors().Any(v => v.Effect is not null || v.OpacityMask is not null);
 
     public GlassBorder()
     {
@@ -226,7 +245,7 @@ public class GlassBorder : Decorator
         if (change.Property == BorderBrushProperty || change.Property == CornerRadiusProperty
             || change.Property == SmoothingProperty || change.Property == RimAbsorptionProperty
             || change.Property == RimLightenProperty || change.Property == RimBoostProperty || change.Property == RimSpreadProperty
-            || change.Property == RimSpreadWhiteProperty || change.Property == RimGlowProperty || change.Property == RimCacheGeometryProperty
+            || change.Property == RimSpreadWhiteProperty || change.Property == RimGlowProperty || change.Property == RimMethodProperty || change.Property == RimStripRowProperty
             || change.Property == ReduceTransparencyProperty)
             _borderOverlay.InvalidateVisual();
         if (change.Property == ReduceTransparencyProperty)
@@ -333,7 +352,8 @@ public class GlassBorder : Decorator
                     new Rect(size), CornerRadius, GetValue(SmoothingProperty), RimAbsorption, GetValue(RimLightenProperty),
                     GetValue(RimBoostProperty), GetValue(RimSpreadProperty), GetValue(RimSpreadWhiteProperty),
                     GetValue(RimGlowProperty),
-                    (BorderBrush as ISolidColorBrush)?.Color ?? Colors.Transparent, GetValue(RimCacheGeometryProperty))));
+                    (BorderBrush as ISolidColorBrush)?.Color ?? Colors.Transparent,
+                    RimReadsSurface ? GetValue(RimMethodProperty) : RimMethod.Filter, GetValue(RimStripRowProperty))));
         }
         else if (BorderBrush is { } borderBrush && _stroke is not null)
         {
