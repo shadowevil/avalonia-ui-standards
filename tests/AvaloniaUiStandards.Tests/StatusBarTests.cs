@@ -502,7 +502,7 @@ public class StatusBarTests
             RequestedThemeVariant = variant,
             Background = new SolidColorBrush(Color.Parse(variant == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         window.SetRenderScaling(Sheet.Scale);
 
         var size = Clickable("4000 × 3000 px · 300 ppi");
@@ -585,7 +585,7 @@ public class StatusBarTests
         bar.HorizontalAlignment = HorizontalAlignment.Left;
         bar.VerticalAlignment = VerticalAlignment.Top;
         var window = new Window { Width = 1200, Height = 400, Content = bar };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         window.Show();
         Pump(window);
         return window;
@@ -594,7 +594,7 @@ public class StatusBarTests
     private static StandardsWindow Window(StatusBar bar, double width, DensityStyle density = DensityStyle.Normal, Control? content = null)
     {
         var window = new StandardsWindow { Width = width, Height = 500, StatusBar = bar, Content = content ?? new TextBlock { Text = "Content" } };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         window.Show();
         window.Activate();
         Pump(window);

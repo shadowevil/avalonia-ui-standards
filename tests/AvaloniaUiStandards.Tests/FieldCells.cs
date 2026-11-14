@@ -36,7 +36,7 @@ internal static class FieldCells
             beforeShow: w =>
             {
                 if (density != DensityStyle.Normal)
-                    w.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density });
+                    w.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density });
             },
             afterShow: w =>
             {

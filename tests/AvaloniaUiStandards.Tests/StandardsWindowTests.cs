@@ -316,7 +316,7 @@ public class StandardsWindowTests
     public void StatusText_IsVerticallyCentredInTheBand(string density)
     {
         var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced)
         {
             Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
         });
@@ -346,7 +346,7 @@ public class StandardsWindowTests
         var large = new TextBlock { Text = "12 items", FontSize = 15 };
         Grid.SetColumn(large, 1);
         window.StatusBar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { small, large } };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced)
         {
             Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
         });
@@ -377,7 +377,7 @@ public class StandardsWindowTests
     [InlineData("Compact")]
     public void CaptionButtons_AreWindows11SizedAtTheTopOfTheBand(string density)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced)
         {
             Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
         };
@@ -429,7 +429,7 @@ public class StandardsWindowTests
     public void CaptionButtons_RenderHoverAndPressed(string theme, string density)
     {
         var window = SampleWindow(theme == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced)
         {
             Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
         });
@@ -458,7 +458,7 @@ public class StandardsWindowTests
     public void TitleBand_FollowsDensity_TheStatusBarIs24AtBoth()
     {
         var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         window.Styles.Add(theme);
         Show(window);
         try
@@ -654,7 +654,7 @@ public class StandardsWindowTests
     [AvaloniaFact]
     public void SecondaryText_MeetsAa_AndDisabledTextIsUnchanged()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         Assert.Equal(Color.Parse("#686868"), Resource<Color>(theme, "SystemBaseMediumColor", ThemeVariant.Light));
         Assert.Equal(Color.Parse("#9E9E9E"), Resource<Color>(theme, "SystemBaseMediumColor", ThemeVariant.Dark));
         Assert.Equal(Color.Parse("#A6A6A6"), Resource<Color>(theme, "SystemBaseMediumLowColor", ThemeVariant.Light));
@@ -835,7 +835,7 @@ public class StandardsWindowTests
     [InlineData("#00B7C3")]
     public void Text_MeetsAaOnTheWashAndTheGlass(string accent)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Accent = Color.Parse(accent) };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Accent = Color.Parse(accent) };
         foreach (var (variant, tint) in new[] { (ThemeVariant.Light, GlassBorder.DefaultTintLight), (ThemeVariant.Dark, GlassBorder.DefaultTintDark) })
         {
             var start = Resource<Color>(theme, "BackdropWashStartColor", variant);

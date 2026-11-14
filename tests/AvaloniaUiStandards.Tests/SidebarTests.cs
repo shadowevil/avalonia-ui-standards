@@ -844,7 +844,7 @@ public class SidebarTests
             RequestedThemeVariant = theme ?? ThemeVariant.Light,
             Background = new SolidColorBrush(Avalonia.Media.Color.Parse(theme == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
         beforeShow?.Invoke(window);
         window.Show();
         window.Activate();

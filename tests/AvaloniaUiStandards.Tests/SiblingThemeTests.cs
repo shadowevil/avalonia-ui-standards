@@ -64,7 +64,7 @@ public class SiblingThemeTests
     public void Size_FollowsDensity(string sibling, string density)
     {
         var compact = density == "Compact";
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = compact ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = compact ? DensityStyle.Compact : DensityStyle.Normal };
         var (_, control) = Show(Create(sibling), theme: theme);
         double height = compact ? 24 : 32;
         var padding = compact ? new Thickness(8, 2, 8, 2) : new Thickness(12, 4, 12, 4);
@@ -80,7 +80,7 @@ public class SiblingThemeTests
     [AvaloniaFact]
     public void Size_FollowsRuntimeDensityChanges()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, split) = Show(Create(nameof(SplitButton)), theme: theme);
         Assert.Equal(32, split.Bounds.Height);
 
@@ -182,7 +182,7 @@ public class SiblingThemeTests
     [InlineData("#00B7C3")]
     public void AccentText_MeetsAaOnPageAndCards_ForAnyAccent(string accent)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Accent = Color.Parse(accent) };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Accent = Color.Parse(accent) };
         foreach (var (variant, surfaces) in new[]
                  {
                      (ThemeVariant.Light, new[] { "#F5F5F5", "#FFFFFF" }),

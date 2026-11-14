@@ -60,7 +60,7 @@ public class GlassQualityTests
     [InlineData(GlassQuality.Solid, false, true)]
     public void AppSetting_AppliesToEveryLevel(GlassQuality quality, bool minimal, bool solid)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { GlassQuality = quality };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { GlassQuality = quality };
         var (window, levels) = Nest(1, theme);
         Assert.Equal(minimal, levels[0].IsMinimal);
         Assert.Equal(solid, levels[0].IsSolid);
@@ -71,7 +71,7 @@ public class GlassQualityTests
     [AvaloniaFact]
     public void MinimalSetting_KeepsTheNestingCap()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { GlassQuality = GlassQuality.Minimal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { GlassQuality = GlassQuality.Minimal };
         var (window, levels) = Nest(3, theme);
         Assert.Equal([true, true, false], levels.Select(g => g.IsMinimal));
         Assert.Equal([false, false, true], levels.Select(g => g.IsSolid));
@@ -81,7 +81,7 @@ public class GlassQualityTests
     [AvaloniaFact]
     public void ReducedTransparency_IsSolid_WhateverTheQuality()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { GlassQuality = GlassQuality.Minimal, ReduceTransparency = true };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { GlassQuality = GlassQuality.Minimal, ReduceTransparency = true };
         var (window, levels) = Nest(1, theme);
         Assert.True(levels[0].IsSolid);
         Assert.False(levels[0].IsMinimal);

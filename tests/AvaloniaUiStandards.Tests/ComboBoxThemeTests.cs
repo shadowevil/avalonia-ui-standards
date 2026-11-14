@@ -30,7 +30,7 @@ public class ComboBoxThemeTests
     [InlineData("Compact", 24, 8, 2)]
     public void Field_MatchesTextInput_InHeightRadiusAndPadding(string density, double height, double side, double vertical)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var box = New();
         var text = new TextBox { Width = 200 };
         var window = Show(new StackPanel { Children = { box, text } }, theme: theme);
@@ -328,7 +328,7 @@ public class ComboBoxThemeTests
     [AvaloniaFact]
     public void Transitions_UseMotionFast_AndBecomeInstantUnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var box = New();
         var window = Show(box, theme: theme);
         try

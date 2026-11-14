@@ -64,7 +64,7 @@ public class SegmentedControlRenderTests
             beforeShow: w =>
             {
                 if (compact)
-                    w.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = Avalonia.Themes.Fluent.DensityStyle.Compact });
+                    w.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { Density = Avalonia.Themes.Fluent.DensityStyle.Compact });
             },
             afterShow: w =>
             {

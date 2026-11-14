@@ -49,7 +49,7 @@ public class MenuRowTests
             Content = new TextBox { Text = "Content" },
             RequestedThemeVariant = theme ?? ThemeVariant.Light,
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         if (menu is not null)
             NativeMenu.SetMenu(window, menu);
         window.Show();

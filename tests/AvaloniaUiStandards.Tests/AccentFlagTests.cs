@@ -250,7 +250,7 @@ public class AccentFlagTests
         foreach (var width in new[] { 1200d, 800d })
         {
             var window = new StandardsWindow { Width = width, Height = 520, Sidebar = sidebar, Content = new TextBlock { Text = "Content" } };
-            window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+            window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
             window.Show();
             try
             {
@@ -295,7 +295,7 @@ public class AccentFlagTests
         var tree = new TreeView { Width = 260, Items = { parent, other } };
         SelectionOptions.SetAccentFlag(tree, true);
         var window = new Window { Width = 400, Height = 300, Content = tree };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Show();
         try
         {
@@ -333,7 +333,7 @@ public class AccentFlagTests
         var box = new ComboBox { ItemsSource = new[] { "One", "Two", "Three" }, SelectedIndex = 1 };
         SelectionOptions.SetAccentFlag(box, true);
         var window = new Window { Width = 300, Height = 300, Content = box };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Show();
         try
         {
@@ -357,7 +357,7 @@ public class AccentFlagTests
         var box = new AutoCompleteBox { Width = 200, ItemsSource = new[] { "Documents", "Downloads", "Desktop" }, MinimumPrefixLength = 1 };
         SelectionOptions.SetAccentFlag(box, true);
         var window = new Window { Width = 300, Height = 300, Content = box };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Show();
         try
         {
@@ -389,7 +389,7 @@ public class AccentFlagTests
         DensityStyle density = DensityStyle.Normal, bool reduceMotion = true)
     {
         var window = new Window { Width = 300, Height = 200, RequestedThemeVariant = variant ?? ThemeVariant.Light, Content = list };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
         window.Show();
         Pump(window);
         return (window, list);

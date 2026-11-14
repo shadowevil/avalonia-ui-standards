@@ -49,7 +49,7 @@ public class TextInputThemeTests
     [InlineData("Compact", 24, 8, 2)]
     public void SizeAndPadding_FollowDensity_LikeButton(string density, double height, double side, double vertical)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var box = new TextBox { Text = "Text", Width = 200 };
         var button = new Button { Content = "Button" };
         var window = Show(new StackPanel { Children = { box, button } }, theme: theme);
@@ -332,7 +332,7 @@ public class TextInputThemeTests
     [AvaloniaFact]
     public void InnerButtons_ShrinkWithCompactDensity()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = DensityStyle.Compact };
         var box = new TextBox { Text = "Text", Width = 200, Classes = { "clearButton" } };
         var window = Show(new StackPanel { Children = { box } }, theme: theme);
         try
@@ -383,7 +383,7 @@ public class TextInputThemeTests
     [AvaloniaFact]
     public void Transitions_UseMotionFast_AndBecomeInstantUnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var box = new TextBox { Text = "Text", Classes = { "clearButton" } };
         var window = Show(box, theme: theme);
         try

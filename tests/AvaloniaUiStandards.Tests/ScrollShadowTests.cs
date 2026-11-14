@@ -280,7 +280,7 @@ public class ScrollShadowTests
     public void Shadow_IsADarkenedAccent_AndFollowsAccentChanges(string theme)
     {
         var dark = theme == "Dark";
-        var standards = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var standards = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, viewer) = Show(Tall());
         window.Styles.Add(standards);
         window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;

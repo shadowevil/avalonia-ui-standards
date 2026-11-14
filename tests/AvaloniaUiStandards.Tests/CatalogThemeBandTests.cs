@@ -225,7 +225,7 @@ public class CatalogThemeBandTests
         var band = controls.Band;
         band.HorizontalAlignment = HorizontalAlignment.Left;
         var window = new Window { Width = 1400, Height = 300, Content = band };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         // Overflow order: the first item in the list goes first, the last item last.
         Control[] order = [controls.Transparency, controls.Motion, controls.Density, controls.Accent, controls.Theme];
         try
@@ -266,7 +266,7 @@ public class CatalogThemeBandTests
         band.HorizontalAlignment = HorizontalAlignment.Left;
         band.VerticalAlignment = VerticalAlignment.Top;
         var window = new Window { Width = 1000, Height = 700, Content = band };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         try
         {
             window.Show();
@@ -330,7 +330,7 @@ public class CatalogThemeBandTests
     public void AccentMenuOpenedFromTheOverflow_StaysInsideTheWindow()
     {
         var window = new MainWindow { Width = 600, Height = 700 };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         try
         {
             window.Show();
@@ -362,7 +362,7 @@ public class CatalogThemeBandTests
         var band = controls.Band;
         band.HorizontalAlignment = HorizontalAlignment.Left;
         var window = new Window { Width = 1400, Height = 300, Content = band };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         try
         {
             window.Show();
@@ -414,7 +414,7 @@ public class CatalogThemeBandTests
         var band = controls.Band;
         band.HorizontalAlignment = HorizontalAlignment.Left;
         var window = new Window { Width = 1400, Height = 300, Content = band };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         try
         {
             window.Show();
@@ -478,7 +478,7 @@ public class CatalogThemeBandTests
         var surface = new Border { Child = band };
         surface.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SystemRegionColor"));
         var window = new Window { Width = 560, Height = 420, Content = surface, RequestedThemeVariant = ThemeVariant.Light };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         try
         {
             window.SetRenderScaling(Sheet.Scale);
@@ -512,7 +512,7 @@ public class CatalogThemeBandTests
             RequestedThemeVariant = variant,
             Background = new SolidColorBrush(Color.Parse(variant == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         try
         {
             window.SetRenderScaling(Sheet.Scale);
