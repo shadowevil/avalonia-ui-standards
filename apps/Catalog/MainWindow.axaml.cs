@@ -1,7 +1,5 @@
-using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media;
 using Avalonia.Reactive;
 using AvaloniaUiStandards;
 using AvaloniaUiStandards.Modules;
@@ -38,8 +36,7 @@ public partial class MainWindow : StandardsWindow
             if (page is null)
                 return;
             Content = page.Create();
-            StatusPage.Text = page.Title;
-            UpdateFrameStatus();
+            Status.Message = page.Title;
         };
         PageList.SelectedIndex = 0;
 
@@ -51,7 +48,6 @@ public partial class MainWindow : StandardsWindow
         Opened += (_, _) => _meter.Attach();
         Closed += (_, _) => _meter.Dispose();
         SizeChanged += (_, _) => _meter.Resize();
-        StatusRow.SizeChanged += (_, _) => UpdateFrameStatus();
         // Reduce motion, as the theme applies it: the motion durations are zero.
         this.GetResourceObservable("MotionNormal").Subscribe(new AnonymousObserver<object?>(v =>
         {
@@ -87,18 +83,14 @@ public partial class MainWindow : StandardsWindow
             UpdateFrameStatus();
     }
 
-    // The longest readout that fits beside the page name and the version; the shortest when none does.
+    // The full readout, with its shorter forms for a narrow status bar, where the bar shortens it before it hides anything.
     private void UpdateFrameStatus()
     {
         // Called from base constructors' property changes before the fields exist.
         if (_meter is null || StatusFrames is null)
             return;
         var texts = FrameStatus.Texts(_meter.FramesPerSecond, HighRefreshRate, FrameStatus.PauseReason(_motionReduced, IsActive, WindowState));
-        var room = StatusRow.Bounds.Width - 2 * StatusRow.ColumnSpacing - TextWidth(StatusPage, StatusPage.Text) - TextWidth(StatusVersion, StatusVersion.Text);
-        StatusFrames.Text = texts.FirstOrDefault(t => TextWidth(StatusFrames, t) <= room) ?? texts[^1];
+        AvaloniaUiStandards.Modules.StatusBar.SetShortTexts(StatusFrames, texts[1..]);
+        StatusFrames.Text = texts[0];
     }
-
-    private static double TextWidth(TextBlock block, string? text) =>
-        string.IsNullOrEmpty(text) ? 0 : new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface(block.FontFamily, block.FontStyle, block.FontWeight), block.FontSize, null).Width;
 }

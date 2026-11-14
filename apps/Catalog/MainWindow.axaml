@@ -11,10 +11,9 @@
     <Sidebar x:Name="PageList" />
   </StandardsWindow.Sidebar>
   <StandardsWindow.StatusBar>
-    <Grid x:Name="StatusRow" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
-      <TextBlock x:Name="StatusPage" FontSize="{DynamicResource FontSizeCaption}" />
-      <TextBlock x:Name="StatusFrames" Grid.Column="1" FontSize="{DynamicResource FontSizeCaption}" />
-      <TextBlock x:Name="StatusVersion" Grid.Column="2" FontSize="{DynamicResource FontSizeCaption}" />
-    </Grid>
+    <StatusBar x:Name="Status">
+      <TextBlock x:Name="StatusFrames" StatusBar.Zone="Trailing" />
+      <TextBlock x:Name="StatusVersion" StatusBar.Zone="Trailing" StatusBar.Priority="1" />
+    </StatusBar>
   </StandardsWindow.StatusBar>
 </StandardsWindow>
