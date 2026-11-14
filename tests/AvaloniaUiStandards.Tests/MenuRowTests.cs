@@ -582,7 +582,7 @@ public class MenuRowTests
             window.LayoutMode = WindowLayoutMode.MacOS;
             Pump(window);
             Assert.False(NativeMenu.GetIsNativeMenuExported(window));
-            Assert.Contains(window.KeyBindings, b => b.Gesture == nativeNew.Gesture);
+            Assert.Contains(nativeNew.Gesture, window.MenuShortcuts.Gestures);
             Press(window, Key.N, RawInputModifiers.Control, "n");
             Assert.Equal(2, clicks);
             Press(window, Key.LeftAlt, RawInputModifiers.Alt, physical: PhysicalKey.AltLeft);
@@ -600,9 +600,65 @@ public class MenuRowTests
             Assert.Equal(3, clicks);
             NativeMenu.SetMenu(window, null!);
             Pump(window);
-            Assert.Empty(window.MenuShortcuts.Bindings);
+            Assert.Empty(window.MenuShortcuts.Gestures);
             Press(window, Key.M, RawInputModifiers.Control, "m");
             Assert.Equal(3, clicks);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void FocusedControls_HandleTheirKeysFirst_UnusedGesturesReachTheMenu()
+    {
+        var command = Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
+        var clicks = new Dictionary<string, int>();
+        NativeMenuItem Counted(string header, Key key)
+        {
+            var item = new NativeMenuItem(header) { Gesture = new KeyGesture(key, command) };
+            item.Click += (_, _) => clicks[header] = clicks.GetValueOrDefault(header) + 1;
+            return item;
+        }
+        var menu = new NativeMenu
+        {
+            new NativeMenuItem("_File") { Menu = new NativeMenu { Counted("_New", Key.N) } },
+            new NativeMenuItem("_Edit") { Menu = new NativeMenu { Counted("_Copy", Key.C), Counted("Select _all", Key.A) } },
+        };
+        var box = new TextBox { Text = "Some text" };
+        var list = new ListBox { SelectionMode = SelectionMode.Multiple, ItemsSource = new[] { "One", "Two", "Three" } };
+        var window = Show(menu);
+        window.Content = new StackPanel { Children = { box, list } };
+        var modifiers = (RawInputModifiers)command;
+        try
+        {
+            Pump(window);
+
+            // A text box keeps select all and copy, though the menu's entries are enabled.
+            box.Focus();
+            Pump(window);
+            Press(window, Key.A, modifiers, "a");
+            Assert.Equal(box.Text!.Length, box.SelectionEnd - box.SelectionStart);
+            Press(window, Key.C, modifiers, "c");
+            Assert.Equal(0, clicks.GetValueOrDefault("Select _all"));
+            Assert.Equal(0, clicks.GetValueOrDefault("_Copy"));
+
+            // A list keeps select all.
+            list.SelectedIndex = 0;
+            list.ContainerFromIndex(0)!.Focus();
+            Pump(window);
+            Press(window, Key.A, modifiers, "a");
+            Assert.Equal(3, list.SelectedItems!.Count);
+            Assert.Equal(0, clicks.GetValueOrDefault("Select _all"));
+
+            // A gesture no control uses reaches the menu, once, from either control.
+            Press(window, Key.N, modifiers, "n");
+            Assert.Equal(1, clicks.GetValueOrDefault("_New"));
+            box.Focus();
+            Pump(window);
+            Press(window, Key.N, modifiers, "n");
+            Assert.Equal(2, clicks.GetValueOrDefault("_New"));
         }
         finally
         {
@@ -686,7 +742,7 @@ public class MenuRowTests
     private static void Wait(Window window) =>
         Thread.Sleep(window.GetPlatformSettings()!.GetDoubleTapTime(PointerType.Mouse) + TimeSpan.FromMilliseconds(100));
 
-    private static void Press(Window window, Key key, RawInputModifiers modifiers = RawInputModifiers.None, string? symbol = null,
+    internal static void Press(Window window, Key key, RawInputModifiers modifiers = RawInputModifiers.None, string? symbol = null,
         PhysicalKey physical = PhysicalKey.None)
     {
         window.KeyPress(key, modifiers, physical, symbol);

@@ -1,21 +1,22 @@
 using System.Collections.Specialized;
-using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 
 namespace AvaloniaUiStandards.Modules;
 
 /// <summary>
-/// The window shortcuts of a <see cref="StandardsWindow"/>'s menu: one per menu item with a gesture (the window's
-/// menu and the Application's), whenever the platform does not export the menu to a system menu bar, which then
-/// handles them itself. They work in either layout mode, with or without the menu row.
+/// The window shortcuts of a <see cref="StandardsWindow"/>'s menu: each menu item with a gesture (the window's menu
+/// and the Application's) is clicked by its gesture, whenever the platform does not export the menu to a system menu
+/// bar (which then handles them itself). They work in either layout mode, with or without the menu row. The focused
+/// control handles a key first: a shortcut acts only on a key no control handled, as in native desktop apps.
 /// </summary>
 internal sealed class MenuShortcuts : IDisposable
 {
     private readonly TopLevel _window;
-    private readonly List<KeyBinding> _bindings = [];
+    private readonly List<(KeyGesture Gesture, IReadOnlyList<NativeMenuItem> Path)> _shortcuts = [];
     private readonly List<IDisposable> _watches = [];
     private NativeMenu? _menu;
     private bool _refreshPosted;
@@ -25,6 +26,8 @@ internal sealed class MenuShortcuts : IDisposable
     {
         _window = window;
         _window.PropertyChanged += OnWindowPropertyChanged;
+        // Bubbling and unhandled only: after the focused control and its parents have had the key.
+        _window.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Bubble);
     }
 
     /// <summary>The window's menu; with none there are no shortcuts.</summary>
@@ -41,16 +44,31 @@ internal sealed class MenuShortcuts : IDisposable
         }
     }
 
-    /// <summary>The shortcuts in place.</summary>
-    internal IReadOnlyList<KeyBinding> Bindings => _bindings;
+    /// <summary>The gestures in use.</summary>
+    internal IReadOnlyList<KeyGesture> Gestures => _shortcuts.Select(s => s.Gesture).ToList();
 
     public void Dispose()
     {
         Menu = null;
         _window.PropertyChanged -= OnWindowPropertyChanged;
+        _window.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
     }
 
     private static NativeMenu? AppMenu => Application.Current is { } app ? NativeMenu.GetMenu(app) : null;
+
+    // A key no control handled: the first shortcut for it whose item and menus are enabled and shown clicks the item.
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled)
+            return;
+        foreach (var (gesture, path) in _shortcuts)
+            if (gesture.Matches(e) && path.All(item => item.IsEnabled && item.IsVisible))
+            {
+                e.Handled = true;
+                ((INativeMenuItemExporterEventsImplBridge)path[^1]).RaiseClicked();
+                return;
+            }
+    }
 
     // The platform starts or stops exporting the menu.
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -92,9 +110,7 @@ internal sealed class MenuShortcuts : IDisposable
     /// <summary>Makes the shortcuts again from the menus, and watches them for items, submenus and gestures that change.</summary>
     internal void Refresh()
     {
-        foreach (var binding in _bindings)
-            _window.KeyBindings.Remove(binding);
-        _bindings.Clear();
+        _shortcuts.Clear();
         foreach (var watch in _watches)
             watch.Dispose();
         _watches.Clear();
@@ -105,8 +121,6 @@ internal sealed class MenuShortcuts : IDisposable
         foreach (var menu in new[] { _menu, AppMenu })
             if (menu is not null)
                 Add(menu, [], exported);
-        foreach (var binding in _bindings)
-            _window.KeyBindings.Add(binding);
     }
 
     private void Add(NativeMenu menu, IReadOnlyList<NativeMenuItem> parents, bool exported)
@@ -127,23 +141,9 @@ internal sealed class MenuShortcuts : IDisposable
 
             List<NativeMenuItem> path = [.. parents, item];
             if (item.Gesture is { } gesture && !exported)
-                _bindings.Add(new KeyBinding { Gesture = gesture, Command = new ShortcutCommand(path) });
+                _shortcuts.Add((gesture, path));
             if (item.Menu is { } submenu)
                 Add(submenu, path, exported);
-        }
-    }
-
-    /// <summary>Clicks the item at the end of <paramref name="path"/>, while it and its menus are enabled and shown.</summary>
-    private sealed class ShortcutCommand(IReadOnlyList<NativeMenuItem> path) : ICommand
-    {
-        public event EventHandler? CanExecuteChanged { add { } remove { } }
-
-        public bool CanExecute(object? parameter) => path.All(item => item.IsEnabled && item.IsVisible);
-
-        public void Execute(object? parameter)
-        {
-            if (CanExecute(parameter))
-                ((INativeMenuItemExporterEventsImplBridge)path[^1]).RaiseClicked();
         }
     }
 
