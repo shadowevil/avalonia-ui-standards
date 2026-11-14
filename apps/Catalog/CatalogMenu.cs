@@ -30,7 +30,7 @@ internal sealed class CatalogMenu
         var file = new NativeMenuItem("_File") { Menu = new NativeMenu { CloseWindow } };
 
         // Edit acts on the focused text box, as a text field's own context menu does: its entries are enabled only
-        // while one has focus (or had it when the menu opened), so their shortcuts leave other controls' keys alone.
+        // while one has focus (or had it when the menu opened), so they are greyed out when there is nothing to act on.
         var edit = new NativeMenuItem("_Edit")
         {
             Menu = new NativeMenu
