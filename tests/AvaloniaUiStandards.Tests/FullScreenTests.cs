@@ -89,13 +89,13 @@ public class FullScreenTests
         {
             window.WindowState = WindowState.Maximized;
             MenuRowTests.Pump(window);
-            Assert.True(window.Classes.Contains(":maximized"));
-            Assert.False(window.Classes.Contains(":fullscreen"));
+            Assert.Contains(":maximized", window.Classes);
+            Assert.DoesNotContain(":fullscreen", window.Classes);
 
             window.WindowState = WindowState.FullScreen;
             MenuRowTests.Pump(window);
-            Assert.False(window.Classes.Contains(":maximized"));
-            Assert.True(window.Classes.Contains(":fullscreen"));
+            Assert.DoesNotContain(":maximized", window.Classes);
+            Assert.Contains(":fullscreen", window.Classes);
             var frame = MenuRowTests.Part<SquircleBorder>(window, StandardsWindowTheme.FramePart);
             Assert.Equal(new Thickness(0), frame.Margin);
             Assert.Equal(new CornerRadius(0), frame.CornerRadius);
@@ -105,8 +105,8 @@ public class FullScreenTests
 
             window.WindowState = WindowState.Normal;
             MenuRowTests.Pump(window);
-            Assert.False(window.Classes.Contains(":maximized"));
-            Assert.False(window.Classes.Contains(":fullscreen"));
+            Assert.DoesNotContain(":maximized", window.Classes);
+            Assert.DoesNotContain(":fullscreen", window.Classes);
         }
         finally
         {

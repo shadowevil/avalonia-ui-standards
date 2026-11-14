@@ -116,6 +116,8 @@ public class StandardsWindow : Window, IFrameTickSource
         PseudoClasses.Set(":native-frame", HasNativeFrame);
         // The full screen reveal follows the pointer wherever it is in the window, whoever handles the move.
         AddHandler(PointerMovedEvent, OnRevealPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        // Raised as the window starts to show, before its size goes to the platform.
+        AddHandler(WindowOpenedEvent, (_, _) => FitOpeningSize());
         // The menu row's menu bar opening (Alt, F10, a click) reveals the rows; closing lets them hide.
         _menuRow.Opened += (_, _) =>
         {
@@ -278,6 +280,37 @@ public class StandardsWindow : Window, IFrameTickSource
 
     /// <summary>How long the revealed rows stay after the pointer leaves them, in full screen.</summary>
     internal static readonly TimeSpan HideDelay = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>How far a native macOS window that opens larger than the screen's working area stays from its edges, in px.</summary>
+    internal const double OpeningInset = Spacing.L;
+
+    /// <summary>
+    /// The size a native macOS window opens at: a side that reaches the screen's working area (<paramref name="workingArea"/>)
+    /// becomes the working area's less <see cref="OpeningInset"/> at each edge; a side that fits stays.
+    /// </summary>
+    /// <remarks>
+    /// Avalonia.Native 12.1.6 counts a native window as maximised whenever its frame equals the screen's visible frame.
+    /// macOS squeezes a window that opens larger than the working area to exactly that frame, so the window started out
+    /// maximised natively while reading Normal, with no frame to restore to, and maximise and restore then acted backwards.
+    /// </remarks>
+    internal static Size FitOpeningSize(Size requested, Size workingArea)
+    {
+        static double Fit(double side, double area) => side >= area ? Math.Max(0, area - 2 * OpeningInset) : side;
+        return new Size(Fit(requested.Width, workingArea.Width), Fit(requested.Height, workingArea.Height));
+    }
+
+    // On the native macOS frame, a normal window that would open at or past the working area opens inside it (see FitOpeningSize).
+    private void FitOpeningSize()
+    {
+        if (!HasNativeFrame || WindowState != WindowState.Normal || (Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen)
+            return;
+        var requested = new Size(double.IsNaN(Width) ? ClientSize.Width : Width, double.IsNaN(Height) ? ClientSize.Height : Height);
+        var fitted = FitOpeningSize(requested, screen.WorkingArea.Size.ToSize(screen.Scaling));
+        if (fitted.Width != requested.Width)
+            Width = Math.Max(fitted.Width, MinWidth);
+        if (fitted.Height != requested.Height)
+            Height = Math.Max(fitted.Height, MinHeight);
+    }
 
     /// <summary>Whether the app runs on macOS, where the window has full screen (settable for tests).</summary>
     internal bool RunsOnMacOS
@@ -771,7 +804,7 @@ public class StandardsWindow : Window, IFrameTickSource
         // A decorative element: an icon that cannot be decoded looks like no icon (no gap).
         try
         {
-            _titleIcon.Source = (IconDecoder ?? DecodeIcon)(Icon);
+            _titleIcon.Source = (TitleIconDecoderForTests ?? DecodeIcon)(Icon);
         }
         catch (ArgumentException)
         {
@@ -790,8 +823,24 @@ public class StandardsWindow : Window, IFrameTickSource
         old?.Dispose();
     }
 
-    /// <summary>Replaces <see cref="DecodeIcon"/>, for headless tests, whose icons cannot save themselves as an image.</summary>
-    internal Func<WindowIcon, Avalonia.Media.IImage?>? IconDecoder { get; set; }
+    private Func<WindowIcon, Avalonia.Media.IImage?>? _titleIconDecoderForTests;
+
+    /// <summary>
+    /// For headless tests only: turns <see cref="Window.Icon"/> into the image the title band shows, because a headless
+    /// platform's window icons hold no image data, so the Windows layout's title icon would not render. Null (the
+    /// default) decodes the icon itself; apps leave it null. Set it per window, before or after <see cref="Window.Icon"/>;
+    /// the title icon updates at once. Like <c>StandardsTheme.CreateForTests</c>, it lets an app's headless tests render
+    /// what users see.
+    /// </summary>
+    public Func<WindowIcon, Avalonia.Media.IImage?>? TitleIconDecoderForTests
+    {
+        get => _titleIconDecoderForTests;
+        set
+        {
+            _titleIconDecoderForTests = value;
+            UpdateTitleIcon();
+        }
+    }
 
     // WindowIcon only saves itself as an image stream; decode that to draw it.
     private static Avalonia.Media.Imaging.Bitmap DecodeIcon(WindowIcon icon)
