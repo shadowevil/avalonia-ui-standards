@@ -132,7 +132,7 @@ public class FrameTickTests
     [AvaloniaFact]
     public void HighRefreshRate_DefaultsFromTheTheme_AndTheWindowWins()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var window = new StandardsWindow { Width = 400, Height = 300 };
         window.Styles.Add(theme);
         window.Show();
@@ -154,7 +154,7 @@ public class FrameTickTests
 
     private static (StandardsWindow Window, StandardsTheme Theme) Show(bool highRate)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { HighRefreshRate = highRate };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { HighRefreshRate = highRate };
         var window = new StandardsWindow { Width = 400, Height = 300, WindowButtonStyle = WindowButtonStyle.CaptionButtons };
         window.Styles.Add(theme);
         window.Show();

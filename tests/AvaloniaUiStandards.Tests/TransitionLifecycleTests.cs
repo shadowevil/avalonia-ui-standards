@@ -42,7 +42,7 @@ public class TransitionLifecycleTests
 
     private static (Window Window, ContentControl Host, StandardsTheme Theme) Show(ThemeVariant variant, bool scrollViewer)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         ContentControl host = scrollViewer ? new ScrollViewer() : new ContentControl();
         host.Content = Page();
         var window = new Window { Width = 800, Height = 600, RequestedThemeVariant = variant, Content = host };

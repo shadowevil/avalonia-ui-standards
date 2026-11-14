@@ -142,7 +142,7 @@ public class AccentFlagRenderTests
     // --- Helpers -----------------------------------------------------------------------------
 
     private static StandardsTheme Theme(DensityStyle density) =>
-        new(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density };
+        new(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density };
 
     // The state on the item; hover and press are on the pointer target (the item, or a tree row).
     private static void Apply(Control item, Control target, State state)

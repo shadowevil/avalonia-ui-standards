@@ -147,7 +147,7 @@ public class IconTests
     [AvaloniaFact]
     public void Size_FollowsDensity()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var icon = new Icon { Data = Icons.Gear };
         var window = Show(icon, theme: theme);
         try

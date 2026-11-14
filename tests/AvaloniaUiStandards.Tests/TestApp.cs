@@ -12,7 +12,7 @@ public class TestApp : Application
     public override void Initialize()
     {
         // Fixed "not reduced" settings, so renders do not depend on the machine running the tests.
-        Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
+        Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced));
     }
 
     public static AppBuilder BuildAvaloniaApp() =>

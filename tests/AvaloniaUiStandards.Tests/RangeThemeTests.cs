@@ -155,7 +155,7 @@ public class RangeThemeTests
     [AvaloniaFact]
     public void Slider_Transitions_AreFastCrossFades_AndStopUnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, slider) = Show(new Slider { Width = 200 }, theme: theme);
         var pill = Part<RepeatButton>(slider, SliderTheme.DecreasePart).GetVisualDescendants().OfType<SquircleBorder>().Single();
         var transitions = pill.Transitions!.Cast<TransitionBase>().ToList();
@@ -271,7 +271,7 @@ public class RangeThemeTests
     [AvaloniaFact]
     public void FrameTicks_AdvanceTheTime_ExceptUnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, bar) = Show(new ProgressBar { Width = 200, IsIndeterminate = true }, theme: theme);
         var clock = Part<ProgressSweep>(bar, ProgressBarTheme.SweepPart).Clock;
 
@@ -337,7 +337,7 @@ public class RangeThemeTests
     [AvaloniaFact]
     public void Indeterminate_ReturnsToItsStillFrame_UnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, bar) = Show(new ProgressBar { Width = 200, IsIndeterminate = true }, theme: theme);
         var sweep = Part<ProgressSweep>(bar, ProgressBarTheme.SweepPart);
         Assert.True(sweep.IsVisible);
@@ -403,7 +403,7 @@ public class RangeThemeTests
     private static StandardsWindow Window(Control content, bool reduceMotion)
     {
         var window = new StandardsWindow { Width = 400, Height = 300, Content = content };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion });
         window.Show();
         window.Activate();
         Settle(window);

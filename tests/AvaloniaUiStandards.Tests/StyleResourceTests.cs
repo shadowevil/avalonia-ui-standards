@@ -106,7 +106,7 @@ public class StyleResourceTests
     [InlineData(true, false, false)]
     public void ReduceMotion_OverridesOrFollowsOs(bool os, bool? setting, bool expectReduced)
     {
-        var theme = new StandardsTheme(new OsAccessibility.Settings(os, false)) { ReduceMotion = setting };
+        var theme = new StandardsTheme(new AccessibilitySettings(os, false)) { ReduceMotion = setting };
         foreach (var (key, ms) in new[] { ("MotionFast", 100), ("MotionNormal", 200), ("MotionSlow", 300) })
             Assert.Equal(expectReduced ? TimeSpan.Zero : TimeSpan.FromMilliseconds(ms), Resolve<TimeSpan>(theme, key, ThemeVariant.Light));
     }
@@ -114,7 +114,7 @@ public class StyleResourceTests
     [AvaloniaFact]
     public void ReduceMotion_BackToNull_FollowsOsAgain()
     {
-        var theme = new StandardsTheme(new OsAccessibility.Settings(true, false)) { ReduceMotion = false };
+        var theme = new StandardsTheme(new AccessibilitySettings(true, false)) { ReduceMotion = false };
         Assert.Equal(TimeSpan.FromMilliseconds(100), Resolve<TimeSpan>(theme, "MotionFast", ThemeVariant.Light));
         theme.ReduceMotion = null;
         Assert.Equal(TimeSpan.Zero, Resolve<TimeSpan>(theme, "MotionFast", ThemeVariant.Light));
@@ -171,7 +171,7 @@ public class StyleResourceTests
         Assert.Equal(accent, ((ISolidColorBrush)accentButton.Background!).Color);
     }
 
-    private static StandardsTheme NewTheme() => new(OsAccessibility.Settings.NotReduced);
+    private static StandardsTheme NewTheme() => new(AccessibilitySettings.NotReduced);
 
     private static T Resolve<T>(IResourceNode node, string key, ThemeVariant variant)
     {

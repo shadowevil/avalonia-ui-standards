@@ -160,7 +160,7 @@ public class TabsAndExpanderRenderTests
     private static void Density(Window window, bool compact)
     {
         if (compact)
-            window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact });
+            window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { Density = DensityStyle.Compact });
     }
 
     private static void Strip(Control root)

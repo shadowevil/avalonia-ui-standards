@@ -167,7 +167,7 @@ public class CatalogFrameStatusTests
     private static MainWindow NewWindow(double width, double height, bool reduceMotion)
     {
         var window = new MainWindow { Width = width, Height = height };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion });
         return window;
     }
 

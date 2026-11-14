@@ -109,7 +109,7 @@ public class ColorPickerRenderTests
             beforeShow: w =>
             {
                 if (density != DensityStyle.Normal)
-                    w.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density });
+                    w.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density });
             },
             afterShow: w =>
             {
@@ -149,7 +149,7 @@ public class ColorPickerRenderTests
             beforeShow: w =>
             {
                 if (density != DensityStyle.Normal)
-                    w.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density });
+                    w.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density });
             },
             afterShow: w =>
             {
@@ -167,7 +167,7 @@ public class ColorPickerRenderTests
     internal static Window Host(ThemeVariant theme, DensityStyle density, Control content, Size size, bool reduceMotion = true)
     {
         var window = new Window { Width = size.Width, Height = size.Height, RequestedThemeVariant = theme };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
         var surface = ListBoxRenderTests.OnSurface(content, ListBoxRenderTests.Surface.GlassPanel);
         surface.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
         surface.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;

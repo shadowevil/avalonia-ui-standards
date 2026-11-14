@@ -328,7 +328,7 @@ public class PickerThemeTests
         };
         // Fluent, or the library under reduce motion, so the glass shows at full opacity at once.
         // The styles come before the content: a control picks its theme when it joins the tree.
-        window.Styles.Add(fluent ? new FluentTheme() : new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(fluent ? new FluentTheme() : new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Content = new Border { Padding = new Thickness(20), Child = presenter, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
         window.SetRenderScaling(1);
         window.Show();
@@ -428,7 +428,7 @@ public class PickerThemeTests
     [AvaloniaFact]
     public void Transitions_AreTheFixedThemeObjects_AndEmptyUnderReduceMotion()
     {
-        var reduced = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
+        var reduced = new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true };
         foreach (var (theme, expectEmpty) in new[] { ((StandardsTheme?)null, false), (reduced, true) })
         {
             // The field chrome, a selector row in the open flyout, a calendar cell, and the fade-in
@@ -499,7 +499,7 @@ public class PickerThemeTests
         var timePicker = new TimePicker { SelectedTime = PickerRenderTests.Time };
         var dropDown = new CalendarDatePicker { Width = 200, SelectedDate = PickerRenderTests.Date };
         var window = new Window { Width = 400, Height = 900, Content = new StackPanel { Children = { datePicker, timePicker, dropDown } } };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion });
         window.Show();
         Pump(window);
         var fade = reduceMotion ? null : Overlays.SlowFadeIn(window);

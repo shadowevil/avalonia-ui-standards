@@ -78,7 +78,7 @@ public class StandardsTheme : Styles
     private readonly StyleInclude _dataGrid;
     private readonly ColorPaletteResources _light;
     private readonly ColorPaletteResources _dark;
-    private readonly OsAccessibility.Settings _os;
+    private readonly AccessibilitySettings _os;
     private Color _accent = DefaultAccent;
     private bool? _reduceMotion;
     private bool? _reduceTransparency;
@@ -92,7 +92,14 @@ public class StandardsTheme : Styles
     {
     }
 
-    internal StandardsTheme(OsAccessibility.Settings os)
+    /// <summary>
+    /// Creates the theme with the given accessibility settings instead of the OS's, for headless
+    /// tests that need <see cref="ReduceMotion"/> and <see cref="ReduceTransparency"/> to start
+    /// from a known state on any machine. Apps use the constructor.
+    /// </summary>
+    public static StandardsTheme CreateForTests(AccessibilitySettings settings) => new(settings);
+
+    internal StandardsTheme(AccessibilitySettings os)
     {
         _os = os;
         _isTransparencyReduced = os.ReduceTransparency;
@@ -303,6 +310,22 @@ public class StandardsTheme : Styles
         r["SpacingXL"] = Spacing.XL;
         r["SpacingXXL"] = Spacing.XXL;
         r["SpacingXXXL"] = Spacing.XXXL;
+
+        // The same steps as a uniform Thickness (margins, padding) and a fixed GridLength (grid rows and columns)
+        r["SpacingXSThickness"] = new Thickness(Spacing.XS);
+        r["SpacingSThickness"] = new Thickness(Spacing.S);
+        r["SpacingMThickness"] = new Thickness(Spacing.M);
+        r["SpacingLThickness"] = new Thickness(Spacing.L);
+        r["SpacingXLThickness"] = new Thickness(Spacing.XL);
+        r["SpacingXXLThickness"] = new Thickness(Spacing.XXL);
+        r["SpacingXXXLThickness"] = new Thickness(Spacing.XXXL);
+        r["SpacingXSGridLength"] = new GridLength(Spacing.XS);
+        r["SpacingSGridLength"] = new GridLength(Spacing.S);
+        r["SpacingMGridLength"] = new GridLength(Spacing.M);
+        r["SpacingLGridLength"] = new GridLength(Spacing.L);
+        r["SpacingXLGridLength"] = new GridLength(Spacing.XL);
+        r["SpacingXXLGridLength"] = new GridLength(Spacing.XXL);
+        r["SpacingXXXLGridLength"] = new GridLength(Spacing.XXXL);
 
         // Shape
         r["CornerRadiusControl"] = new CornerRadius(8);
