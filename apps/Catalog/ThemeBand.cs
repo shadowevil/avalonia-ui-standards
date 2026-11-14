@@ -43,7 +43,7 @@ internal sealed class ThemeBand
     {
         Theme = Segmented("Theme", ["System", "Light", "Dark"]);
         Density = Segmented("Density", ["Normal", "Compact"]);
-        Motion = Segmented("Motion", ["Follow OS", "Reduced", "Full"], Icons.Play);
+        Motion = Segmented("Motion", ["Follow OS", "Reduced", "Full"], Icons.MotionSystem);
         Transparency = Segmented("Transparency", ["Follow OS", "Reduced", "Full"], Icons.Drop);
 
         // The accent: a drop-down button showing the accent, opening a menu of the presets as check items (each with
@@ -111,9 +111,11 @@ internal sealed class ThemeBand
         };
         Motion.SelectionChanged += (_, _) =>
         {
+            ShowMotionIcon();
             if (_theme is not null)
                 _theme.ReduceMotion = Tri(Motion.SelectedIndex);
         };
+        ShowMotionIcon();
         Transparency.SelectionChanged += (_, _) =>
         {
             if (_theme is not null)
@@ -164,6 +166,14 @@ internal sealed class ThemeBand
     private static bool? Tri(int index) => index switch { 1 => true, 2 => false, _ => null };
 
     private static int Index(bool? value) => value switch { true => 1, false => 2, null => 0 };
+
+    // The motion group's leading icon shows the chosen value: two curls (Follow OS), one (Reduced) or three gusts (Full).
+    private void ShowMotionIcon() => ((LeadingIconSegmentedControl)Motion).Icon.Data = Motion.SelectedIndex switch
+    {
+        1 => Icons.MotionReduced,
+        2 => Icons.MotionFull,
+        _ => Icons.MotionSystem,
+    };
 
     private static SegmentedControl Segmented(string label, string[] values, Geometry? icon = null)
     {

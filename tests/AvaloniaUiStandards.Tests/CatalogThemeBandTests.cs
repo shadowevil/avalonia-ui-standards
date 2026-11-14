@@ -340,6 +340,31 @@ public class CatalogThemeBandTests
         }
     }
 
+    [AvaloniaFact]
+    public void MotionIcon_SwapsWithTheSelectedValue()
+    {
+        var (app, theme) = AppTheme();
+        var controls = new ThemeBand();
+        var icon = Assert.IsType<LeadingIconSegmentedControl>(controls.Motion).Icon;
+        try
+        {
+            Assert.Same(Icons.MotionSystem, icon.Data);
+            foreach (var (index, data) in new[] { (1, Icons.MotionReduced), (2, Icons.MotionFull), (0, Icons.MotionSystem) })
+            {
+                controls.Motion.SelectedIndex = index;
+                Assert.Same(data, icon.Data);
+            }
+
+            // A band made while motion is reduced starts with the reduced icon.
+            theme.ReduceMotion = true;
+            Assert.Same(Icons.MotionReduced, Assert.IsType<LeadingIconSegmentedControl>(new ThemeBand().Motion).Icon.Data);
+        }
+        finally
+        {
+            Reset(app, theme);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(DensityStyle.Normal, 20)]
     [InlineData(DensityStyle.Compact, 16)]
@@ -355,7 +380,7 @@ public class CatalogThemeBandTests
             window.Show();
             band.Width = 1300;
             Pump(window);
-            foreach (var (control, data) in new[] { (controls.Motion, Icons.Play), (controls.Transparency, Icons.Drop) })
+            foreach (var (control, data) in new[] { (controls.Motion, Icons.MotionSystem), (controls.Transparency, Icons.Drop) })
             {
                 var icon = Assert.IsType<LeadingIconSegmentedControl>(control).Icon;
                 Assert.Same(data, icon.Data);
