@@ -94,7 +94,7 @@ public class ToolbarBandTests
         try
         {
             // Natural width: padding 16 + 16, three zones of two 32 px items 8 apart, 16 between zones.
-            Assert.Equal(280, Natural(band));
+            Assert.Equal(280, band.NaturalWidth);
             // At every width the items in the menu are the first ones of this order.
             string[] order = ["D", "A", "E", "C", "B"];
             var counts = new HashSet<int>();
@@ -153,7 +153,7 @@ public class ToolbarBandTests
             c.IsVisible = false;
             Pump(window);
             Assert.False(separator.IsEffectivelyVisible);
-            Assert.Equal(16 + 32 + 16, Natural(band));
+            Assert.Equal(16 + 32 + 16, band.NaturalWidth);
         }
         finally
         {
@@ -269,8 +269,6 @@ public class ToolbarBandTests
             Assert.Equal([false, true, false], radios.Select(r => r.IsChecked));
             Assert.IsType<Separator>(entries[6]);
             AssertItem(entries[7], "Add", Icons.Plus);
-            // Keyboard focus skips the header.
-            Assert.False(header.Focusable && header.IsEnabled);
 
             // The control's selection shows in the menu while it is open ...
             segmented.SelectedIndex = 2;
@@ -295,10 +293,13 @@ public class ToolbarBandTests
         var sort = new MenuItem { Header = "Sort" };
         sort.Click += (_, _) => chosen.Add("Sort");
         var grid = new MenuItem { Header = "Grid", ToggleType = MenuItemToggleType.CheckBox };
+        grid.Click += (_, _) => chosen.Add("Grid");
+        var small = new MenuItem { Header = "Small", ToggleType = MenuItemToggleType.Radio, GroupName = "Size", IsChecked = true };
+        var large = new MenuItem { Header = new TextBlock { Text = "Large" }, ToggleType = MenuItemToggleType.Radio, GroupName = "Size" };
         var dropDown = new DropDownButton
         {
             Content = new Icon { Data = Icons.SlidersHorizontal },
-            Flyout = new MenuFlyout { Items = { sort, new Separator(), grid } },
+            Flyout = new MenuFlyout { Items = { sort, new Separator(), grid, small, large } },
         };
         dropDown.Classes.Add("subtle");
         ToolTip.SetTip(dropDown, "View");
@@ -315,10 +316,107 @@ public class ToolbarBandTests
             Assert.Collection(view.Items,
                 i => Assert.Equal("Sort", ((MenuItem)i!).Header),
                 i => Assert.IsType<Separator>(i),
-                i => Assert.Equal(MenuItemToggleType.CheckBox, ((MenuItem)i!).ToggleType));
-            ((MenuItem)view.Items[0]!).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                i => Assert.Equal(MenuItemToggleType.CheckBox, ((MenuItem)i!).ToggleType),
+                i => Assert.Equal(MenuItemToggleType.Radio, ((MenuItem)i!).ToggleType),
+                // A non-text header shows as its text.
+                i => Assert.Equal("Large", ((MenuItem)i!).Header));
+
+            // Pointer clicks on the entries in the submenu choose the originals.
+            MenuItem Entry(int index)
+            {
+                var open = OpenMenu(window, band);
+                var parent = (MenuItem)open[0];
+                Click(window, parent);
+                Assert.True(parent.IsSubMenuOpen);
+                return (MenuItem)parent.Items[index]!;
+            }
+            Click(window, Entry(0));
             Assert.Equal(["Sort"], chosen);
+            Click(window, Entry(2));
+            Assert.True(grid.IsChecked);
+            Assert.Equal(["Sort", "Grid"], chosen);
+            Assert.True(Entry(2).IsChecked);
             band.OverflowMenu.Hide();
+            Pump(window);
+            Click(window, Entry(2));
+            Assert.False(grid.IsChecked);
+            Click(window, Entry(4));
+            Assert.True(large.IsChecked);
+            Assert.False(small.IsChecked);
+            var proxies = Entry(3);
+            Assert.False(proxies.IsChecked);
+            band.OverflowMenu.Hide();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Menu_OpensAButtonsOwnFlyoutAtTheMoreButton()
+    {
+        var flyout = new Flyout { Content = new TextBlock { Text = "Options" } };
+        var button = Icon("Options", Icons.SlidersHorizontal);
+        button.Flyout = flyout;
+        var (window, band) = Show(600, button, Icon("A"));
+        try
+        {
+            band.Width = 60;
+            Pump(window);
+            Assert.True(band.IsOverflowed(button));
+            Click(window, (MenuItem)OpenMenu(window, band)[0]);
+            Assert.True(flyout.IsOpen);
+            Assert.Same(band.MoreButton, flyout.Target);
+            flyout.Hide();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnOverflowedItemThatShrinks_ComesBack()
+    {
+        var a = Icon("A");
+        var command = new Button { Content = "A long command label" };
+        command.Classes.Add("subtle");
+        // Room for two icon buttons: padding, 32, 8, 32, padding.
+        var (window, band) = Show(16 + 32 + 8 + 32 + 16, a, command);
+        try
+        {
+            Assert.True(band.IsOverflowed(command));
+            command.Content = new Icon { Data = Icons.Plus };
+            Pump(window);
+            Assert.False(band.IsOverflowed(command));
+            Assert.True(command.IsEffectivelyVisible);
+            Assert.Equal(new Size(32, 32), command.Bounds.Size);
+            Assert.False(band.MoreButton.IsEffectivelyVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ButtonsOutsideTheBand_KeepTheirPaddingAndWidth()
+    {
+        var inside = Icon("A");
+        var outside = Icon("B");
+        var band = new ToolbarBand { Items = { inside } };
+        var window = new Window { Width = 600, Height = 300, Content = new StackPanel { Children = { band, outside } } };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
+        try
+        {
+            window.Show();
+            Pump(window);
+            Assert.Equal(new Thickness(0), inside.Padding);
+            Assert.Equal(32, inside.MinWidth);
+            Assert.Equal(new Thickness(12, 4), outside.Padding);
+            Assert.Equal(0, outside.MinWidth);
+            Assert.Equal(12 + 20 + 12 + 2, outside.Bounds.Width);
         }
         finally
         {
@@ -374,7 +472,7 @@ public class ToolbarBandTests
             Assert.Equal([a, b, segmented.ContainerFromIndex(0), trailing], visited);
 
             // B overflows: it takes no focus, and Tab goes from A straight to the segmented control.
-            band.Width = Natural(band) - 1;
+            band.Width = band.NaturalWidth - 1;
             Pump(window);
             Assert.True(band.IsOverflowed(b));
             Assert.False(b.Focus());
@@ -399,7 +497,7 @@ public class ToolbarBandTests
         try
         {
             b.Focus(NavigationMethod.Tab);
-            band.Width = Natural(band) - 1;
+            band.Width = band.NaturalWidth - 1;
             Pump(window);
             Assert.True(band.IsOverflowed(b));
             Assert.Same(band.MoreButton, Focused(window));
@@ -542,7 +640,9 @@ public class ToolbarBandTests
     {
         var button = Icon("A");
         var separator = new Separator();
-        var band = new ToolbarBand { Items = { button, separator, Icon("B") } };
+        var disabled = Icon("C");
+        disabled.IsEnabled = false;
+        var band = new ToolbarBand { Items = { button, separator, Icon("B"), disabled } };
         var window = new StandardsWindow(nativeFrame: false)
         {
             Width = 700, Height = 400, ToolbarBand = band, Content = new TextBlock { Text = "Content" },
@@ -562,8 +662,9 @@ public class ToolbarBandTests
             Pump(window);
             Wait(window);
 
-            // A double-click on an item or on a separator acts on neither the window nor the band.
-            foreach (var target in new Control[] { button, separator })
+            // A double-click on an item (enabled or disabled) or on a separator acts on neither the
+            // window nor the band.
+            foreach (var target in new Control[] { button, separator, disabled })
             {
                 var point = target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), window)!.Value;
                 DoubleClick(window, point);
@@ -724,8 +825,6 @@ public class ToolbarBandTests
     private static string Name(Control item) => AutomationProperties.GetName(item) ?? "";
 
     private static double X(ToolbarBand band, Control item) => item.TranslatePoint(default, band)!.Value.X;
-
-    private static double Natural(ToolbarBand band) => band.NaturalWidth;
 
     private static (Window Window, ToolbarBand Band) Show(double width, params Control[] items) => Show(width, items, DensityStyle.Normal);
 

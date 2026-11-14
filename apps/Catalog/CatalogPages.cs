@@ -39,6 +39,6 @@ internal static class CatalogPages
         new("Separator and GridSplitter", Icons.ArrowsOutLineHorizontal, () => new SeparatorPage()),
         new("DataGrid", Icons.Table, () => new DataGridPage()),
         new("ColorPicker", Icons.Eyedropper, () => new ColorPickerPage()),
-        new("Toolbar band", Icons.Gear, () => new ToolbarBandPage()),
+        new("Toolbar band", Icons.AppWindow, () => new ToolbarBandPage()),
     ];
 }

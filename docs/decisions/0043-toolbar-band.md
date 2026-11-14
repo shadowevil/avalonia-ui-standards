@@ -22,9 +22,9 @@
   - Overflow: the band never wraps.
     - Attached `ToolbarBand.Priority` (int, default 0): higher overflows first; ties overflow from the trailing end. Trailing items with `ToolbarBand.CanOverflow` false never overflow. Controls with no menu form (anything but buttons, toggles, drop-downs and segmented controls) stay in the band.
     - Overflowed items go into a trailing "…" button: a subtle square icon button with `Icons.DotsThree`, the tooltip and automation name "More", opening a glass MenuFlyout below it, aligned to its right edge:
-      - a button is a menu item with its icon in the icon column and its label as the header (attached `ToolbarBand.Label`, else its tooltip, else its automation name); choosing it clicks the button, or opens the button's own flyout at "…";
+      - a button is a menu item with its icon in the icon column and its label as the header (attached `ToolbarBand.Label`, else its tooltip, else its automation name, else the text of its content); choosing it clicks the button, or opens the button's own flyout at "…";
       - a toggle is a checkable item;
-      - a drop-down with a menu is a submenu with the same entries;
+      - a drop-down with a menu is a submenu with the same entries (a non-text header shows as its label); choosing one checks or unchecks it, or checks a radio entry and clears the rest of its group, as in its own menu, then raises its click;
       - a SegmentedControl is a group: a non-selectable header with its label (caption size, secondary text), then one radio item per segment, the selected one marked; the marks follow the control while the menu is open, and choosing one selects its segment;
       - separators, group starts and zone boundaries between two overflowed items become menu separators, and a segmented group has a separator on each side;
       - spacers vanish.
@@ -35,7 +35,7 @@
   - Keyboard: one Tab stop per item, in visual order (leading, centre, trailing, then "…"), whatever the order the items were added in. Arrow keys stay inside segmented controls ([0032](0032-segmented-control.md)). The "…" button opens its menu with Enter, Space or Down.
     - **Why:** Every item is reachable with Tab; a toolbar's roving arrow keys would clash with the segmented controls' arrows.
   - Automation: the band reports the toolbar control type (`AutomationProperties.ControlTypeOverride` with `AutomationControlType.ToolBar`) and the name "Toolbar" unless the app sets one.
-  - Window drag: on macOS the band's empty area drags the window, and double-clicking it acts as on the title band; on Windows and Linux it does not. Pressing an item, a separator or anything hosted in the band never starts a drag. The band has no chrome role; on macOS the library starts the move drag itself, as for the title band ([0022](0022-window-layout.md)).
+  - Window drag: on macOS the band's empty area drags the window, and double-clicking it acts as on the title band; on Windows and Linux it does not. Pressing an item (enabled or disabled), a separator or anything hosted in the band never starts a drag. The band has no chrome role; on macOS the library starts the move drag itself, as for the title band ([0022](0022-window-layout.md)).
     - **Why:** macOS unified toolbars are part of the title bar; Windows command bars below the title bar are not drag areas. With no chrome role, an OS that extends the client area never takes input meant for the band's items.
   - Density, light and dark follow the Blocks; no new motion beyond the menu fade of [0036](0036-menus-and-flyouts.md); every focusable item shows the focus ring ([0019](0019-focus-ring.md)).
 - **Why:** One band for commands and settings that follows Fluent 2 and Apple HIG, built from the library's Blocks, and that keeps every command reachable at any window width.

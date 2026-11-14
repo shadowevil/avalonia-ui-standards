@@ -369,12 +369,16 @@ public class StandardsWindow : Window, IFrameTickSource
     /// </summary>
     internal bool ToolbarBandDragsWindow { get; set; } = OperatingSystem.IsMacOS();
 
-    // Only a press on the band's own empty area (not on an item, a separator or anything hosted
-    // in it) counts; items handle their own presses.
+    // Only a press on the band's own empty area counts: not on an item, a separator or anything
+    // hosted in it. Hit testing skips disabled items, so a press over one reaches the band as if
+    // it were empty; the band's item areas are checked instead.
     private void OnToolbarBandPressed(ContentPresenter slot, PointerPressedEventArgs e)
     {
-        if (ToolbarBandDragsWindow && (e.Source == slot || e.Source == slot.Child))
-            OnTitleBandPressed(slot, e);
+        if (!ToolbarBandDragsWindow || (e.Source != slot && e.Source != slot.Child))
+            return;
+        if (slot.Child is Modules.ToolbarBand band && band.IsOverItem(e.GetPosition(band)))
+            return;
+        OnTitleBandPressed(slot, e);
     }
 
     private void OnTitleBandPressed(object? sender, PointerPressedEventArgs e)

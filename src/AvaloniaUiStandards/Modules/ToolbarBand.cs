@@ -7,10 +7,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Metadata;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
 
@@ -66,8 +68,8 @@ public class ToolbarSpacer : Control
 /// </remarks>
 public class ToolbarBand : Control
 {
-    /// <summary>The overflow button's tooltip and automation name.</summary>
-    public const string MoreLabel = "More";
+    // The overflow button's tooltip and automation name.
+    internal const string MoreLabel = "More";
 
     public static readonly AttachedProperty<ToolbarZone> ZoneProperty =
         AvaloniaProperty.RegisterAttached<ToolbarBand, Control, ToolbarZone>("Zone");
@@ -95,6 +97,9 @@ public class ToolbarBand : Control
     private HashSet<Control> _shown = [];
     private bool _moreShown;
     private (HashSet<Control> Shown, bool More)? _planned;
+
+    // Numbers the radio groups of segmented controls in the menu, so each group's name is unique.
+    private static int s_groups;
 
     public ToolbarBand()
     {
@@ -148,6 +153,10 @@ public class ToolbarBand : Control
 
     internal IReadOnlyList<Control> MenuEntries => _menu.ItemsSource as IReadOnlyList<Control> ?? [];
 
+    /// <summary>Whether <paramref name="point"/> (in the band's coordinates) is over a shown item or the "…" button, enabled or not.</summary>
+    internal bool IsOverItem(Point point) =>
+        _slots.Values.Append(_moreSlot).Any(slot => slot.IsVisible && slot.Bounds.Width > 0 && slot.Bounds.Contains(point));
+
     internal bool IsOverflowed(Control item) =>
         _moreShown && _slots.ContainsKey(item) && item.IsVisible && IsMenuItem(item) && !_shown.Contains(item);
 
@@ -188,7 +197,7 @@ public class ToolbarBand : Control
         else if (e.Property == ZoneProperty)
             OrderSlots();
         if (e.Property == ZoneProperty || e.Property == PriorityProperty || e.Property == CanOverflowProperty
-            || e.Property == BeginsGroupProperty || e.Property == IsVisibleProperty)
+            || e.Property == BeginsGroupProperty || e.Property == IsVisibleProperty || e.Property == ContentControl.ContentProperty)
             InvalidateMeasure();
     }
 
@@ -227,11 +236,18 @@ public class ToolbarBand : Control
         var height = 0.0;
         foreach (var slot in _slots.Values.Append(_moreSlot))
         {
-            // A slot the band hides is not measured by layout; its item is measured directly.
+            // A slot the band hides is not measured by layout, and changes inside it do not
+            // invalidate its item; its item is invalidated and measured directly, so its width is current.
             if (slot.IsVisible)
+            {
                 slot.Measure(Size.Infinity);
+            }
             else
+            {
+                foreach (var layoutable in slot.Item.GetSelfAndVisualDescendants().OfType<Layoutable>())
+                    layoutable.InvalidateMeasure();
                 slot.Item.Measure(Size.Infinity);
+            }
             height = Math.Max(height, slot.Item.DesiredSize.Height);
         }
         var natural = NaturalWidth;
@@ -525,9 +541,21 @@ public class ToolbarBand : Control
         _ => [],
     };
 
-    /// <summary>The label of an item in the menu: its <see cref="LabelProperty"/>, its tooltip text, its automation name or its text content.</summary>
+    /// <summary>
+    /// The label of an item in the menu: its <see cref="LabelProperty"/>, its tooltip text, its
+    /// automation name, or else the text of its content (a ContentControl's) or header (a menu item's).
+    /// </summary>
     internal static string LabelOf(Control item) =>
-        GetLabel(item) ?? ToolTip.GetTip(item) as string ?? AutomationProperties.GetName(item) ?? (item as ContentControl)?.Content as string ?? "";
+        GetLabel(item) ?? ToolTip.GetTip(item) as string ?? AutomationProperties.GetName(item)
+        ?? TextOf((item as ContentControl)?.Content ?? (item as HeaderedSelectingItemsControl)?.Header) ?? "";
+
+    // Text content: a string, or a TextBlock's or AccessText's text.
+    private static string? TextOf(object? content) => content switch
+    {
+        string text => text,
+        TextBlock block => block.Text,
+        _ => null,
+    };
 
     private static MenuItem MenuEntry(Control item, object? content)
     {
@@ -544,7 +572,7 @@ public class ToolbarBand : Control
         if (button.Flyout is MenuFlyout { } dropDown)
         {
             foreach (var child in dropDown.Items)
-                if (Proxy(child) is { } proxy)
+                if (Proxy(child, dropDown.Items) is { } proxy)
                     menuItem.Items.Add(proxy);
             return menuItem;
         }
@@ -585,7 +613,7 @@ public class ToolbarBand : Control
         header.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("SystemControlForegroundBaseMediumBrush"));
         yield return new MenuItem { Header = header, IsEnabled = false };
 
-        var group = $"ToolbarBand.Segments.{segmented.GetHashCode()}";
+        var group = $"ToolbarBand.Segments.{++s_groups}";
         for (var i = 0; i < segmented.ItemCount; i++)
         {
             var index = i;
@@ -615,9 +643,11 @@ public class ToolbarBand : Control
         }
     }
 
-    // A drop-down's menu entry in the "…" menu's submenu: the same header, icon, gesture, check
-    // state and enabled state; choosing it clicks the original entry.
-    private static Control? Proxy(object? child)
+    // A drop-down's menu entry in the "…" menu's submenu: the same header (a non-text header as its
+    // label), icon, gesture, check state and enabled state. Choosing it chooses the original entry:
+    // a check item toggles and a radio item is checked, clearing the others of its group among
+    // <paramref name="siblings"/>, then the original's click is raised (its handlers and command).
+    private static Control? Proxy(object? child, IEnumerable<object?> siblings)
     {
         switch (child)
         {
@@ -636,13 +666,34 @@ public class ToolbarBand : Control
                 proxy.Bind(IsEnabledProperty, new Binding(nameof(IsEnabled)) { Source = original, Mode = BindingMode.OneWay });
                 proxy.Bind(MenuItem.IsCheckedProperty, new Binding(nameof(MenuItem.IsChecked)) { Source = original, Mode = BindingMode.OneWay });
                 foreach (var grandchild in original.Items)
-                    if (Proxy(grandchild) is { } sub)
+                    if (Proxy(grandchild, original.Items) is { } sub)
                         proxy.Items.Add(sub);
                 if (original.ItemCount == 0)
-                    proxy.Click += (_, _) => original.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    proxy.Click += (_, _) =>
+                    {
+                        Choose(original, siblings);
+                        original.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    };
                 return proxy;
             default:
                 return null;
+        }
+    }
+
+    // A menu item that is not open does not toggle itself when its click is raised, so the check
+    // state is set here, as choosing it in its own menu would.
+    private static void Choose(MenuItem original, IEnumerable<object?> siblings)
+    {
+        if (original.ToggleType == MenuItemToggleType.CheckBox)
+        {
+            original.SetCurrentValue(MenuItem.IsCheckedProperty, !original.IsChecked);
+        }
+        else if (original.ToggleType == MenuItemToggleType.Radio)
+        {
+            foreach (var other in siblings.OfType<MenuItem>())
+                if (other != original && other.ToggleType == MenuItemToggleType.Radio && other.GroupName == original.GroupName)
+                    other.SetCurrentValue(MenuItem.IsCheckedProperty, false);
+            original.SetCurrentValue(MenuItem.IsCheckedProperty, true);
         }
     }
 
