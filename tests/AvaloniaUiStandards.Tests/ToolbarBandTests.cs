@@ -343,8 +343,7 @@ public class ToolbarBandTests
             Click(window, Entry(4));
             Assert.True(large.IsChecked);
             Assert.False(small.IsChecked);
-            var proxies = Entry(3);
-            Assert.False(proxies.IsChecked);
+            Assert.False(Entry(3).IsChecked);
             band.OverflowMenu.Hide();
         }
         finally
