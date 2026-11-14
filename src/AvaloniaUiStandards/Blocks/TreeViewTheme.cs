@@ -22,9 +22,9 @@ namespace AvaloniaUiStandards.Blocks;
 /// The TreeView and TreeViewItem themes. Each item's row spans the tree's width and holds the
 /// indent (one caret width per level), a caret that turns from right to down as the item expands,
 /// and the content pill: the list item design (a squircle pill, list-medium hover, base-medium-low
-/// press, accent selection with white text, density heights, the focus ring) from the content's
-/// start to the row's right edge, so the carets and the node lines (<see cref="TreeLines"/>) stay
-/// visible beside it. Hover and press are the whole row's, shown on the pill.
+/// press, accent selection with white text, density heights, the focus ring, the optional accent
+/// flag) from the content's start to the row's right edge, so the carets and the node lines
+/// (<see cref="TreeLines"/>) stay visible beside it. Hover and press are the whole row's, shown on the pill.
 /// Keyboard and selection are Fluent's; clicks on the row expand and collapse it as
 /// <see cref="TreeViewOptions"/> sets (<see cref="RowClicks"/>).
 /// </summary>
@@ -125,6 +125,8 @@ internal static class TreeViewTheme
         theme.Children.Add(RowState(x => x.Class(":selected"), ":pressed", "AccentFillColorPressed", "AccentButtonForeground"));
         theme.Children.Add(RowState(x => x.Class(":disabled"), null, Brushes.Transparent, "SystemControlDisabledBaseMediumLowBrush"));
         theme.Children.Add(RowState(x => x.Class(":selected").Class(":disabled"), null, "AccentButtonBackgroundDisabled", "AccentButtonForegroundDisabled"));
+        // The accent flag goes on the pill's leading edge.
+        AccentFlag.AddTo(theme);
         // The caret lies outside the pill: it dims with a disabled row itself.
         theme.Children.Add(new Avalonia.Styling.Style(x => Caret(x.Nesting().Class(":disabled")))
         {
@@ -194,7 +196,7 @@ internal static class TreeViewTheme
         chrome.Bind(SquircleBorder.CornerRadiusProperty, new TemplateBinding(TemplatedControl.CornerRadiusProperty));
         chrome.Bind(Decorator.PaddingProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
         chrome.Bind(Layoutable.MinHeightProperty, new TemplateBinding(Layoutable.MinHeightProperty));
-        var pill = FocusRing.Wrap(chrome, scope);
+        var pill = FocusRing.Wrap(AccentFlag.Add(chrome, scope), scope);
         Grid.SetColumn(pill, 2);
 
         var grid = new Grid { Name = HeaderPart, ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*"), Children = { indent, caret, pill } };
