@@ -190,8 +190,15 @@ public class GlassBorder : Decorator
     // reference assemblies, so it is read by reflection.
     private static SkiaOptions? ReadSkiaOptions()
     {
-        var locator = typeof(AvaloniaLocator).GetProperty("Current", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(null);
-        return locator?.GetType().GetMethod("GetService", [typeof(Type)])?.Invoke(locator, [typeof(SkiaOptions)]) as SkiaOptions;
+        try
+        {
+            var locator = typeof(AvaloniaLocator).GetProperty("Current", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(null);
+            return locator?.GetType().GetMethod("GetService", [typeof(Type)])?.Invoke(locator, [typeof(SkiaOptions)]) as SkiaOptions;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public GlassBorder()

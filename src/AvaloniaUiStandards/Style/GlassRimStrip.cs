@@ -19,7 +19,11 @@ namespace AvaloniaUiStandards.Style;
 /// When the clip (the region Avalonia redraws) holds no point the strip samples, the strip from the
 /// last frame is reused; when it holds some, only those are read again (outside the clip the
 /// surface holds the last frame, with whatever was drawn above the glass), except on the first
-/// build. When it holds no band pixel, nothing is drawn.
+/// build. The first build reads every point, and it comes each time the rim's visual renders
+/// again (a change of size, shape, theme or rim method), since each render creates a new draw
+/// operation; opacity changes do not render it again. Within the clip's bounding box but outside a
+/// clip of several rectangles, points are also read from the last frame (Skia gives only the box).
+/// When it holds no band pixel, nothing is drawn.
 /// </summary>
 internal sealed class GlassRimStrip : IDisposable
 {
