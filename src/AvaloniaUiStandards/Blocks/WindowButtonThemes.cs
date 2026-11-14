@@ -66,9 +66,6 @@ internal static class WindowButtonThemes
         resources[CaptionHeightKey] = compact ? CaptionButtonHeightCompact : CaptionButtonHeight;
     }
 
-    private static readonly IValueConverter TrafficLightGlyph =
-        new FuncValueConverter<WindowButtonKind, Geometry>(kind => WindowButtonGlyphs.TrafficLight(kind));
-
     /// <summary>Adds the traffic light colours under non-public keys.</summary>
     public static void AddResources(IResourceDictionary resources)
     {
@@ -127,6 +124,13 @@ internal static class WindowButtonThemes
         {
             Setters = { new Setter(TemplatedControl.BackgroundProperty, Resource("SystemBaseLowColor")) },
         });
+
+        // Disabled (the window cannot do it): the neutral grey with no glyph, even while the group is hovered (as macOS).
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":disabled"))
+        {
+            Setters = { new Setter(TemplatedControl.BackgroundProperty, Resource("SystemBaseLowColor")) },
+        });
+        theme.Children.Add(new Avalonia.Styling.Style(x => Glyph(x.Nesting().Class(":disabled"))) { Setters = { new Setter(Visual.OpacityProperty, 0d) } });
         return theme;
     }
 
@@ -170,8 +174,9 @@ internal static class WindowButtonThemes
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        glyph.Bind(Path.DataProperty, new TemplateBinding(TrafficLightButton.KindProperty) { Converter = TrafficLightGlyph });
+        glyph.Bind(Path.DataProperty, new TemplateBinding(TrafficLightButton.GlyphProperty));
         glyph.Bind(Shape.StrokeProperty, new DynamicResourceExtension(GlyphKey));
+        glyph.Bind(Shape.FillProperty, new DynamicResourceExtension(GlyphKey));
         return Chrome(glyph, scope);
     }
 

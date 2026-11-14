@@ -39,12 +39,13 @@
     - Resize grips 8 px on the edges and 12 px at the corners; the window buttons take precedence over grips.
     - Shadow and margin differ per OS: see Native behaviour.
     - Minimum size 480×320, applied to the frame (on Linux the window adds the shadow margin).
-    - When maximised: square corners, no shadow, no grips (on macOS the system keeps its shadow and corner mask: see Native behaviour).
+    - When maximised: square corners, no shadow, no grips (on macOS the system keeps its shadow and corner mask: see Native behaviour). Full screen (macOS only) is in [0049](0049-full-screen.md).
     - Without OS transparency the frame fills the window square, with no shadow.
   - Window buttons:
     - Traffic lights: 12 px dots 8 px apart, 16 px from the left. Close `#FF5F57`, minimise `#FEBC2E`, zoom `#28C840`. Glyphs show on group hover. They are grey with no glyphs when the window is inactive.
     - Caption buttons: 46 × 32, Windows 11's caption button size (Compact 40 × 28, on the 4 px grid), aligned to the top of the title band and flush right. The band height and the content panel's margin do not change. Why: the buttons stay inside the title band so their hover fill never reaches the content panel; Windows 11 draws 46 × 32 caption buttons at the top of the title bar. The glyph (10 px) stays centred in the smaller box. Close hover uses `DangerFill*` with `DangerForeground` ([0011](0011-colour.md)). Glyphs dim when the window is inactive.
-    - Window buttons are not Tab stops (as in native windows); the standard OS shortcuts apply instead: macOS Cmd+W closes and Cmd+M minimises; Windows and Linux Alt+F4 closes. There is no maximise or restore shortcut: macOS has no standard one for zoom, and Win+Up/Down or Super+arrows are handled by the OS shell.
+    - The buttons follow what the window can do (`CanMinimize`, `CanMaximize`, `CanResize`): see [0049](0049-full-screen.md), which also has the green light's full screen on macOS.
+    - Window buttons are not Tab stops (as in native windows); the standard OS shortcuts apply instead: macOS Cmd+W closes, Cmd+M minimises and Ctrl+Cmd+F toggles full screen ([0049](0049-full-screen.md)); Windows and Linux Alt+F4 closes. There is no maximise or restore shortcut: macOS has no standard one for zoom, and Win+Up/Down or Super+arrows are handled by the OS shell.
     - When the window is inactive, the traffic lights use the neutral grey `SystemBaseLowColor` and the caption glyphs use the disabled text colour; hover restores the active look. `WindowButtons` has a public `IsActive` property, set by `StandardsWindow`.
   - Tiers ([0004](0004-tier-names.md)):
     - Window buttons (traffic lights, caption buttons) are Blocks.

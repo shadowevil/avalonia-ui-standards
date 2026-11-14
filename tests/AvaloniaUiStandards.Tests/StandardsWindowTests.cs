@@ -160,6 +160,8 @@ public class StandardsWindowTests
     public void WindowButtons_MaximiseRestoreMinimiseAndClose(WindowButtonStyle style)
     {
         var window = Show(SampleWindow(ThemeVariant.Light, slots: false, style));
+        // The green light zooms where there is no full screen (off macOS); on macOS it enters full screen (FullScreenTests).
+        window.RunsOnMacOS = false;
         Button Button(WindowButtonKind kind) => window.GetVisualDescendants().OfType<Button>()
             .Single(b => b is TrafficLightButton t ? t.Kind == kind : b is CaptionButton c && c.Kind == kind);
 

@@ -3,7 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
 
@@ -21,6 +24,9 @@ namespace AvaloniaUiStandards.Modules;
 /// <remarks>
 /// Drag the window by the title band (double-click maximises or restores; in the macOS layout it
 /// follows the macOS setting for a title bar double-click, on macOS), resize it from the frame's edges and corners.
+/// The window buttons follow what the window can do (<see cref="Window.CanMinimize"/>, <see cref="Window.CanMaximize"/>).
+/// On macOS the window has full screen (<see cref="ToggleFullScreen"/>): the title band and the menu row hide above the
+/// top edge and slide in when the pointer reaches it.
 /// Maximised, or where the OS gives no transparency, the frame fills the window with square
 /// corners and no shadow, except on macOS, where the system keeps its shadow and rounds the
 /// corners with its own mask. On macOS the window is a native resizable window with its title bar
@@ -80,6 +86,14 @@ public class StandardsWindow : Window, IFrameTickSource
     };
     private SquircleBorder? _frame;
     private Control? _panel;
+    private WindowTop? _top;
+    private WindowState _stateBeforeFullScreen;
+    private bool _revealed;
+    private bool _alwaysRevealed;
+    private bool _hidePending;
+    private int _hideGeneration;
+    private double _lastPointerY = double.PositiveInfinity;
+    private bool _runsOnMacOS = OperatingSystem.IsMacOS();
     private Rect _contentPanelBounds;
     private readonly FrameTicker _ticker;
     private EventHandler<FrameTickEventArgs>? _frameTick;
@@ -98,6 +112,19 @@ public class StandardsWindow : Window, IFrameTickSource
         WindowDecorations = DecorationsFor(HasNativeFrame);
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         PseudoClasses.Set(":native-frame", HasNativeFrame);
+        // The full screen reveal follows the pointer wherever it is in the window, whoever handles the move.
+        AddHandler(PointerMovedEvent, OnRevealPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        // The menu row's menu bar opening (Alt, F10, a click) reveals the rows; closing lets them hide.
+        _menuRow.Opened += (_, _) =>
+        {
+            if (WindowState == WindowState.FullScreen)
+                SetRevealed(true);
+        };
+        _menuRow.Closed += (_, _) =>
+        {
+            if (WindowState == WindowState.FullScreen && _revealed)
+                ScheduleHide();
+        };
         UpdateStates();
     }
 
@@ -244,6 +271,57 @@ public class StandardsWindow : Window, IFrameTickSource
     /// </summary>
     public WindowLayoutMode ResolvedLayoutMode => _resolvedLayoutMode;
 
+    /// <summary>The pointer's distance from the top edge, in px, at which the hidden rows slide in in full screen.</summary>
+    internal const double RevealEdge = 2;
+
+    /// <summary>How long the revealed rows stay after the pointer leaves them, in full screen.</summary>
+    internal static readonly TimeSpan HideDelay = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>Whether the app runs on macOS, where the window has full screen (settable for tests).</summary>
+    internal bool RunsOnMacOS
+    {
+        get => _runsOnMacOS;
+        set
+        {
+            _runsOnMacOS = value;
+            UpdateStates();
+        }
+    }
+
+    /// <summary>Runs an action after a delay: the reveal's hide timer (replaceable for tests).</summary>
+    internal Action<TimeSpan, Action> RevealDelay { get; set; } = (delay, action) => DispatcherTimer.RunOnce(action, delay);
+
+    /// <summary>Whether the window can enter full screen now, or is in it: on macOS, while it can be maximised.</summary>
+    internal bool IsFullScreenAvailable => RunsOnMacOS && (CanMaximize || WindowState == WindowState.FullScreen);
+
+    /// <summary>Whether the hidden rows are revealed (or revealing) in full screen.</summary>
+    internal bool IsTopRevealed => _revealed;
+
+    /// <summary>The top of the window: the title band and the menu row above the toolbar band.</summary>
+    internal WindowTop? Top => _top;
+
+    /// <summary>
+    /// Enters full screen, or leaves it for the state the window had before (normal or maximised). Full screen is a
+    /// macOS feature (its own Space, the camera housing handled by the system): elsewhere this does nothing, and so it
+    /// does while the window cannot be maximised (<see cref="Window.CanMaximize"/>). The green traffic light, Ctrl+Cmd+F
+    /// and a <see cref="FullScreenMenuItem"/> call it.
+    /// </summary>
+    public void ToggleFullScreen() => ToggleFullScreen(RunsOnMacOS);
+
+    /// <summary>Toggles full screen when <paramref name="macOS"/>; returns whether it did.</summary>
+    internal bool ToggleFullScreen(bool macOS)
+    {
+        if (!macOS)
+            return false;
+        if (WindowState == WindowState.FullScreen)
+            WindowState = _stateBeforeFullScreen;
+        else if (CanMaximize)
+            WindowState = WindowState.FullScreen;
+        else
+            return false;
+        return true;
+    }
+
     /// <summary>The window shortcuts made from the menu's gestures.</summary>
     internal MenuShortcuts MenuShortcuts => _shortcuts;
 
@@ -281,6 +359,22 @@ public class StandardsWindow : Window, IFrameTickSource
         if (_panel is not null)
             _panel.PropertyChanged += OnPanelPropertyChanged;
 
+        // Keyboard focus moving into the hidden rows (Tab, Alt, F10) reveals them; leaving them lets them hide.
+        _top = e.NameScope.Find<WindowTop>(StandardsWindowTheme.TopPart);
+        if (_top is not null)
+        {
+            _top.Rows.AddHandler(GotFocusEvent, (_, _) =>
+            {
+                if (WindowState == WindowState.FullScreen)
+                    SetRevealed(true);
+            });
+            _top.AddHandler(LostFocusEvent, (_, _) =>
+            {
+                if (WindowState == WindowState.FullScreen && _revealed)
+                    ScheduleHide();
+            });
+        }
+
         if (e.NameScope.Find<Control>(StandardsWindowTheme.TitleBandPart) is { } band)
             band.PointerPressed += OnTitleBandPressed;
         _menuRowPart?.Children.Clear();
@@ -312,10 +406,15 @@ public class StandardsWindow : Window, IFrameTickSource
         base.OnPropertyChanged(change);
         if (change.Property == LayoutModeProperty)
             SetAndRaise(ResolvedLayoutModeProperty, ref _resolvedLayoutMode, WindowLayout.Resolve(LayoutMode, OperatingSystem.IsMacOS()));
+        if (change.Property == WindowStateProperty)
+            OnWindowStateChanged(change.GetOldValue<WindowState>(), change.GetNewValue<WindowState>());
         if (change.Property == WindowStateProperty || change.Property == WindowButtonStyleProperty
             || change.Property == ActualTransparencyLevelProperty || change.Property == IsActiveProperty
-            || change.Property == LayoutModeProperty)
+            || change.Property == LayoutModeProperty || change.Property == CanMinimizeProperty
+            || change.Property == CanMaximizeProperty)
             UpdateStates();
+        if (change.Property == ToolbarBandProperty)
+            PseudoClasses.Set(":toolbar-band", change.NewValue is not null);
         if (change.Property == LayoutModeProperty || change.Property == NativeMenu.MenuProperty)
             UpdateMenuRow();
         if (change.Property == ResolvedLayoutModeProperty || change.Property == IconProperty)
@@ -421,21 +520,122 @@ public class StandardsWindow : Window, IFrameTickSource
     }
 
     /// <summary>
-    /// The OS-standard window shortcuts: Cmd+W (close) and Cmd+M (minimise) on macOS; Alt+F4
-    /// (close) elsewhere. Maximise has no app-level standard on either (macOS has none; Windows
-    /// and Linux handle Win/Super+arrows in the shell), so none is added.
+    /// The OS-standard window shortcuts: Cmd+W (close), Cmd+M (minimise, while the window can be
+    /// minimised and is not in full screen) and Ctrl+Cmd+F (full screen, see <see cref="ToggleFullScreen"/>)
+    /// on macOS; Alt+F4 (close) elsewhere. Maximise has no app-level standard on either (macOS has
+    /// none; Windows and Linux handle Win/Super+arrows in the shell), so none is added. A shortcut
+    /// that cannot act leaves the key unhandled.
     /// </summary>
     internal bool HandleShortcut(Key key, KeyModifiers modifiers, bool macOS)
     {
         if (macOS && modifiers == KeyModifiers.Meta && key == Key.W)
             Close();
-        else if (macOS && modifiers == KeyModifiers.Meta && key == Key.M)
+        else if (macOS && modifiers == KeyModifiers.Meta && key == Key.M && CanMinimize && WindowState != WindowState.FullScreen)
             WindowState = WindowState.Minimized;
+        else if (macOS && modifiers == (KeyModifiers.Control | KeyModifiers.Meta) && key == Key.F)
+            return ToggleFullScreen(macOS);
         else if (!macOS && modifiers == KeyModifiers.Alt && key == Key.F4)
             Close();
         else
             return false;
         return true;
+    }
+
+    // Entering full screen: the rows hide (or stay revealed while macOS keeps its menu bar shown in full screen), and
+    // leaving it restores the state before. Leaving: the rows are back in the layout.
+    private void OnWindowStateChanged(WindowState oldState, WindowState newState)
+    {
+        if (newState == WindowState.FullScreen)
+        {
+            _stateBeforeFullScreen = oldState == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
+            _alwaysRevealed = HasNativeFrame && MacWindowSettings.MenuBarVisibleInFullScreen();
+            SetRevealed(_alwaysRevealed);
+        }
+        else if (oldState == WindowState.FullScreen)
+        {
+            _alwaysRevealed = false;
+            SetRevealed(false);
+            _lastPointerY = double.PositiveInfinity;
+        }
+    }
+
+    // In full screen: the pointer at the top edge reveals the rows; below the revealed rows and band it starts the hide
+    // delay, and back over them it cancels it.
+    private void OnRevealPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (WindowState != WindowState.FullScreen || _top is null || _alwaysRevealed)
+            return;
+        _lastPointerY = e.GetPosition(this).Y;
+        if (_lastPointerY <= RevealEdge)
+            SetRevealed(true);
+        else if (_revealed && e.GetPosition(_top).Y > _top.RevealedBottom)
+            ScheduleHide();
+        else if (_revealed)
+            CancelHide();
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        // Leaving through the top edge (onto the macOS menu bar) keeps the rows; leaving elsewhere lets them hide.
+        if (WindowState == WindowState.FullScreen && _revealed && !_alwaysRevealed && _lastPointerY > RevealEdge)
+            ScheduleHide();
+    }
+
+    private void SetRevealed(bool revealed)
+    {
+        _revealed = revealed;
+        CancelHide();
+        if (_top is null)
+            return;
+        if (revealed)
+            _top.TopInset = MenuBarOverlap();
+        _top.Reveal = revealed ? 1 : 0;
+    }
+
+    // Hides the rows after HideDelay, unless the pointer comes back first; it waits on while they are in use.
+    private void ScheduleHide()
+    {
+        if (_hidePending || _alwaysRevealed)
+            return;
+        _hidePending = true;
+        var generation = ++_hideGeneration;
+        RevealDelay(HideDelay, () =>
+        {
+            if (generation != _hideGeneration)
+                return;
+            _hidePending = false;
+            if (WindowState != WindowState.FullScreen || !_revealed || _top is null)
+                return;
+            if (IsRevealInUse())
+                ScheduleHide();
+            // The pointer resting over the rows keeps them; it starts the delay again when it moves below them.
+            else if (_lastPointerY > _top.RevealedBottom)
+                SetRevealed(false);
+        });
+    }
+
+    private void CancelHide()
+    {
+        _hideGeneration++;
+        _hidePending = false;
+    }
+
+    // The revealed rows stay while keyboard focus is in them or one of their menus or flyouts is open.
+    private bool IsRevealInUse() =>
+        _top is not null
+        && (_top.IsKeyboardFocusWithin
+            || _menuRow.IsOpen
+            || _top.GetLogicalDescendants().OfType<Popup>().Any(p => p.IsOpen)
+            || _top.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen));
+
+    // On macOS, where the full screen window reaches the screen's top (no camera housing), the menu bar slides down over
+    // it with the rows, so they reveal below it.
+    private double MenuBarOverlap()
+    {
+        if (!HasNativeFrame || Screens.ScreenFromWindow(this) is not { } screen || Position.Y > screen.Bounds.Y)
+            return 0;
+        return MacWindowSettings.MenuBarHeight() ?? 24;
     }
 
     private void OnPanelPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -460,9 +660,14 @@ public class StandardsWindow : Window, IFrameTickSource
         && new Rect(buttons.Bounds.Size).Contains(local)
         && (_frame?.FillGeometry is not { } shape || (grip.TranslatePoint(point, _frame) is { } inFrame && shape.FillContains(inFrame)));
 
-    /// <summary>Maximises the window, or restores it when maximised.</summary>
-    internal void ToggleMaximized() =>
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    /// <summary>Maximises the window (while it can be maximised), or restores it when maximised.</summary>
+    internal void ToggleMaximized()
+    {
+        if (WindowState == WindowState.Maximized)
+            WindowState = WindowState.Normal;
+        else if (CanMaximize)
+            WindowState = WindowState.Maximized;
+    }
 
     private void OnWindowButton(object? sender, WindowButtonKind kind)
     {
@@ -472,7 +677,11 @@ public class StandardsWindow : Window, IFrameTickSource
                 Close();
                 break;
             case WindowButtonKind.Minimize:
-                WindowState = WindowState.Minimized;
+                if (CanMinimize)
+                    WindowState = WindowState.Minimized;
+                break;
+            case WindowButtonKind.FullScreen:
+                ToggleFullScreen();
                 break;
             default:
                 ToggleMaximized();
@@ -504,6 +713,9 @@ public class StandardsWindow : Window, IFrameTickSource
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
         e.Handled = true;
+        // A full screen window neither moves nor zooms.
+        if (WindowState == WindowState.FullScreen)
+            return;
         if (e.ClickCount == 2)
             OnTitleBandDoubleClick(HasNativeFrame && ResolvedLayoutMode == WindowLayoutMode.MacOS ? MacWindowSettings.TitleBarDoubleClickAction() : null);
         else
@@ -512,14 +724,17 @@ public class StandardsWindow : Window, IFrameTickSource
 
     /// <summary>
     /// A double-click on the title band. <paramref name="macOSAction"/> is macOS's "double-click a
-    /// window's title bar to" setting (<c>AppleActionOnDoubleClick</c>): <c>Minimize</c> minimises,
-    /// <c>None</c> does nothing, and anything else (zoom, fill, unset, or not macOS) maximises or
-    /// restores.
+    /// window's title bar to" setting (<c>AppleActionOnDoubleClick</c>): <c>Minimize</c> minimises
+    /// (while the window can be minimised), <c>None</c> does nothing, and anything else (zoom, fill,
+    /// unset, or not macOS) maximises or restores (see <see cref="ToggleMaximized"/>).
     /// </summary>
     internal void OnTitleBandDoubleClick(string? macOSAction)
     {
         if (macOSAction == "Minimize")
-            WindowState = WindowState.Minimized;
+        {
+            if (CanMinimize)
+                WindowState = WindowState.Minimized;
+        }
         else if (macOSAction != "None")
             ToggleMaximized();
     }
@@ -582,7 +797,8 @@ public class StandardsWindow : Window, IFrameTickSource
 
     private void UpdateStates()
     {
-        PseudoClasses.Set(":maximized", WindowState is WindowState.Maximized or WindowState.FullScreen);
+        PseudoClasses.Set(":maximized", WindowState == WindowState.Maximized);
+        PseudoClasses.Set(":fullscreen", WindowState == WindowState.FullScreen);
         PseudoClasses.Set(":opaque", IsInitialized && ActualTransparencyLevel == WindowTransparencyLevel.None && IsVisible);
 
         var trafficLights = ResolvedButtonStyle == WindowButtonStyle.TrafficLights;
@@ -592,6 +808,10 @@ public class StandardsWindow : Window, IFrameTickSource
             _buttons.ButtonStyle = ResolvedButtonStyle;
             _buttons.IsMaximized = WindowState == WindowState.Maximized;
             _buttons.IsActive = IsActive;
+            _buttons.CanMinimize = CanMinimize;
+            _buttons.CanMaximize = CanMaximize;
+            _buttons.IsFullScreenAvailable = RunsOnMacOS;
+            _buttons.IsFullScreen = WindowState == WindowState.FullScreen;
             Grid.SetColumn(_buttons, trafficLights ? 0 : 3);
         }
     }

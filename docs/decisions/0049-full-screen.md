@@ -1,0 +1,30 @@
+# 0049 — Full screen and window button availability
+
+- **Status:** Agreed, 2026-11-14
+- **Decision:**
+  - Full screen is a macOS feature of `StandardsWindow` ([0022](0022-window-layout.md)): the system full screen through `WindowState.FullScreen`, in its own Space, with the camera housing handled by the system (content stays in the safe area). On Windows and Linux there is none: the window keeps the standard minimise and maximise, with no F11.
+    - **Why:** Apple HIG asks for the system full screen; Windows desktop apps rarely have one, and maximise covers the need there.
+  - Entering and leaving, on macOS in either layout mode:
+    - The green traffic light enters full screen, and in full screen leaves it; Option-click zooms (maximise or restore). Its glyph shows two triangles pointing out (enter), pointing in while in full screen (leave), and the plus while Option is held over the lights. In the Windows layout the caption buttons keep maximise.
+    - Ctrl+Cmd+F toggles full screen. Esc does not leave it.
+    - `ToggleFullScreen()` (public) enters full screen, or leaves it for the state before (normal or maximised). It does nothing off macOS, and nothing while the window cannot be maximised.
+    - In full screen the minimise light and Cmd+M do nothing, as on macOS. A full screen window is not moved or zoomed by the title band.
+    - **Why:** The green button, Ctrl+Cmd+F and the View menu item are the HIG's ways in. Desktop apps (Finder, Explorer, Edge on Windows) do not leave full screen with Esc; Esc already means cancel, close and clear in content.
+  - States: the `:fullscreen` pseudo-class is set in full screen and `:maximized` only when maximised. In full screen the frame is square with no border, shadow or resize grips, as when maximised.
+  - The top in full screen:
+    - The title band (window buttons, sidebar button, title, `Toolbar`) and the menu row hide above the top edge. The toolbar band stays at the top; without one, the sidebar and the glass panel keep `SpacingS` from the top edge.
+    - When the pointer comes within 2 px of the top edge, the title band and menu row slide in over the content in `MotionNormal` with the motion easing ([0016](0016-motion.md); instant under reduce motion), and the toolbar band moves down below them. They sit on a glass sheet (`GlassBorder`, square corners; [0015](0015-glass.md)) across the window. The content does not move.
+    - They hide 500 ms after the pointer moves below them, unless it comes back first. Leaving the window through the top edge (onto the macOS menu bar) keeps them. They stay while keyboard focus is in them or one of their menus or flyouts is open. Keyboard focus moving into them (Tab, Alt, F10) reveals them.
+    - Where the full screen window reaches the screen's top (no camera housing), the menu bar slides down over it, so the revealed rows sit below the menu bar's height.
+    - While macOS keeps its menu bar shown in full screen ("Automatically hide and show the menu bar" set to Never, `AppleMenuBarVisibleInFullscreen`), the rows stay revealed.
+    - **Why:** Apple HIG: hide toolbars for focus and restore them when the pointer reaches the top; keep essential controls visible, so the toolbar band, which holds the commands, stays, as an AppKit toolbar does. Glass is the material of the library's overlays.
+  - `FullScreenMenuItem` (a `NativeMenuItem`, Modules tier) is the View menu item an app adds to its window's menu: "Enter Full Screen", or "Exit Full Screen" in full screen, with Ctrl+Cmd+F. Choosing it toggles full screen. It is hidden off macOS and disabled while the window cannot be maximised. Its headers come from the `FullScreenEnterHeader` and `FullScreenExitHeader` string resources, so an app can translate them. The window finds the item at any depth in its menu.
+    - **Why:** AppKit's own automatic menu item cannot be relied on: Avalonia 12.1.6 turns it off for apps not launched from a bundle. One explicit item works in the system menu bar and in the menu row.
+  - Window buttons follow what the window can do, on every OS and in both layouts:
+    - Caption buttons: maximise shows only while `CanMaximize` (which Avalonia forces false while `CanResize` is false) and minimise only while `CanMinimize`; close always shows, flush right.
+    - Traffic lights are disabled, never removed: the green light without `CanMaximize` (it then neither zooms nor enters full screen), minimise without `CanMinimize`. A disabled light is the neutral grey (`SystemBaseLowColor`) with no glyph, even while the group is hovered.
+    - `WindowButtons` has the public `CanMinimize`, `CanMaximize`, `IsFullScreenAvailable` and `IsFullScreen` properties, set by `StandardsWindow`, and raises `WindowButtonKind.FullScreen` for the green light's full screen click.
+    - A title band double-click does not maximise while the window cannot be maximised, nor minimise while it cannot be minimised; Cmd+M does not minimise without `CanMinimize`. A window that cannot be resized has no resize grips.
+    - **Why:** Windows removes caption buttons a window cannot use; macOS keeps every traffic light and disables it. Each button follows its own property, so a dialog that should show only Close sets `CanMinimize` false.
+- **Accepted consequence:** Avalonia 12.1.6 documents that `CanMaximize` false disables macOS full screen, but its native window can still enter full screen; the library applies the rule itself in `ToggleFullScreen`.
+- **Why:** The full screen Apple HIG describes, from the same window on macOS, and window buttons that never offer what the window cannot do.

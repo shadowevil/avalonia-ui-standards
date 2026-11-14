@@ -12,12 +12,14 @@ namespace AvaloniaUiStandards.Modules;
 /// and the Application's) is clicked by its gesture, whenever the platform does not export the menu to a system menu
 /// bar (which then handles them itself). They work in either layout mode, with or without the menu row. The focused
 /// control handles a key first: a shortcut acts only on a key no control handled, as in native desktop apps.
+/// It also gives each <see cref="FullScreenMenuItem"/> in the menus its window.
 /// </summary>
 internal sealed class MenuShortcuts : IDisposable
 {
     private readonly TopLevel _window;
     private readonly List<(KeyGesture Gesture, IReadOnlyList<NativeMenuItem> Path)> _shortcuts = [];
     private readonly List<IDisposable> _watches = [];
+    private readonly List<FullScreenMenuItem> _fullScreenItems = [];
     private NativeMenu? _menu;
     private bool _refreshPosted;
     private bool _watchingApp;
@@ -114,6 +116,9 @@ internal sealed class MenuShortcuts : IDisposable
         foreach (var watch in _watches)
             watch.Dispose();
         _watches.Clear();
+        foreach (var item in _fullScreenItems)
+            item.Window = null;
+        _fullScreenItems.Clear();
         if (_menu is null)
             return;
 
@@ -138,6 +143,12 @@ internal sealed class MenuShortcuts : IDisposable
             };
             item.PropertyChanged += itemChanged;
             _watches.Add(new Disposable(() => item.PropertyChanged -= itemChanged));
+
+            if (item is FullScreenMenuItem fullScreen && _window is StandardsWindow window)
+            {
+                fullScreen.Window = window;
+                _fullScreenItems.Add(fullScreen);
+            }
 
             List<NativeMenuItem> path = [.. parents, item];
             if (item.Gesture is { } gesture && !exported)

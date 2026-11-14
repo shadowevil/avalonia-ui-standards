@@ -20,14 +20,19 @@ internal static class ModulesThemes
         resources[SidebarTheme.FooterTextKey] = SidebarTheme.FooterText;
         resources[typeof(ToolbarBand)] = ToolbarBandTheme.Create();
         resources[MenuRow.HelpHeaderKey] = MenuRow.HelpHeader;
+        resources[FullScreenMenuItem.EnterHeaderKey] = FullScreenMenuItem.EnterHeader;
+        resources[FullScreenMenuItem.ExitHeaderKey] = FullScreenMenuItem.ExitHeader;
     }
 
     /// <summary>
     /// Sets the transitions of the Modules themes for the current motion: <paramref name="normal"/>
     /// is <c>MotionNormal</c>, or zero under reduce motion (no transitions).
     /// </summary>
-    public static void ApplyMotion(IResourceDictionary resources, TimeSpan normal, Easing easing) =>
+    public static void ApplyMotion(IResourceDictionary resources, TimeSpan normal, Easing easing)
+    {
         resources[SidebarTheme.WidthTransitionsKey] = SidebarTheme.WidthTransitions(normal, easing);
+        resources[StandardsWindowTheme.RevealTransitionsKey] = StandardsWindowTheme.RevealTransitions(normal, easing);
+    }
 
     /// <summary>Sets the density-dependent values of the Modules themes.</summary>
     public static void ApplyDensity(IResourceDictionary resources, DensityStyle density)
