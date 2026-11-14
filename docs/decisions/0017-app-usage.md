@@ -2,7 +2,7 @@
 
 - **Status:** Agreed, 2026-11-12
 - **Decision:**
-  - Apps replace `<FluentTheme/>` with `<StandardsTheme/>` and call `.UseUiStandards()` on the `AppBuilder`, which registers Inter ([0012](0012-type.md)).
+  - Apps replace `<FluentTheme/>` with `<StandardsTheme/>` and call `.UseUiStandards()` on the `AppBuilder`, which registers Inter ([0012](0012-type.md)) and sets Skia's GPU resource budget to 256 MB (`AppBuilderExtensions.GpuResourceBudget`, [0015](0015-glass.md)). An app sets its own budget, or other Skia options, with `.With(new SkiaOptions { ... })` after `.UseUiStandards()`.
   - Style tier resource keys use plain names in the style of Avalonia's own keys, for example `FontSizeBody`, `SpacingM`, `CornerRadiusControl`, `MotionFast`.
   - Key families: `FontSize*`, `FontWeight*`, `Spacing*`, `CornerRadius*`, `CornerSmoothing`, `Motion*`, `Glass*`, `BackdropWash*`, `AccentFill*`, `AccentText*`, `DangerColor*`, `DangerFill*`, `DangerForeground`, `DangerTextColor`, `Success*`, `Warning*` (the last three in [0037](0037-tooltip-and-notifications.md)).
   - The string resources `ColorView*Text` and `ColorView*Letter` hold the ColorView's shown and spoken strings with English defaults; an app overrides one by putting its key in its own resources ([0041](0041-colorpicker.md)).
@@ -12,5 +12,6 @@
   - `StandardsWindow.FrameTick` (with `FrameTickEventArgs`) and `StandardsWindow.HighRefreshRate` pace continuous animation ([0016](0016-motion.md)).
   - `StandardsWindow.ContentPanelBounds` (read-only) is the glass panel's rectangle in the `Backdrop` slot's coordinates ([0022](0022-window-layout.md)).
   - `StandardsWindow.IsContentScrollable` (default true) makes the glass panel scroll its content ([0022](0022-window-layout.md)).
-  - `StandardsTheme` properties: `Accent`, `Density`, `ReduceMotion`, `ReduceTransparency`, `HighRefreshRate`.
+  - `StandardsTheme` properties: `Accent`, `Density`, `ReduceMotion`, `ReduceTransparency`, `HighRefreshRate`, `GlassQuality`.
+  - `GlassQuality` (`Full`, the default; `Minimal`; `Solid`) sets how glass draws app-wide ([0015](0015-glass.md)). Reduce transparency makes glass solid whatever it is set to.
 - **Why:** Adopting the library takes one line, and the keys read like Avalonia's.
