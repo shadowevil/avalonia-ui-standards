@@ -95,6 +95,16 @@ test("rim: top hairline at full rim strength, sides at 0.7, glow; no border", ()
   assertEqual(border[3], 0, "border alpha");
 });
 
+test("dark rim: faint, fitted to the desktop panel edge over the dark wash (top 0.067, sides 0.7 of it)", () => {
+  reset();
+  setTheme("dark");
+  const [top, side, glow] = shadowColours(l1);
+  assertEqual(JSON.stringify(top), JSON.stringify([255, 255, 255, 0.067]), "top");
+  assertEqual(JSON.stringify(side), JSON.stringify([255, 255, 255, 0.047]), "side");
+  assertEqual(JSON.stringify(glow), JSON.stringify(side), "glow");
+  setTheme("light");
+});
+
 test("second level is minimal: blur only, even with a refraction filter set", () => {
   reset();
   l2.style.setProperty("--ui-glass-refraction", "url(#x)");

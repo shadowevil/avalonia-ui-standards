@@ -1,0 +1,165 @@
+/*
+  App shell (0022): the window layout as a web app shell. Plain classes on the landmark elements
+  (0048): a .ui-shell wrapper holding
+
+    .ui-shell-backdrop      optional, behind everything (the Backdrop slot; glass blurs it)
+    header.ui-shell-title-band
+      .ui-shell-title       the title, in Body strong
+      .ui-shell-toolbar     optional, after the title (the title band's toolbar)
+    .ui-shell-toolbar-band  optional, below the title band (0043), across the shell
+    nav.ui-shell-sidebar    optional, 8 px from the inline start
+    .ui-shell-panel         the glass content panel (with ui-glass ui-squircle); a wrapper,
+                            since glass layers inside a scroll container would scroll away
+      main.ui-shell-content the content; it scrolls, with the 12 px padding inside the scroll
+    footer.ui-shell-status-bar optional
+
+  The shell fills the viewport with no frame and no window buttons: the browser owns the window.
+  The backdrop wash covers the whole shell. data-content-scrollable="false" on .ui-shell is the
+  desktop IsContentScrollable="False": the content gets the panel's size inside the padding.
+
+  Narrow stages (0022, 0034), by the shell's width (the viewport's): the sidebar slot is 240
+  wide from 1008, the icon rail (48, 40 Compact) from 640, and hidden below. The shell is the
+  size container "ui-shell", so a Sidebar can query the same widths, and shell.js mirrors the
+  stage into data-sidebar-stage ("expanded", "compact", "hidden") on .ui-shell for scripts.
+  Container query widths cannot be custom properties, so the thresholds are literals here and in
+  shell.js.
+*/
+.ui-shell {
+  --ui-shell-title-band-height: 48px;
+  --ui-shell-toolbar-band-height: 48px;
+  --ui-shell-status-bar-height: 32px;
+  --ui-shell-sidebar-width: 240px;
+  --ui-shell-sidebar-rail-width: 48px;
+  --ui-shell-gap: var(--ui-spacing-s);
+}
+
+:root[data-density="compact"] .ui-shell {
+  --ui-shell-title-band-height: 40px;
+  --ui-shell-toolbar-band-height: 40px;
+  --ui-shell-status-bar-height: 24px;
+  --ui-shell-sidebar-rail-width: 40px;
+}
+
+:where(.ui-shell) {
+  position: fixed;
+  inset: 0;
+  container: ui-shell / inline-size;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title title"
+    "band band"
+    "sidebar panel"
+    "status status";
+  background: var(--ui-backdrop-wash);
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+}
+
+/* A slot with the hidden attribute is not shown (the slots' own display would otherwise win). */
+.ui-shell > [hidden] {
+  display: none;
+}
+
+/* Behind every area, under the panel's glass. */
+:where(.ui-shell-backdrop) {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: clip;
+}
+
+:where(.ui-shell-title-band) {
+  grid-area: title;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-spacing-s);
+  min-block-size: var(--ui-shell-title-band-height);
+  padding-inline: var(--ui-spacing-l) var(--ui-spacing-s);
+  box-sizing: border-box;
+}
+
+:where(.ui-shell-title) {
+  flex: none;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ui-font-size-body-strong);
+  font-weight: var(--ui-font-weight-body-strong);
+}
+
+/* The toolbar takes the rest of the band, SpacingL after the title. */
+:where(.ui-shell-toolbar) {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  margin-inline-start: var(--ui-spacing-s);
+}
+
+:where(.ui-shell-toolbar-band) {
+  grid-area: band;
+  min-block-size: var(--ui-shell-toolbar-band-height);
+  box-sizing: border-box;
+}
+
+:where(.ui-shell-sidebar) {
+  grid-area: sidebar;
+  inline-size: var(--ui-shell-sidebar-width);
+  min-block-size: 0;
+  margin-inline-start: var(--ui-shell-gap);
+  margin-block-end: var(--ui-shell-gap);
+  overflow: hidden auto;
+}
+
+:where(.ui-shell-panel) {
+  grid-area: panel;
+  min-inline-size: 0;
+  min-block-size: 0;
+  margin-inline: var(--ui-shell-gap);
+  margin-block-end: var(--ui-shell-gap);
+  display: flex;
+  flex-direction: column;
+}
+
+/* The scroll area: the content scrolls edge to edge under the panel's shape. */
+:where(.ui-shell-content) {
+  flex: 1;
+  min-block-size: 0;
+  padding: var(--ui-spacing-m);
+  overflow: hidden auto;
+  scroll-padding: var(--ui-spacing-m);
+}
+
+:where(.ui-shell[data-content-scrollable="false"] .ui-shell-content) {
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+}
+
+:where(.ui-shell-status-bar) {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  min-block-size: var(--ui-shell-status-bar-height);
+  padding-inline: var(--ui-spacing-l);
+  box-sizing: border-box;
+}
+
+/* Narrow stages: the sidebar collapses to the rail, then hides. */
+@container ui-shell (width < 1008px) {
+  .ui-shell-sidebar {
+    --ui-shell-sidebar-width: var(--ui-shell-sidebar-rail-width);
+  }
+}
+
+@container ui-shell (width < 640px) {
+  .ui-shell-sidebar {
+    display: none;
+  }
+}

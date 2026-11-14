@@ -16,4 +16,5 @@
     - It fades with the fixed transitions ([0016](0016-motion.md)) and is clipped to the viewport.
     - It is turned off per scroller with the public attached property `ScrollShadows.IsEnabled` (default true; a ListBox passes it to its inner scroller).
   - Reach: this includes the scrollers inside Fluent controls (for example TextBox) and the AutoCompleteBox drop-down, which uses the library items.
+  - Web ([0045](0045-web-library.md)): `<ui-list-box>` with `ui-list-item` items. The selection list is a `listbox` of `option`s: one Tab stop, type-ahead, and in a multiple list the arrows move focus only, Shift extends and Cmd or Ctrl+A selects all; it is form-associated and fires `change`. The navigation list (`navigation`) holds links, and choosing one moves `aria-current="page"` to it. The class `ui-scroll` gives any scroller the edge shadows; `data-scroll-shadows="false"` turns them off.
 - **Why:** One item design for lists and drop-downs, selection matching the accent buttons, and clear cues for hidden content.

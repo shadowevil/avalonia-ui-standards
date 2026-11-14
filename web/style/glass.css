@@ -11,10 +11,12 @@
   /*
     The rim as CSS draws it: a fixed white hairline (top edge at full strength, the other edges at
     the 0.7 bias) with a 4 px inner glow from half its strength (a blurred inset shadow is at half
-    its colour at its edge). The desktop rim follows the backdrop along the edge; these match its
-    look over the catalog's backdrop.
+    its colour at its edge). The desktop rim follows the backdrop along the edge, so no fixed
+    value matches it everywhere: light matches it over the catalog's Glass page backdrop, dark
+    (0.067) its average along the content panel edge over the dark wash and ribbons, where it is
+    faint (it is far brighter over bright backdrops).
   */
-  --ui-glass-rim-color: light-dark(#FFFFFFB3, #FFFFFFCC);
+  --ui-glass-rim-color: light-dark(#FFFFFFB3, #FFFFFF11);
   --ui-glass-rim-side-bias: 0.7;
 }
 

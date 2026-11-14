@@ -21,4 +21,5 @@
     - Underlined always, as in Fluent.
     - Text colours are `AccentTextColor` and `AccentTextColorPressed`, defined with their rule in [0011](0011-colour.md). Hover keeps the rest colour.
     - Fluent's visited colours are kept (they pass AA).
+  - Web ([0045](0045-web-library.md)): ToggleButton is `ui-button` with `aria-pressed` (`button.js` flips it on click; `mixed` becomes `true`); RepeatButton is `ui-repeat-button`, repeating after 300 ms every 100 ms (Avalonia's values) while the pointer or Space is held; DropDownButton is `ui-drop-down-button`; SplitButton is a `ui-split-button` group of two buttons, so it has two Tab stops (one on desktop), with the ring around the whole control; HyperlinkButton is `<a class="ui-button ui-hyperlink-button">`. Browsers ignore alpha in `:visited` colours, so the pressed visited link keeps its full colour.
 - **Why:** One consistent button family on the shared pattern.

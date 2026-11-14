@@ -1,0 +1,206 @@
+/*
+  Button (0018) and its siblings (0021), on native elements:
+    <button type="button" class="ui-button ui-squircle ui-focus-ring">            Standard
+      + ui-accent, ui-subtle or ui-destructive                                    variants
+      + aria-pressed="false|true|mixed"                                           ToggleButton
+      + ui-repeat-button (button.js repeats its click while held)                RepeatButton
+      + ui-drop-down-button (Fluent's chevron after the content)                 DropDownButton
+    <a href class="ui-button ui-hyperlink-button ui-squircle ui-focus-ring">     HyperlinkButton
+    <span class="ui-split-button ui-squircle ui-focus-ring-within" role="group"> SplitButton:
+      a ui-button, then a ui-button ui-drop-down-button with an aria-label (the chevron half);
+      aria-pressed on the first makes it a ToggleSplitButton.
+  Each state takes the variant's colours from the --ui-button-* properties below. Forced states
+  for renders and tests: data-state="hover", "pressed" or "focus" on the element.
+*/
+:where(.ui-button) {
+  /* Standard: Fluent's Button keys, resolved by the desktop theme. Hover is BaseHigh at 10 %. */
+  --ui-button-background: var(--ui-system-base-low-color);
+  --ui-button-background-pointer-over: color-mix(in srgb, var(--ui-system-base-high-color) 10%, transparent);
+  --ui-button-background-pressed: var(--ui-system-base-medium-low-color);
+  --ui-button-background-disabled: var(--ui-system-base-low-color);
+  --ui-button-border-color: transparent;
+  --ui-button-border-color-pointer-over: transparent;
+  --ui-button-foreground: var(--ui-system-base-high-color);
+  --ui-button-foreground-pressed: var(--ui-system-base-high-color);
+  --ui-button-foreground-disabled: var(--ui-system-base-medium-low-color);
+  --ui-button-pressed-scale: 0.98;
+  /* Between an icon and the label. */
+  --ui-button-gap: var(--ui-spacing-s);
+  /* The space between the label and the drop-down chevron, and after the chevron: the side
+     padding (0021). */
+  --ui-button-glyph-margin: var(--ui-spacing-m);
+  /* Fluent's chevron (DropDownButton, SplitButton), 12 px wide, in its 2048 design box. */
+  --ui-button-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='19 486 2010 1095'%3E%3Cpath d='M1939 486L2029 576L1024 1581L19 576L109 486L1024 1401L1939 486Z'/%3E%3C/svg%3E");
+  --ui-button-chevron-size: 12px;
+  /* Fluent's ButtonBorderThemeThickness; the border is transparent, and shows in forced colours. */
+  --ui-button-border-width: 1px;
+  /* Fluent's HyperlinkButtonForegroundVisited, light and dark (it passes AA, 0021). */
+  --ui-hyperlink-button-foreground-visited: light-dark(#681DA8, #C58AF9);
+}
+
+:root[data-density="compact"] :where(.ui-button) {
+  --ui-button-glyph-margin: var(--ui-spacing-s);
+}
+
+.ui-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-button-gap);
+  min-block-size: var(--ui-control-min-height);
+  margin: 0;
+  padding: var(--ui-control-padding);
+  border: var(--ui-button-border-width) solid var(--ui-button-border-color);
+  background-color: var(--ui-button-background);
+  color: var(--ui-button-foreground);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  line-height: normal;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    border-color var(--ui-motion-fast) var(--ui-motion-easing),
+    scale var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-button:is(:hover, [data-state~="hover"]):not(:disabled, [aria-disabled="true"]) {
+  background-color: var(--ui-button-background-pointer-over);
+  border-color: var(--ui-button-border-color-pointer-over);
+}
+
+.ui-button:is(:active, [data-state~="pressed"]):not(:disabled, [aria-disabled="true"]) {
+  background-color: var(--ui-button-background-pressed);
+  color: var(--ui-button-foreground-pressed);
+  scale: var(--ui-button-pressed-scale);
+}
+
+.ui-button:is(:disabled, [aria-disabled="true"]) {
+  background-color: var(--ui-button-background-disabled);
+  color: var(--ui-button-foreground-disabled);
+}
+
+/* Accent: the AA accent fills, with Fluent's AccentButton text and disabled state. */
+.ui-button.ui-accent {
+  --ui-button-background: var(--ui-accent-fill-color);
+  --ui-button-background-pointer-over: var(--ui-accent-fill-color-pointer-over);
+  --ui-button-background-pressed: var(--ui-accent-fill-color-pressed);
+  --ui-button-foreground: var(--ui-accent-button-foreground);
+  --ui-button-foreground-pressed: var(--ui-accent-button-foreground);
+}
+
+/* Subtle: no fill until hover; Standard's hover and pressed fills. */
+.ui-button.ui-subtle {
+  --ui-button-background: transparent;
+  --ui-button-background-disabled: transparent;
+}
+
+/* Destructive: the AA danger fills with DangerForeground, Accent's disabled state. */
+.ui-button.ui-destructive {
+  --ui-button-background: var(--ui-danger-fill-color);
+  --ui-button-background-pointer-over: var(--ui-danger-fill-color-pointer-over);
+  --ui-button-background-pressed: var(--ui-danger-fill-color-pressed);
+  --ui-button-foreground: var(--ui-danger-foreground);
+  --ui-button-foreground-pressed: var(--ui-danger-foreground);
+}
+
+/* ToggleButton indeterminate, as Fluent: hover keeps the rest fill and adds a BaseMediumLow border. */
+.ui-button[aria-pressed="mixed"] {
+  --ui-button-background: var(--ui-system-base-low-color);
+  --ui-button-background-pointer-over: var(--ui-system-base-low-color);
+  --ui-button-border-color-pointer-over: var(--ui-system-base-medium-low-color);
+}
+
+/* ToggleButton checked, and both halves of a checked ToggleSplitButton: the AA accent fills,
+   pressed included, with white text (a subtle one keeps the fill). */
+.ui-button[aria-pressed="true"],
+.ui-split-button:has(> .ui-button[aria-pressed="true"]) > .ui-button {
+  --ui-button-background: var(--ui-accent-fill-color);
+  --ui-button-background-pointer-over: var(--ui-accent-fill-color-pointer-over);
+  --ui-button-background-pressed: var(--ui-accent-fill-color-pressed);
+  --ui-button-background-disabled: var(--ui-system-base-low-color);
+  --ui-button-foreground: var(--ui-accent-button-foreground);
+  --ui-button-foreground-pressed: var(--ui-accent-button-foreground);
+}
+
+/* DropDownButton: Fluent's chevron after the content, BaseMediumHigh at rest and the text colour
+   while hovered, pressed or disabled. */
+.ui-drop-down-button::after {
+  content: "";
+  flex: none;
+  inline-size: var(--ui-button-chevron-size);
+  block-size: var(--ui-button-chevron-size);
+  margin-inline-start: calc(var(--ui-button-glyph-margin) - var(--ui-button-gap));
+  background-color: var(--ui-system-base-medium-high-color);
+  mask: var(--ui-button-chevron) center / 100% auto no-repeat;
+}
+
+.ui-drop-down-button:is(:hover, :active, [data-state~="hover"], [data-state~="pressed"], :disabled)::after {
+  background-color: currentColor;
+}
+
+/* SplitButton: two buttons joined into one outline, each keeping only its outer corners, with a
+   1 px separator (Fluent's, filled by the transparent border brush). No pressed scale. */
+.ui-split-button {
+  --ui-split-button-separator-width: 1px;
+  display: inline-flex;
+  gap: var(--ui-split-button-separator-width);
+  vertical-align: middle;
+}
+
+.ui-split-button > .ui-button {
+  --ui-button-pressed-scale: 1;
+  border-radius: inherit;
+  corner-shape: inherit;
+}
+
+/* The ring is drawn around the whole split button (ui-focus-ring-within), as on desktop. */
+.ui-split-button > .ui-button:focus-visible {
+  outline: none;
+}
+
+.ui-split-button > .ui-button:first-child {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  border-inline-end-width: 0;
+}
+
+.ui-split-button > .ui-button:last-child {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-inline-start-width: 0;
+}
+
+/* The chevron half: square, the chevron centred in the text colour. */
+.ui-split-button > .ui-drop-down-button {
+  inline-size: var(--ui-control-min-height);
+  padding: 0;
+}
+
+.ui-split-button > .ui-drop-down-button::after {
+  margin: 0;
+  background-color: currentColor;
+}
+
+/* HyperlinkButton: no fill in any state, underlined, AccentTextColor (pressed one step on), hover
+   keeps the rest colour; Fluent's disabled and visited colours. */
+.ui-button.ui-hyperlink-button {
+  --ui-button-background: transparent;
+  --ui-button-background-pointer-over: transparent;
+  --ui-button-background-pressed: transparent;
+  --ui-button-background-disabled: transparent;
+  --ui-button-foreground: var(--ui-accent-text-color);
+  --ui-button-foreground-pressed: var(--ui-accent-text-color-pressed);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ui-button.ui-hyperlink-button:visited {
+  color: var(--ui-hyperlink-button-foreground-visited);
+}
+
+.ui-button.ui-hyperlink-button:is(:disabled, [aria-disabled="true"]) {
+  cursor: default;
+}
