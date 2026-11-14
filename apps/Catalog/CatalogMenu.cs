@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 
 namespace Catalog;
@@ -15,6 +17,8 @@ namespace Catalog;
 internal sealed class CatalogMenu
 {
     private readonly MainWindow _window;
+    private readonly List<NativeMenuItem> _textActions = [];
+    private TextBox? _text;
 
     public CatalogMenu(MainWindow window)
     {
@@ -25,7 +29,8 @@ internal sealed class CatalogMenu
         CloseWindow.Click += (_, _) => _window.Close();
         var file = new NativeMenuItem("_File") { Menu = new NativeMenu { CloseWindow } };
 
-        // Edit acts on the focused text box, as a text field's own context menu does.
+        // Edit acts on the focused text box, as a text field's own context menu does: its entries are enabled only
+        // while one has focus (or had it when the menu opened), so they are greyed out when there is nothing to act on.
         var edit = new NativeMenuItem("_Edit")
         {
             Menu = new NativeMenu
@@ -67,6 +72,18 @@ internal sealed class CatalogMenu
         var help = new NativeMenuItem("_Help") { Menu = new NativeMenu { SettingsLocation } };
 
         Menu = new NativeMenu { file, edit, view, help };
+        window.AddHandler(InputElement.GotFocusEvent, (_, e) => TrackText(e.Source), handledEventsToo: true);
+        // Focus leaving the text box for nothing (no new focus to track) clears it too.
+        window.AddHandler(InputElement.LostFocusEvent, (_, e) =>
+        {
+            if (e.Source == _text)
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_window.FocusManager?.GetFocusedElement() is null)
+                        TrackText(null);
+                });
+        }, handledEventsToo: true);
+        UpdateTextActions();
     }
 
     /// <summary>The window's menu.</summary>
@@ -95,15 +112,35 @@ internal sealed class CatalogMenu
         return menu;
     }
 
+    /// <summary>The Edit entries that act on a text box (Undo to Select all).</summary>
+    public IReadOnlyList<NativeMenuItem> TextActions => _textActions;
+
     private NativeMenuItem TextAction(string header, KeyGesture gesture, Action<TextBox> action)
     {
         var item = new NativeMenuItem(header) { Gesture = gesture };
         item.Click += (_, _) =>
         {
-            if (_window.FocusManager?.GetFocusedElement() is TextBox box)
+            if (_text is { } box && TopLevel.GetTopLevel(box) is not null)
                 action(box);
         };
+        _textActions.Add(item);
         return item;
+    }
+
+    // The text box the Edit entries act on: the focused one; focus moving into a menu keeps it.
+    private void TrackText(object? source)
+    {
+        if (source is TextBox box)
+            _text = box;
+        else if (source is not Visual visual || !visual.GetSelfAndVisualAncestors().Any(v => v is MenuItem or Avalonia.Controls.Menu))
+            _text = null;
+        UpdateTextActions();
+    }
+
+    private void UpdateTextActions()
+    {
+        foreach (var item in _textActions)
+            item.IsEnabled = _text is not null;
     }
 
     // One radio item per segment of a toolbar band control: choosing one selects its segment, and the marks follow the control.
