@@ -13,6 +13,7 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    5b. Frame rate: continuous animation at 30 fps by default ([0016](../decisions/0016-motion.md)). Done.
    5c. Glass rim: a hairline that takes a light tint of what's below ([0015](../decisions/0015-glass.md)). Done.
    5d. Overlay scrollbar: nearly invisible until scrolling or the pointer comes near, then it fades in and widens with proximity for easy grabbing; no arrow buttons; the thumb and track are always fully rounded pills; it floats over content ([0024](../decisions/0024-lists-and-scrolling.md), [0025](../decisions/0025-overlay-scrollbar.md)). Done.
+   5e. Glass performance: the nesting cap, the quality tiers (full, minimal, solid; `GlassQuality`), the edge-strip rim with the filter rim as fallback, and the GPU budget ([0015](../decisions/0015-glass.md), [0017](../decisions/0017-app-usage.md)). Done. Next step: one shared backdrop sample per frame for all glass layers.
    6. Native window behaviour on macOS: system shadow, native border and chrome roles ([0022](../decisions/0022-window-layout.md)). Done for macOS. Windows and Linux are a later step.
    7. TextInput (Fluent `TextBox`). Done ([0027](../decisions/0027-text-input.md)).
    8. ComboBox. Done ([0028](../decisions/0028-combobox.md)).

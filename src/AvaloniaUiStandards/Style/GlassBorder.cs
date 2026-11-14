@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.VisualTree;
+using System.Reflection;
 
 namespace AvaloniaUiStandards.Style;
 
@@ -96,6 +98,14 @@ public class GlassBorder : Decorator
     internal static readonly StyledProperty<double> RimGlowProperty =
         AvaloniaProperty.Register<GlassBorder, double>("RimGlow", GlassRimDrawOperation.GlowWidth);
 
+    // How the rim is drawn; tests force one method to compare them.
+    internal static readonly StyledProperty<RimMethod> RimMethodProperty =
+        AvaloniaProperty.Register<GlassBorder, RimMethod>("RimMethod", RimMethod.Auto);
+
+    // The rim strip's widest row in texels; tests set it small to check that wrapping changes nothing.
+    internal static readonly StyledProperty<int> RimStripRowProperty =
+        AvaloniaProperty.Register<GlassBorder, int>("RimStripRow", GlassRimDrawOperation.MaxStripRow);
+
     /// <summary>The fraction of the device resolution at which refraction and blur run (1 = full).</summary>
     internal const double DefaultBackdropScale = 0.5;
 
@@ -111,6 +121,17 @@ public class GlassBorder : Decorator
     internal static readonly StyledProperty<bool> ReduceTransparencyProperty =
         AvaloniaProperty.Register<GlassBorder, bool>("ReduceTransparency");
 
+    // App-wide only: StandardsTheme feeds it from its GlassQuality.
+    internal static readonly StyledProperty<GlassQuality> QualityProperty =
+        AvaloniaProperty.Register<GlassBorder, GlassQuality>("Quality", GlassQuality.Full);
+
+    /// <summary>
+    /// Glass whose shorter side is below this many px draws as minimal glass (no refraction or
+    /// dispersion): its 28 px refraction bands leave under 8 px of flat centre, and rendered side
+    /// by side full and minimal glass look the same there.
+    /// </summary>
+    internal const double MinimalBelow = 64;
+
     private readonly BorderOverlay _borderOverlay;
     private ShapeKey? _shapeKey;
     private Geometry? _fill;
@@ -121,9 +142,63 @@ public class GlassBorder : Decorator
         AffectsRender<GlassBorder>(
             TintColorProperty, TintOpacityProperty, BlurSigmaProperty, CornerRadiusProperty, BorderBrushProperty,
             RefractionStrengthProperty, RefractionEdgeProperty, ChromaticDispersionProperty,
-            RimAbsorptionProperty, RimLightenProperty, RimBoostProperty, RimSpreadProperty, RimSpreadWhiteProperty, RimGlowProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty);
+            RimAbsorptionProperty, RimLightenProperty, RimBoostProperty, RimSpreadProperty, RimSpreadWhiteProperty, RimGlowProperty, RimMethodProperty, RimStripRowProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty, QualityProperty);
         AffectsArrange<GlassBorder>(CornerRadiusProperty, SmoothingProperty);
         ChildProperty.Changed.AddClassHandler<GlassBorder>((b, _) => b._borderOverlay.MoveToTop(b.VisualChildren));
+        // An effect or opacity mask (and, with SkiaOptions.UseOpacitySaveLayer, an opacity below 1)
+        // draws its visual into a layer, where the rim strip cannot read the surface: the glass
+        // inside redraws its rim, choosing again.
+        EffectProperty.Changed.AddClassHandler<Visual>((v, e) => InvalidateRimsIf(v, (e.OldValue is null) != (e.NewValue is null)));
+        OpacityMaskProperty.Changed.AddClassHandler<Visual>((v, e) => InvalidateRimsIf(v, (e.OldValue is null) != (e.NewValue is null)));
+        OpacityProperty.Changed.AddClassHandler<Visual>((v, e) => InvalidateRimsIf(v,
+            OpacityLayers && (e.OldValue is double o && o < 1) != (e.NewValue is double n && n < 1)));
+    }
+
+    private static void InvalidateRimsIf(Visual v, bool changed)
+    {
+        if (changed)
+            InvalidateRims(v);
+    }
+
+    private static void InvalidateRims(Visual v)
+    {
+        foreach (var glass in v.GetSelfAndVisualDescendants().OfType<GlassBorder>())
+            glass._borderOverlay.InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Whether the rim reads the surface as drawn so far (the edge strip): not when the glass or an
+    /// ancestor has an effect or an opacity mask, or, when <see cref="OpacityLayers"/>, an opacity
+    /// below 1. Those draw into a layer the surface does not hold.
+    /// </summary>
+    internal bool RimReadsSurface => !this.GetSelfAndVisualAncestors().Any(v =>
+        v.Effect is not null || v.OpacityMask is not null || (OpacityLayers && v.Opacity < 1));
+
+    private static bool? _opacityLayers;
+
+    /// <summary>
+    /// Whether an opacity below 1 draws into a layer (<c>SkiaOptions.UseOpacitySaveLayer</c>), read
+    /// once from the app's Skia options; settable so tests can draw that case.
+    /// </summary>
+    internal static bool OpacityLayers
+    {
+        get => _opacityLayers ??= ReadSkiaOptions()?.UseOpacitySaveLayer ?? false;
+        set => _opacityLayers = value;
+    }
+
+    // Avalonia's service locator, where AppBuilder.With puts the SkiaOptions, is left out of its
+    // reference assemblies, so it is read by reflection.
+    private static SkiaOptions? ReadSkiaOptions()
+    {
+        try
+        {
+            var locator = typeof(AvaloniaLocator).GetProperty("Current", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(null);
+            return locator?.GetType().GetMethod("GetService", [typeof(Type)])?.Invoke(locator, [typeof(SkiaOptions)]) as SkiaOptions;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public GlassBorder()
@@ -220,17 +295,65 @@ public class GlassBorder : Decorator
         if (change.Property == BorderBrushProperty || change.Property == CornerRadiusProperty
             || change.Property == SmoothingProperty || change.Property == RimAbsorptionProperty
             || change.Property == RimLightenProperty || change.Property == RimBoostProperty || change.Property == RimSpreadProperty
-            || change.Property == RimSpreadWhiteProperty || change.Property == RimGlowProperty
-            || change.Property == ReduceTransparencyProperty)
+            || change.Property == RimSpreadWhiteProperty || change.Property == RimGlowProperty || change.Property == RimMethodProperty || change.Property == RimStripRowProperty
+            || change.Property == ReduceTransparencyProperty || change.Property == QualityProperty)
             _borderOverlay.InvalidateVisual();
+        if (change.Property == ReduceTransparencyProperty || change.Property == QualityProperty)
+        {
+            UpdateNestedGlass();
+        }
     }
 
+    /// <summary>The number of glass levels drawn as glass; a glass inside that many glass ancestors is solid.</summary>
+    internal const int MaxGlassDepth = 2;
+
     /// <summary>
-    /// Whether the glass draws as the solid fallback: when transparency is reduced, or when it
-    /// sits in a popup shown as its own OS window, where nothing of the app's window is behind it
-    /// in its top level to blur. A popup in the window's overlay layer keeps the glass.
+    /// Whether the glass draws as the solid fallback: when transparency is reduced or the quality
+    /// is <see cref="GlassQuality.Solid"/>, when it sits in a popup shown as its own OS window,
+    /// where nothing of the app's window is behind it in its top level to blur (a popup in the
+    /// window's overlay layer keeps the glass), or when it sits inside <see cref="MaxGlassDepth"/>
+    /// glass ancestors that draw as glass.
     /// </summary>
-    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || InPopupWindow;
+    internal bool IsSolid => GetValue(ReduceTransparencyProperty) || GetValue(QualityProperty) == GlassQuality.Solid || InPopupWindow || TooDeep;
+
+    /// <summary>
+    /// Whether the glass draws as minimal glass, a blurred and tinted backdrop with the rim but no
+    /// refraction or dispersion: when the quality is <see cref="GlassQuality.Minimal"/>, at the
+    /// second level (inside one glass ancestor that draws as glass), or when its shorter side is
+    /// below <see cref="MinimalBelow"/>.
+    /// </summary>
+    internal bool IsMinimal => !IsSolid && (GetValue(QualityProperty) == GlassQuality.Minimal || Nested
+        || Math.Min(Bounds.Width, Bounds.Height) < MinimalBelow);
+
+    /// <summary>Whether this glass sits inside <see cref="MaxGlassDepth"/> or more glass ancestors that draw as glass.</summary>
+    internal bool TooDeep { get; private set; }
+
+    /// <summary>Whether this glass sits inside a glass ancestor that draws as glass.</summary>
+    internal bool Nested { get; private set; }
+
+    // Recounts the glass ancestors that draw as glass, and, when this glass changes between full,
+    // minimal and solid, updates the glass inside it, whose count depends on it.
+    private void UpdateNestedGlass()
+    {
+        var wasSolid = IsSolid;
+        var wasNested = Nested;
+        var count = this.GetVisualAncestors().OfType<GlassBorder>().Count(g => !g.IsSolid);
+        TooDeep = count >= MaxGlassDepth;
+        Nested = count >= 1;
+        if (Nested != wasNested)
+            InvalidateVisual();
+        if (IsSolid == wasSolid)
+            return;
+        InvalidateVisual();
+        _borderOverlay.InvalidateVisual();
+        UpdateInnerGlass();
+    }
+
+    private void UpdateInnerGlass()
+    {
+        foreach (var inner in this.GetVisualDescendants().OfType<GlassBorder>())
+            inner.UpdateNestedGlass();
+    }
 
     /// <summary>
     /// Whether the glass sits in a popup shown as its own OS window, updated each time it joins a
@@ -247,6 +370,7 @@ public class GlassBorder : Decorator
             _inPopupWindow = value;
             InvalidateVisual();
             _borderOverlay.InvalidateVisual();
+            UpdateInnerGlass();
         }
     }
 
@@ -256,6 +380,7 @@ public class GlassBorder : Decorator
     {
         base.OnAttachedToVisualTree(e);
         InPopupWindow = IsPopupWindow(TopLevel.GetTopLevel(this));
+        UpdateNestedGlass();
     }
 
     /// <summary>True for a popup's own OS window; false for a window, and for the overlay layer, which is part of its window.</summary>
@@ -277,7 +402,7 @@ public class GlassBorder : Decorator
         {
             context.Custom(new GlassDrawOperation(new GlassDrawOperation.Parameters(
                 new Rect(size), CornerRadius, GetValue(SmoothingProperty), TintColor, TintOpacity, BlurSigma,
-                RefractionStrength, RefractionEdge, ChromaticDispersion, GetValue(BackdropScaleProperty))));
+                IsMinimal ? 0 : RefractionStrength, RefractionEdge, IsMinimal ? 0 : ChromaticDispersion, GetValue(BackdropScaleProperty))));
         }
     }
 
@@ -287,14 +412,15 @@ public class GlassBorder : Decorator
     {
         var size = Bounds.Size;
         UpdateShape(size);
-        if (!IsSolid && GlassRimDrawOperation.Effect is not null)
+        if (!IsSolid && GlassRimDrawOperation.Available)
         {
             if (RimAbsorption > 0)
                 context.Custom(new GlassRimDrawOperation(new GlassRimDrawOperation.Parameters(
                     new Rect(size), CornerRadius, GetValue(SmoothingProperty), RimAbsorption, GetValue(RimLightenProperty),
                     GetValue(RimBoostProperty), GetValue(RimSpreadProperty), GetValue(RimSpreadWhiteProperty),
                     GetValue(RimGlowProperty),
-                    (BorderBrush as ISolidColorBrush)?.Color ?? Colors.Transparent)));
+                    (BorderBrush as ISolidColorBrush)?.Color ?? Colors.Transparent,
+                    RimReadsSurface ? GetValue(RimMethodProperty) : RimMethod.Filter, GetValue(RimStripRowProperty))));
         }
         else if (BorderBrush is { } borderBrush && _stroke is not null)
         {

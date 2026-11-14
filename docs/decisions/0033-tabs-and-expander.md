@@ -16,7 +16,7 @@
     - **Why:** It marks where the tabs end and the content starts, and anchors the underline.
   - `TabStripPlacement` Left and Right stack the headers vertically, with the underline and hairline on the inner edge and 8 px (`SpacingS`) between the headers and the underline, so a focused header's ring does not cross it.
   - The content sits directly on the surface below the tabs (no fill or card of its own), padded by the tab's side padding left and right and 12 (`SpacingM`) top and bottom, so it lines up with the header text.
-    - **Why:** The content area is the surface it is placed on ([0015](0015-glass.md): no glass on glass, no extra card).
+    - **Why:** The content area is the surface it is placed on ([0015](0015-glass.md): cards inside the content panel are solid, no extra card).
   - Expander is restyled Fluent: Fluent's `IsExpanded`, `ExpandDirection` and events are kept; the template is the library's.
     - One squircle card with `CornerRadiusControl` (8) ([0014](0014-shape.md)), in the card colour (`ExpanderContentBackground`) with a 1 px border in the line colour (`ExpanderContentBorderBrush`), holding the header row and the content. It stretches to its container's width (Fluent: left-aligned).
     - The header row is a toggle with the list item fills ([0024](0024-lists-and-scrolling.md)): transparent at rest, `ListMedium` on hover, `BaseMediumLow` pressed, Fluent's disabled text. Height 32 Normal and 24 Compact, with Button's side padding. No pressed scale.
