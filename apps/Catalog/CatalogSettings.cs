@@ -5,6 +5,7 @@ using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using AvaloniaUiStandards;
+using AvaloniaUiStandards.Modules;
 
 namespace Catalog;
 
@@ -30,6 +31,9 @@ internal sealed record CatalogSettings
     public bool? ReduceTransparency { get; init; }
 
     public bool HighRefreshRate { get; init; }
+
+    /// <summary>The window layout: Automatic, MacOS or Windows.</summary>
+    public string LayoutMode { get; init; } = nameof(WindowLayoutMode.Automatic);
 
     /// <summary>
     /// The settings file: <c>AvaloniaUiStandards.Catalog/settings.json</c> in the per-user application data folder,
@@ -81,6 +85,7 @@ internal sealed record CatalogSettings
         ReduceMotion = theme.ReduceMotion,
         ReduceTransparency = theme.ReduceTransparency,
         HighRefreshRate = theme.HighRefreshRate,
+        LayoutMode = CatalogLayout.Get(app).ToString(),
     };
 
     /// <summary>Sets these choices on <paramref name="app"/> and its <paramref name="theme"/>; unknown values keep the defaults.</summary>
@@ -92,6 +97,7 @@ internal sealed record CatalogSettings
         theme.ReduceMotion = ReduceMotion;
         theme.ReduceTransparency = ReduceTransparency;
         theme.HighRefreshRate = HighRefreshRate;
+        CatalogLayout.Set(app, Enum.TryParse<WindowLayoutMode>(LayoutMode, out var layout) && Enum.IsDefined(layout) ? layout : WindowLayoutMode.Automatic);
     }
 
     private static string Hex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
@@ -151,7 +157,7 @@ internal sealed class CatalogSettingsStore : IDisposable
 
     private void OnAppChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == Application.RequestedThemeVariantProperty)
+        if (e.Property == Application.RequestedThemeVariantProperty || e.Property == CatalogLayout.LayoutModeProperty)
             Schedule();
     }
 
@@ -168,4 +174,18 @@ internal sealed class CatalogSettingsStore : IDisposable
         _theme.PropertyChanged -= OnChanged;
         _app.PropertyChanged -= OnAppChanged;
     }
+}
+
+/// <summary>
+/// The catalog's layout mode, app-wide: set on the Settings page ("Layout mode"), saved with the settings and
+/// applied to the main window's <see cref="StandardsWindow.LayoutMode"/>.
+/// </summary>
+internal sealed class CatalogLayout
+{
+    public static readonly AttachedProperty<WindowLayoutMode> LayoutModeProperty =
+        AvaloniaProperty.RegisterAttached<CatalogLayout, Application, WindowLayoutMode>("LayoutMode");
+
+    public static WindowLayoutMode Get(Application app) => app.GetValue(LayoutModeProperty);
+
+    public static void Set(Application app, WindowLayoutMode value) => app.SetValue(LayoutModeProperty, value);
 }

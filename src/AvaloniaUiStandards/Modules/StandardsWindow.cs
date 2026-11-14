@@ -12,14 +12,15 @@ namespace AvaloniaUiStandards.Modules;
 /// <summary>
 /// The library's window: borderless and transparent, drawn as a squircle frame (radius 16, 1 px
 /// border, soft shadow) whose background is the backdrop wash. A title band holds the window
-/// buttons, the <see cref="Window.Title"/> and the <see cref="Toolbar"/>; below it are the optional
+/// buttons, the <see cref="Window.Title"/> and the <see cref="Toolbar"/>; below it are the menu row
+/// (in the Windows layout, for the window's <see cref="NativeMenu"/>), the optional
 /// <see cref="ToolbarBand"/> across the window, the optional <see cref="Sidebar"/> on the window background, the glass content panel holding
 /// <see cref="ContentControl.Content"/> (scrolled by the panel, see <see cref="IsContentScrollable"/>),
 /// and the optional <see cref="StatusBar"/>. An optional <see cref="Backdrop"/> sits behind them all.
 /// </summary>
 /// <remarks>
-/// Drag the window by the title band (double-click maximises or restores; on macOS it follows the
-/// system's title bar double-click setting), resize it from the frame's edges and corners.
+/// Drag the window by the title band (double-click maximises or restores; in the macOS layout it
+/// follows the macOS setting for a title bar double-click, on macOS), resize it from the frame's edges and corners.
 /// Maximised, or where the OS gives no transparency, the frame fills the window with square
 /// corners and no shadow, except on macOS, where the system keeps its shadow and rounds the
 /// corners with its own mask. On macOS the window is a native resizable window with its title bar
@@ -48,6 +49,9 @@ public class StandardsWindow : Window, IFrameTickSource
     public static readonly StyledProperty<WindowButtonStyle> WindowButtonStyleProperty =
         AvaloniaProperty.Register<StandardsWindow, WindowButtonStyle>(nameof(WindowButtonStyle));
 
+    public static readonly StyledProperty<WindowLayoutMode> LayoutModeProperty =
+        AvaloniaProperty.Register<StandardsWindow, WindowLayoutMode>(nameof(LayoutMode));
+
     public static readonly StyledProperty<bool> HighRefreshRateProperty =
         AvaloniaProperty.Register<StandardsWindow, bool>(nameof(HighRefreshRate));
 
@@ -59,6 +63,15 @@ public class StandardsWindow : Window, IFrameTickSource
         AvaloniaProperty.RegisterDirect<StandardsWindow, Rect>(nameof(ContentPanelBounds), w => w.ContentPanelBounds);
 
     private WindowButtons? _buttons;
+    private Panel? _menuRowPart;
+    private readonly MenuShortcuts _shortcuts;
+    private bool _closed;
+    private readonly MenuRow _menuRow = new()
+    {
+        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        Margin = new Thickness(Spacing.L, 0),
+    };
     private SquircleBorder? _frame;
     private Control? _panel;
     private Rect _contentPanelBounds;
@@ -73,6 +86,7 @@ public class StandardsWindow : Window, IFrameTickSource
     /// <param name="nativeFrame">Whether to use the native macOS frame; by OS and platform when null.</param>
     internal StandardsWindow(bool? nativeFrame)
     {
+        _shortcuts = new MenuShortcuts(this);
         _ticker = new FrameTicker(new Scheduler(this), (time, elapsed) => _frameTick?.Invoke(this, new FrameTickEventArgs(time, elapsed)));
         HasNativeFrame = nativeFrame ?? UsesNativeFrame(OperatingSystem.IsMacOS(), TryGetPlatformHandle()?.HandleDescriptor);
         WindowDecorations = DecorationsFor(HasNativeFrame);
@@ -113,8 +127,8 @@ public class StandardsWindow : Window, IFrameTickSource
     /// <summary>
     /// Optional content of the band directly below the title band, across the window on the window
     /// background (normally a <see cref="Modules.ToolbarBand"/>); shown only when set, with the
-    /// sidebar and the glass panel below it. On macOS its empty area drags the window, as a
-    /// unified toolbar's does; elsewhere it does not, as a command bar's does not.
+    /// sidebar and the glass panel below it. In the macOS layout its empty area drags the window, as a
+    /// unified toolbar's does; in the Windows layout it does not, as a command bar's does not.
     /// </summary>
     public object? ToolbarBand
     {
@@ -206,7 +220,31 @@ public class StandardsWindow : Window, IFrameTickSource
         }
     }
 
-    /// <summary>Traffic lights or caption buttons; by OS when <see cref="WindowButtonStyle.Auto"/>.</summary>
+    /// <summary>
+    /// Which OS's window layout the window shows (default <see cref="WindowLayoutMode.Automatic"/>, the
+    /// OS's own): the window buttons (while <see cref="WindowButtonStyle"/> is Auto), where the window's
+    /// <see cref="NativeMenu"/> shows, whether the toolbar band drags the window and what a title band
+    /// double-click does. The native frame and the keyboard shortcuts follow the OS the app runs on.
+    /// </summary>
+    public WindowLayoutMode LayoutMode
+    {
+        get => GetValue(LayoutModeProperty);
+        set => SetValue(LayoutModeProperty, value);
+    }
+
+    /// <summary>The layout in use: <see cref="LayoutMode"/>, with Automatic resolved for this OS.</summary>
+    internal WindowLayoutMode ResolvedLayoutMode => WindowLayout.Resolve(LayoutMode, OperatingSystem.IsMacOS());
+
+    /// <summary>The window shortcuts made from the menu's gestures.</summary>
+    internal MenuShortcuts MenuShortcuts => _shortcuts;
+
+    /// <summary>The menu bar of the menu row (shown in the Windows layout when the window has a menu).</summary>
+    internal MenuRow MenuRow => _menuRow;
+
+    /// <summary>Whether the menu row shows: the Windows layout, with a menu set on the window.</summary>
+    internal bool IsMenuRowShown => ResolvedLayoutMode == WindowLayoutMode.Windows && NativeMenu.GetMenu(this) is not null;
+
+    /// <summary>Traffic lights or caption buttons; by layout mode when <see cref="WindowButtonStyle.Auto"/>.</summary>
     public WindowButtonStyle WindowButtonStyle
     {
         get => GetValue(WindowButtonStyleProperty);
@@ -233,6 +271,15 @@ public class StandardsWindow : Window, IFrameTickSource
 
         if (e.NameScope.Find<Control>(StandardsWindowTheme.TitleBandPart) is { } band)
             band.PointerPressed += OnTitleBandPressed;
+        _menuRowPart?.Children.Clear();
+        _menuRowPart = e.NameScope.Find<Panel>(StandardsWindowTheme.MenuRowPart);
+        if (_menuRowPart is { } menuRow)
+            menuRow.PointerPressed += (_, args) =>
+            {
+                // Only the row's own empty area drags: the menu titles are the menu's.
+                if (args.Source == menuRow)
+                    OnTitleBandPressed(menuRow, args);
+            };
         if (e.NameScope.Find<ContentPresenter>(StandardsWindowTheme.ToolbarBandPart) is { } toolbarBand)
             toolbarBand.PointerPressed += (_, args) => OnToolbarBandPressed(toolbarBand, args);
         if (e.NameScope.Find<Button>(StandardsWindowTheme.SidebarTogglePart) is { } sidebarToggle)
@@ -245,14 +292,18 @@ public class StandardsWindow : Window, IFrameTickSource
             }
 
         UpdateStates();
+        UpdateMenuRow();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == WindowStateProperty || change.Property == WindowButtonStyleProperty
-            || change.Property == ActualTransparencyLevelProperty || change.Property == IsActiveProperty)
+            || change.Property == ActualTransparencyLevelProperty || change.Property == IsActiveProperty
+            || change.Property == LayoutModeProperty)
             UpdateStates();
+        if (change.Property == LayoutModeProperty || change.Property == NativeMenu.MenuProperty)
+            UpdateMenuRow();
         if (change.Property == SidebarProperty)
             PseudoClasses.Set(":sidebar-module", change.NewValue is Sidebar);
         if (change.Property == IsActiveProperty || change.Property == WindowStateProperty
@@ -263,6 +314,12 @@ public class StandardsWindow : Window, IFrameTickSource
     protected override void OnClosed(EventArgs e)
     {
         _ticker.Stop();
+        _closed = true;
+        // The menus outlive the window (the Application's for the whole app): let go of them.
+        _menuRowPart?.Children.Remove(_menuRow);
+        _menuRow.Source = null;
+        _menuRow.AppMenu = null;
+        _shortcuts.Dispose();
         base.OnClosed(e);
     }
 
@@ -299,7 +356,43 @@ public class StandardsWindow : Window, IFrameTickSource
     {
         if (!e.Handled && HandleShortcut(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()))
             e.Handled = true;
+        // F10 opens the menu row's menu bar at its first title, as in Windows apps (Alt does so through Avalonia's access keys).
+        if (!e.Handled && e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.None && _menuRow.Parent is not null)
+        {
+            _menuRow.ToggleFromKeyboard();
+            e.Handled = true;
+        }
         base.OnKeyDown(e);
+    }
+
+    /// <summary>
+    /// Shows the menu row in the Windows layout of a window with a menu, with the menu bar in it;
+    /// otherwise the row is gone (its menu bar out of the window, so Alt and F10 find no menu) and
+    /// nothing below it moves.
+    /// </summary>
+    private void UpdateMenuRow()
+    {
+        if (_closed)
+            return;
+        // The menu's shortcuts work in either layout while the menu is not exported.
+        _shortcuts.Menu = NativeMenu.GetMenu(this);
+        if (_menuRowPart is null)
+            return;
+        var shown = IsMenuRowShown;
+        _menuRowPart.IsVisible = shown;
+        if (shown)
+        {
+            _menuRow.Source = NativeMenu.GetMenu(this);
+            _menuRow.AppMenu = Application.Current is { } app ? NativeMenu.GetMenu(app) : null;
+            if (_menuRow.Parent is null)
+                _menuRowPart.Children.Add(_menuRow);
+        }
+        else
+        {
+            _menuRowPart.Children.Remove(_menuRow);
+            _menuRow.Source = null;
+            _menuRow.AppMenu = null;
+        }
     }
 
     /// <summary>
@@ -364,10 +457,10 @@ public class StandardsWindow : Window, IFrameTickSource
 
     /// <summary>
     /// Whether the toolbar band's empty area drags the window (and double-clicking it acts as on the
-    /// title band): on macOS, where a unified toolbar's empty area is part of the title bar, and not
-    /// elsewhere, where a command bar below the title bar is not.
+    /// title band): in the macOS layout, where a unified toolbar's empty area is part of the title bar,
+    /// and not in the Windows layout, where a command bar below the title bar is not.
     /// </summary>
-    internal bool ToolbarBandDragsWindow { get; set; } = OperatingSystem.IsMacOS();
+    internal bool ToolbarBandDragsWindow => ResolvedLayoutMode == WindowLayoutMode.MacOS;
 
     // Only a press on the band's own empty area counts: not on an item, a separator or anything
     // hosted in it. Hit testing skips disabled items, so a press over one reaches the band as if
@@ -387,7 +480,7 @@ public class StandardsWindow : Window, IFrameTickSource
             return;
         e.Handled = true;
         if (e.ClickCount == 2)
-            OnTitleBandDoubleClick(HasNativeFrame ? MacWindowSettings.TitleBarDoubleClickAction() : null);
+            OnTitleBandDoubleClick(HasNativeFrame && ResolvedLayoutMode == WindowLayoutMode.MacOS ? MacWindowSettings.TitleBarDoubleClickAction() : null);
         else
             BeginMoveDrag(e);
     }
@@ -414,15 +507,21 @@ public class StandardsWindow : Window, IFrameTickSource
         BeginResizeDrag(edge, e);
     }
 
+    /// <summary>The window buttons in use: <see cref="WindowButtonStyle"/>, or the layout's when Auto.</summary>
+    internal WindowButtonStyle ResolvedButtonStyle => WindowButtonStyle != WindowButtonStyle.Auto
+        ? WindowButtonStyle
+        : ResolvedLayoutMode == WindowLayoutMode.MacOS ? WindowButtonStyle.TrafficLights : WindowButtonStyle.CaptionButtons;
+
     private void UpdateStates()
     {
         PseudoClasses.Set(":maximized", WindowState is WindowState.Maximized or WindowState.FullScreen);
         PseudoClasses.Set(":opaque", IsInitialized && ActualTransparencyLevel == WindowTransparencyLevel.None && IsVisible);
 
-        var trafficLights = WindowButtons.Resolve(WindowButtonStyle) == WindowButtonStyle.TrafficLights;
+        var trafficLights = ResolvedButtonStyle == WindowButtonStyle.TrafficLights;
         PseudoClasses.Set(":traffic-lights", trafficLights);
         if (_buttons is not null)
         {
+            _buttons.ButtonStyle = ResolvedButtonStyle;
             _buttons.IsMaximized = WindowState == WindowState.Maximized;
             _buttons.IsActive = IsActive;
             Grid.SetColumn(_buttons, trafficLights ? 0 : 3);

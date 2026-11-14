@@ -44,6 +44,7 @@
 - [0041 — ColorPicker and ColorView](decisions/0041-colorpicker.md) — the ColorPicker package and how it is included, the picker field and its glass flyout, the ColorView's tabs and pages, the colour chip, thumb, sliders, spectrum, palette and previewer
 - [0042 — Accent flag](decisions/0042-accent-flag.md) — the SelectionOptions.AccentFlag option: the bar on a selected item's leading edge, its width, colour, corners, motion and focus ring, and which lists it reaches
 - [0043 — Toolbar band](decisions/0043-toolbar-band.md) — the ToolbarBand Module: its window slot, height and spacing, item kinds, zones, overflow into the "…" menu, keyboard, automation and window drag
+- [0044 — Menu bar](decisions/0044-menu-bar.md) — where NativeMenu menus show per layout, the in-window menu row's size, drag, folding into "…", the application menu merge into Help, sync and keyboard
 - [0045 — Web library in plain HTML, CSS and JavaScript](decisions/0045-web-library.md) — what the web library is, where it lives, how it shares decisions with desktop and why no framework
 - [0046 — Web browsers, markup and naming](decisions/0046-web-browsers-markup-naming.md) — which browsers the web library supports, native elements versus custom elements, and the ui- naming of properties, classes, elements and theme attributes
 
