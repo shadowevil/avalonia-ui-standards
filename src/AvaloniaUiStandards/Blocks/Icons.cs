@@ -10,6 +10,9 @@ namespace AvaloniaUiStandards.Blocks;
 /// </summary>
 public static class Icons
 {
+    /// <summary>Phosphor <c>app-window</c>.</summary>
+    public static Geometry AppWindow => field ??= Parse("M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM80,84A12,12,0,1,1,68,72,12,12,0,0,1,80,84Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,120,84Z");
+
     /// <summary>Phosphor <c>arrows-out-line-horizontal</c>.</summary>
     public static Geometry ArrowsOutLineHorizontal => field ??= Parse("M136,40V216a8,8,0,0,1-16,0V40a8,8,0,0,1,16,0ZM96,120H35.31l18.35-18.34A8,8,0,0,0,42.34,90.34l-32,32a8,8,0,0,0,0,11.32l32,32a8,8,0,0,0,11.32-11.32L35.31,136H96a8,8,0,0,0,0-16Zm149.66,2.34-32-32a8,8,0,0,0-11.32,11.32L220.69,120H160a8,8,0,0,0,0,16h60.69l-18.35,18.34a8,8,0,0,0,11.32,11.32l32-32A8,8,0,0,0,245.66,122.34Z");
 
