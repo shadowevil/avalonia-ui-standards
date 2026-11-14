@@ -626,6 +626,47 @@ public class FullScreenTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(WindowState.Normal)]
+    [InlineData(WindowState.Maximized)]
+    public void CaptionRestore_OffMacOS_LeavesFullScreenAnAppSet(WindowState before)
+    {
+        var window = Show(WindowLayoutMode.Windows, macOS: false);
+        try
+        {
+            window.WindowState = before;
+            window.WindowState = WindowState.FullScreen;
+            MenuRowTests.Pump(window);
+            var maximise = Caption(window, WindowButtonKind.Maximize);
+            Assert.True(maximise.IsMaximized);
+            Click(maximise);
+            Assert.Equal(before, window.WindowState);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void SystemTitleBarStrip_IsLeftAloneWithoutANativeWindow_AndFailsSafely()
+    {
+        // AppKit's full screen strip exists only on a native macOS window; without one nothing is looked up.
+        Assert.False(MacWindowSettings.HideFullScreenTitleBarWindow(IntPtr.Zero));
+        var window = Show();
+        try
+        {
+            window.WindowState = WindowState.FullScreen;
+            window.MouseMove(new Point(400, 0));
+            MenuRowTests.Pump(window);
+            Assert.True(window.IsTopRevealed);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- The menu item ------------------------------------------------------------------------
 
     private static (StandardsWindow Window, FullScreenMenuItem Item) WithItem(bool macOS = true, WindowLayoutMode layout = WindowLayoutMode.MacOS,

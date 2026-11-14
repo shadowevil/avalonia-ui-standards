@@ -590,6 +590,8 @@ public class StandardsWindow : Window, IFrameTickSource
             _stateBeforeFullScreen = oldState == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
             _alwaysRevealed = HasNativeFrame && MacWindowSettings.MenuBarVisibleInFullScreen();
             SetRevealed(_alwaysRevealed);
+            // AppKit's strip already exists once full screen is entered; it is hidden now and again on each reveal.
+            HideSystemFullScreenTitleBar();
         }
         else if (oldState == WindowState.FullScreen)
         {
@@ -629,8 +631,19 @@ public class StandardsWindow : Window, IFrameTickSource
         if (_top is null)
             return;
         if (revealed)
+        {
             _top.TopInset = MenuBarOverlap();
+            HideSystemFullScreenTitleBar();
+        }
         _top.Reveal = revealed ? 1 : 0;
+    }
+
+    // On macOS in full screen, AppKit's own title bar strip slides in below the menu bar with each reveal, over the title
+    // band, and would take its clicks: it is made invisible and mouse-transparent each time (nothing when it is not found).
+    private void HideSystemFullScreenTitleBar()
+    {
+        if (HasNativeFrame && WindowState == WindowState.FullScreen && TryGetPlatformHandle() is { HandleDescriptor: "NSWindow" } handle)
+            MacWindowSettings.HideFullScreenTitleBarWindow(handle.Handle);
     }
 
     // Hides the rows after HideDelay, unless the pointer comes back first; it waits on while they are in use.
@@ -731,9 +744,13 @@ public class StandardsWindow : Window, IFrameTickSource
                 ToggleFullScreen();
                 break;
             default:
-                // In full screen the caption maximise button (its restore glyph) leaves it for the state before.
+                // In full screen the caption maximise button (its restore glyph) leaves it for the state before, also off
+                // macOS where an app set full screen itself and ToggleFullScreen does nothing.
                 if (WindowState == WindowState.FullScreen)
-                    ToggleFullScreen();
+                {
+                    if (!ToggleFullScreen(RunsOnMacOS))
+                        WindowState = _stateBeforeFullScreen;
+                }
                 else
                     ToggleMaximized();
                 break;
