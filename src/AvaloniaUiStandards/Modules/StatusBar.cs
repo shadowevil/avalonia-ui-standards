@@ -263,16 +263,18 @@ public class StatusBar : Control
         _applied = state;
     }
 
-    // An item showing a shorter form, and the app's own text, shown again when there is room.
+    // An item showing a shorter form (Level, from 1, in its ShortTexts), and the app's own text, shown again when
+    // there is room.
     private sealed class Shortened(TextTarget text, string? full)
     {
         public TextTarget Text { get; } = text;
-        public string? Full { get; } = full;
+        public string? Full { get; set; } = full;
         public string? Form { get; set; }
+        public int Level { get; set; }
     }
 
     // Shows a shorter form, or the app's own text when null. The form is set as the current value, which keeps the
-    // app's bindings, and any text the app sets then replaces it (see OnShortenedTextChanged).
+    // app's bindings; a text the app sets becomes the full text (see OnShortenedTextChanged).
     private void Show(Control item, string? form)
     {
         _shortened.TryGetValue(item, out var shortened);
@@ -292,6 +294,7 @@ public class StatusBar : Control
             text.Target.PropertyChanged += OnShortenedTextChanged;
         }
         shortened.Form = form;
+        shortened.Level = (GetShortTexts(item)?.ToList().IndexOf(form) ?? -1) + 1;
         SetText(shortened.Text, form);
     }
 
@@ -308,17 +311,30 @@ public class StatusBar : Control
         }
     }
 
-    // The app set a new text where a shorter form shows: it is the item's full text now, and the bar measures again.
+    // The app set a new text where a shorter form shows: it is the item's full text now. The form at the same level
+    // of the item's current ShortTexts shows again at once (this runs outside layout), so the full text never shows
+    // in the short slot; the bar measures again, and a full text that fits returns at the next layout.
     private void OnShortenedTextChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (_showingForm)
             return;
-        var item = _shortened.FirstOrDefault(s => s.Value.Text.Target == sender && s.Value.Text.Property == e.Property).Key;
+        var (item, shortened) = _shortened.FirstOrDefault(s => s.Value.Text.Target == sender && s.Value.Text.Property == e.Property);
         if (item is null)
             return;
-        _shortened[item].Text.Target.PropertyChanged -= OnShortenedTextChanged;
-        _shortened.Remove(item);
-        _applied = new State(_applied.Hidden, _applied.Texts.Where(t => t.Key != item).ToDictionary());
+        shortened.Full = e.NewValue as string;
+        if (GetShortTexts(item) is { Count: > 0 } forms)
+        {
+            shortened.Level = Math.Clamp(shortened.Level, 1, forms.Count);
+            shortened.Form = forms[shortened.Level - 1];
+            _applied.Texts[item] = shortened.Form;
+            SetText(shortened.Text, shortened.Form);
+        }
+        else
+        {
+            shortened.Text.Target.PropertyChanged -= OnShortenedTextChanged;
+            _shortened.Remove(item);
+            _applied.Texts.Remove(item);
+        }
         InvalidateMeasure();
     }
 

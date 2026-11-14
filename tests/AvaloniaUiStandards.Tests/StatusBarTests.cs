@@ -297,6 +297,65 @@ public class StatusBarTests
     }
 
     [AvaloniaFact]
+    public void NewTextUnderAShortForm_ShowsTheShortForm_BeforeTheNextLayout()
+    {
+        // As the catalog's readout updates: new shorter forms, then the new full text. The full text never shows in
+        // the short slot, not even until the bar lays out again.
+        var frames = Text("30 fps · High refresh rate: off");
+        StatusBar.SetShortTexts(frames, ["30 fps"]);
+        StatusBar.SetZone(frames, StatusZone.Trailing);
+        var bar = new StatusBar { Message = "A long status message for a narrow bar", Items = { frames } };
+        var window = Host(bar, 340);
+        try
+        {
+            Assert.Equal("30 fps", frames.Text);
+            StatusBar.SetShortTexts(frames, ["60 fps"]);
+            frames.Text = "60 fps · High refresh rate: on";
+            Assert.Equal("60 fps", frames.Text);
+            Pump(window);
+            Assert.Equal("60 fps", frames.Text);
+            bar.Width = 1000;
+            Pump(window);
+            Assert.Equal("60 fps · High refresh rate: on", frames.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void BoundText_KeepsItsBinding_ThroughShorteningAndRestoring()
+    {
+        // The app's text comes from a binding to its own object.
+        var source = new TextBlock { Text = "30 fps · High refresh rate: off" };
+        var frames = new TextBlock();
+        frames.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(TextBlock.Text)) { Source = source });
+        StatusBar.SetShortTexts(frames, ["30 fps"]);
+        StatusBar.SetZone(frames, StatusZone.Trailing);
+        var bar = new StatusBar { Message = "A long status message for a narrow bar", Items = { frames } };
+        var window = Host(bar, 340);
+        try
+        {
+            Assert.Equal("30 fps", frames.Text);
+            // A value from the binding while shortened is the new full text.
+            source.Text = "60 fps · High refresh rate: on";
+            Assert.Equal("30 fps", frames.Text);
+            bar.Width = 1000;
+            Pump(window);
+            Assert.Equal("60 fps · High refresh rate: on", frames.Text);
+            // Restored, the binding still drives the text.
+            source.Text = "90 fps · High refresh rate: on";
+            Pump(window);
+            Assert.Equal("90 fps · High refresh rate: on", frames.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void HiddenItems_TakeNoFocus()
     {
         var (a, b) = (Clickable("Alpha"), Clickable("Beta"));
