@@ -43,6 +43,7 @@ internal static class CatalogPages
         new("DataGrid", Icons.Table, () => new DataGridPage()),
         new("ColorPicker", Icons.Eyedropper, () => new ColorPickerPage()),
         new("Toolbar band", Icons.AppWindow, () => new ToolbarBandPage()),
+        new("Status bar", Icons.CheckCircle, () => new StatusBarPage()),
     ];
 
     public static readonly IReadOnlyList<PageInfo> Footer =

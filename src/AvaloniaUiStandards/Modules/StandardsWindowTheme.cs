@@ -51,9 +51,12 @@ internal static class StandardsWindowTheme
     public const double ResizeBand = 8;
     public const double ResizeCorner = 12;
 
-    /// <summary>Title band height: 48 (Normal), 40 (Compact). Status bar height: 32 (Normal), 24 (Compact).</summary>
-    public static readonly (double TitleBand, double StatusBar) Normal = (48, 32);
-    public static readonly (double TitleBand, double StatusBar) Compact = (40, 24);
+    /// <summary>Title band height: 48 (Normal), 40 (Compact).</summary>
+    public const double TitleBandNormal = 48;
+    public const double TitleBandCompact = 40;
+
+    /// <summary>Status bar height at every density.</summary>
+    public const double StatusBarHeight = 24;
 
     /// <summary>Menu row height: the menu titles' (Button's) height, 32 (Normal) and 24 (Compact).</summary>
     public const double MenuRowNormal = 32;
@@ -62,7 +65,6 @@ internal static class StandardsWindowTheme
     // Shadow colour per theme, and the density heights, under non-public keys.
     internal static readonly object ShadowColorKey = new();
     internal static readonly object TitleBandHeightKey = new();
-    internal static readonly object StatusBarHeightKey = new();
     internal static readonly object MenuRowHeightKey = new();
 
     internal static readonly Color ShadowLight = Color.Parse("#40000000");
@@ -76,9 +78,7 @@ internal static class StandardsWindowTheme
 
     public static void ApplyDensity(IResourceDictionary resources, bool compact)
     {
-        var sizes = compact ? Compact : Normal;
-        resources[TitleBandHeightKey] = sizes.TitleBand;
-        resources[StatusBarHeightKey] = sizes.StatusBar;
+        resources[TitleBandHeightKey] = compact ? TitleBandCompact : TitleBandNormal;
         resources[MenuRowHeightKey] = compact ? MenuRowCompact : MenuRowNormal;
     }
 
@@ -148,6 +148,11 @@ internal static class StandardsWindowTheme
                 (Visual.IsVisibleProperty, false)),
             Part<Button>(SidebarTogglePart, ":sidebar-module", (Visual.IsVisibleProperty, true)),
             Part<Button>(SidebarTogglePart, ":traffic-lights", (Layoutable.MarginProperty, new Thickness(Spacing.M, 0, 0, 0))),
+
+            // Status content gets SpacingL at the sides; a StatusBar Module keeps its own side padding (its
+            // clickable items' fills reach into it).
+            Part<ContentPresenter>(StatusBarPart, null, (TemplatedControl.PaddingProperty, new Thickness(Spacing.L, 0))),
+            Part<ContentPresenter>(StatusBarPart, ":status-bar-module", (TemplatedControl.PaddingProperty, new Thickness(0))),
             Part<TextBlock>(TitlePart, ":sidebar-module", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
             Part<ContentPresenter>(SidebarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, Spacing.S))),
             Part<ContentPresenter>(SidebarPart, ":sidebar-module",
@@ -215,12 +220,12 @@ internal static class StandardsWindowTheme
         toolbarBand.Background = Brushes.Transparent;
         DockPanel.SetDock(toolbarBand, Dock.Top);
 
-        // Status bar, sidebar and the glass content panel.
+        // Status bar, sidebar and the glass content panel. The status bar is the last row, across
+        // the window and under the sidebar; it comes last in the tree, so its items are the last Tab stops.
         var statusBar = Named(Slot(StandardsWindow.StatusBarProperty), StatusBarPart);
-        statusBar.Padding = new Thickness(Spacing.L, 0);
         statusBar.VerticalContentAlignment = VerticalAlignment.Center;
-        statusBar.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(StatusBarHeightKey));
-        DockPanel.SetDock(statusBar, Dock.Bottom);
+        statusBar.Height = StatusBarHeight;
+        Grid.SetRow(statusBar, 1);
 
         var sidebar = Named(Slot(StandardsWindow.SidebarProperty), SidebarPart);
         DockPanel.SetDock(sidebar, Dock.Left);
@@ -250,7 +255,25 @@ internal static class StandardsWindowTheme
         var backdrop = Named(Slot(StandardsWindow.BackdropProperty), BackdropPart);
         var frame = Named(new SquircleBorder
         {
-            Child = new Panel { Children = { backdrop, new DockPanel { Children = { titleBand, menuRow, toolbarBand, statusBar, sidebar, panel } } } },
+            Child = new Panel
+            {
+                Children =
+                {
+                    backdrop,
+                    new DockPanel
+                    {
+                        Children =
+                        {
+                            titleBand, menuRow, toolbarBand,
+                            new Grid
+                            {
+                                RowDefinitions = new RowDefinitions("*,Auto"),
+                                Children = { new DockPanel { Children = { sidebar, panel } }, statusBar },
+                            },
+                        },
+                    },
+                },
+            },
         }, FramePart);
         frame.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
         frame.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlForegroundBaseLowBrush"));

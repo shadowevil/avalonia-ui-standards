@@ -455,7 +455,7 @@ public class StandardsWindowTests
     }
 
     [AvaloniaFact]
-    public void TitleBandAndStatusBar_FollowDensity()
+    public void TitleBand_FollowsDensity_TheStatusBarIs24AtBoth()
     {
         var window = SampleWindow(ThemeVariant.Light, slots: true, WindowButtonStyle.CaptionButtons);
         var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
@@ -464,7 +464,7 @@ public class StandardsWindowTests
         try
         {
             Assert.Equal(48, Part<Control>(window, StandardsWindowTheme.TitleBandPart).Bounds.Height);
-            Assert.Equal(32, Part<Control>(window, StandardsWindowTheme.StatusBarPart).Bounds.Height);
+            Assert.Equal(24, Part<Control>(window, StandardsWindowTheme.StatusBarPart).Bounds.Height);
             theme.Density = DensityStyle.Compact;
             Pump(window);
             Assert.Equal(40, Part<Control>(window, StandardsWindowTheme.TitleBandPart).Bounds.Height);
