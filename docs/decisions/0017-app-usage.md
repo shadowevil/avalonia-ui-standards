@@ -15,6 +15,7 @@
   - `StandardsWindow.IsContentScrollable` (default true) makes the glass panel scroll its content ([0022](0022-window-layout.md)).
   - `StandardsWindow.LayoutMode` (a `WindowLayoutMode`: `Automatic`, `MacOS`, `Windows`) sets which OS's window layout the window shows ([0022](0022-window-layout.md)).
   - Menus are Avalonia's `NativeMenu`, set on the window (`NativeMenu.Menu`) and on the `Application` for the application menu; in the Windows layout `StandardsWindow` shows the window's menu in its menu row ([0044](0044-menu-bar.md)).
+  - `StandardsWindow.ResolvedLayoutMode` (read-only `WindowLayoutMode`, never `Automatic`) is the layout in use, raising a property change when `LayoutMode` changes it, so apps can bind to it or observe it ([0022](0022-window-layout.md)).
   - `StandardsWindow.ToolbarBand` holds a `ToolbarBand`, whose items take the attached properties `ToolbarBand.Zone` (a `ToolbarZone`), `Priority`, `Label`, `CanOverflow` and `BeginsGroup`; `ToolbarSpacer` is its flexible space ([0043](0043-toolbar-band.md)).
   - `StandardsTheme` properties: `Accent`, `Density`, `ReduceMotion`, `ReduceTransparency`, `HighRefreshRate`, `GlassQuality`.
   - `StandardsTheme.CreateForTests(AccessibilitySettings)` creates the theme with the OS reduce-motion and reduce-transparency settings pinned (`AccessibilitySettings.NotReduced` for neither), so an app's headless tests do not depend on the machine. Apps use the constructor, which reads the OS.

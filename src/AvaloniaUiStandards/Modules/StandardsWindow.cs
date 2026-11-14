@@ -52,6 +52,9 @@ public class StandardsWindow : Window, IFrameTickSource
     public static readonly StyledProperty<WindowLayoutMode> LayoutModeProperty =
         AvaloniaProperty.Register<StandardsWindow, WindowLayoutMode>(nameof(LayoutMode));
 
+    public static readonly DirectProperty<StandardsWindow, WindowLayoutMode> ResolvedLayoutModeProperty =
+        AvaloniaProperty.RegisterDirect<StandardsWindow, WindowLayoutMode>(nameof(ResolvedLayoutMode), w => w.ResolvedLayoutMode);
+
     public static readonly StyledProperty<bool> HighRefreshRateProperty =
         AvaloniaProperty.Register<StandardsWindow, bool>(nameof(HighRefreshRate));
 
@@ -64,6 +67,7 @@ public class StandardsWindow : Window, IFrameTickSource
 
     private WindowButtons? _buttons;
     private Image? _titleIcon;
+    private WindowLayoutMode _resolvedLayoutMode = WindowLayout.Resolve(WindowLayoutMode.Automatic, OperatingSystem.IsMacOS());
     private Panel? _menuRowPart;
     private readonly MenuShortcuts _shortcuts;
     private bool _opened;
@@ -234,8 +238,11 @@ public class StandardsWindow : Window, IFrameTickSource
         set => SetValue(LayoutModeProperty, value);
     }
 
-    /// <summary>The layout in use: <see cref="LayoutMode"/>, with Automatic resolved for this OS.</summary>
-    internal WindowLayoutMode ResolvedLayoutMode => WindowLayout.Resolve(LayoutMode, OperatingSystem.IsMacOS());
+    /// <summary>
+    /// The layout in use (read-only): <see cref="LayoutMode"/> with Automatic resolved for this OS, so
+    /// never <see cref="WindowLayoutMode.Automatic"/>. Raises a property change when <see cref="LayoutMode"/> changes it.
+    /// </summary>
+    public WindowLayoutMode ResolvedLayoutMode => _resolvedLayoutMode;
 
     /// <summary>The window shortcuts made from the menu's gestures.</summary>
     internal MenuShortcuts MenuShortcuts => _shortcuts;
@@ -302,6 +309,8 @@ public class StandardsWindow : Window, IFrameTickSource
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == LayoutModeProperty)
+            SetAndRaise(ResolvedLayoutModeProperty, ref _resolvedLayoutMode, WindowLayout.Resolve(LayoutMode, OperatingSystem.IsMacOS()));
         if (change.Property == WindowStateProperty || change.Property == WindowButtonStyleProperty
             || change.Property == ActualTransparencyLevelProperty || change.Property == IsActiveProperty
             || change.Property == LayoutModeProperty)
