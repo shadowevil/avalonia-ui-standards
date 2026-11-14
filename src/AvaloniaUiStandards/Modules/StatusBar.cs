@@ -326,22 +326,34 @@ public class StatusBar : Control
         {
             shortened.Level = Math.Clamp(shortened.Level, 1, forms.Count);
             shortened.Form = forms[shortened.Level - 1];
-            _applied.Texts[item] = shortened.Form;
+            _applied = _applied.WithText(item, shortened.Form);
             SetText(shortened.Text, shortened.Form);
         }
         else
         {
             shortened.Text.Target.PropertyChanged -= OnShortenedTextChanged;
             _shortened.Remove(item);
-            _applied.Texts.Remove(item);
+            _applied = _applied.WithText(item, null);
         }
         InvalidateMeasure();
     }
 
-    // What the bar shows: the hidden items and the shorter text each shortened item shows.
-    private sealed record State(HashSet<Control> Hidden, Dictionary<Control, string> Texts)
+    // What the bar shows: the hidden items and the shorter text each shortened item shows. A State is never changed
+    // in place (Empty is shared by every bar); a change makes a new one.
+    internal sealed record State(HashSet<Control> Hidden, Dictionary<Control, string> Texts)
     {
         public static readonly State Empty = new([], []);
+
+        // This state with item showing form, or its full text when form is null.
+        public State WithText(Control item, string? form)
+        {
+            var texts = new Dictionary<Control, string>(Texts);
+            if (form is null)
+                texts.Remove(item);
+            else
+                texts[item] = form;
+            return this with { Texts = texts };
+        }
 
         public static State Of(Plan plan) => new(plan.Hidden, plan.Levels
             .Where(l => l.Value > 0 && GetShortTexts(l.Key) is { } forms && l.Value <= forms.Count)

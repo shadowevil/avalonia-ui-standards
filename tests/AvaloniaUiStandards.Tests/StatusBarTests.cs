@@ -356,6 +356,34 @@ public class StatusBarTests
     }
 
     [AvaloniaFact]
+    public void NewTextUnderAShortForm_RightAfterAnItemIsAdded_LeavesTheSharedEmptyStateEmpty()
+    {
+        // Adding an item resets what the bar has applied to the shared empty state; a new text on a shortened item in
+        // the same handler, before layout, records its form in a new state, not in the shared one.
+        var frames = Text("30 fps · High refresh rate: off");
+        StatusBar.SetShortTexts(frames, ["30 fps"]);
+        StatusBar.SetZone(frames, StatusZone.Trailing);
+        var bar = new StatusBar { Message = "A long status message for a narrow bar", Items = { frames } };
+        var window = Host(bar, 340);
+        try
+        {
+            Assert.Equal("30 fps", frames.Text);
+            bar.Items.Add(Text("Layer"));
+            frames.Text = "60 fps · High refresh rate: on";
+            Assert.Empty(StatusBar.State.Empty.Texts);
+            Assert.Empty(StatusBar.State.Empty.Hidden);
+            Pump(window);
+            Assert.Empty(StatusBar.State.Empty.Texts);
+            Assert.Empty(StatusBar.State.Empty.Hidden);
+            Assert.Equal("30 fps", frames.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void HiddenItems_TakeNoFocus()
     {
         var (a, b) = (Clickable("Alpha"), Clickable("Beta"));
