@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
@@ -33,13 +36,8 @@ internal sealed class ThemeBand
         ("Pink", "#E91E63"),
     ];
 
-    // The accent presets' chip in the list, and the swatch's corner radius.
-    private const double ListChipSize = 16;
-    private static readonly CornerRadius ChipRadius = new(4);
-
     private readonly StandardsTheme? _theme = Application.Current?.Styles.OfType<StandardsTheme>().FirstOrDefault();
-    private readonly SquircleBorder _swatchChip;
-    private bool _syncing;
+    private readonly ChipIcon _swatch = new();
 
     public ThemeBand()
     {
@@ -48,26 +46,35 @@ internal sealed class ThemeBand
         Motion = Segmented("Motion", ["Follow OS", "Reduced", "Full"], Icons.Play);
         Transparency = Segmented("Transparency", ["Follow OS", "Reduced", "Full"], Icons.Drop);
 
-        _swatchChip = Chip();
-        AccentList = new ListBox
-        {
-            Width = 200,
-            ItemsSource = Accents.Select(a => AccentRow(a.Name, a.Hex)).ToList(),
-        };
-        SelectionOptions.SetAccentFlag(AccentList, true);
-        AutomationProperties.SetName(AccentList, "Accent presets");
-        AccentHex = new TextBox { MaxLength = 9 };
+        // The accent: a drop-down button showing the accent, opening a menu of the presets as check items (each with
+        // its chip), then the hex box.
+        AccentPresets = Accents.Select(a => Preset(a.Name, a.Hex)).ToList();
+        AccentHex = new TextBox { MaxLength = 9, MinWidth = 120 };
         ToolTip.SetTip(AccentHex, "Accent colour as #RRGGBB");
         AutomationProperties.SetName(AccentHex, "Accent colour as #RRGGBB");
-        AccentFlyout = new Flyout
-        {
-            Content = new StackPanel { Spacing = 8, Children = { AccentList, AccentHex } },
-        };
-        Accent = Swatch();
-        // Below the swatch, left edges aligned; opened from "…" at the trailing end, right edges aligned, as the "…" menu.
-        AccentFlyout.Opening += (_, _) => AccentFlyout.Placement =
-            AccentFlyout.Target == Accent ? PlacementMode.BottomEdgeAlignedLeft : PlacementMode.BottomEdgeAlignedRight;
+        AccentHexItem = new MenuItem { Header = AccentHex, StaysOpenOnClick = true };
+        // Its label as a submenu entry in the band's "…" menu, which opens the whole accent menu.
+        ToolbarBand.SetLabel(AccentHexItem, "Custom colour…");
+        AutomationProperties.SetName(AccentHexItem, "Custom colour");
+        AccentMenu = new MenuFlyout();
+        foreach (var preset in AccentPresets)
+            AccentMenu.Items.Add(preset);
+        AccentMenu.Items.Add(new Separator());
+        AccentMenu.Items.Add(AccentHexItem);
+        Accent = new DropDownButton { Content = _swatch, Flyout = AccentMenu };
+        Accent.Classes.Add("subtle");
+        ToolTip.SetTip(Accent, "Accent colour");
+        AutomationProperties.SetName(Accent, "Accent colour");
 
+        // Below the button, left edges aligned; opened at the band's trailing end (from "…"), right edges aligned.
+        AccentMenu.Opening += (_, _) => AccentMenu.Placement =
+            AccentMenu.Target == Accent ? PlacementMode.BottomEdgeAlignedLeft : PlacementMode.BottomEdgeAlignedRight;
+        // Keyboard: moving onto the hex row puts the caret in the box.
+        AccentHexItem.GotFocus += (_, e) =>
+        {
+            if (e.Source == AccentHexItem)
+                AccentHex.Focus(NavigationMethod.Directional);
+        };
         // Zones and overflow order: theme and accent stay longest; the accessibility pair at the trailing end goes first.
         ToolbarBand.SetPriority(Accent, 1);
         ToolbarBand.SetPriority(Density, 2);
@@ -78,11 +85,17 @@ internal sealed class ThemeBand
         ToolbarBand.SetPriority(Transparency, 4);
         ToolbarBand.SetBeginsGroup(Transparency, true);
         Band = new ToolbarBand { Items = { Theme, Accent, Density, Motion, Transparency } };
+        // Chosen from the "…" menu's submenu (the menu itself is closed then): the whole accent menu opens.
+        AccentHexItem.Click += (_, _) =>
+        {
+            if (!AccentMenu.IsOpen)
+                AccentMenu.ShowAt(Band);
+        };
 
         // The controls start at the theme's current values (the catalog's saved settings), before they set them.
         var accent = Hex(_theme?.Accent ?? StandardsTheme.DefaultAccent);
-        AccentList.SelectedIndex = Array.FindIndex(Accents, a => a.Hex == accent);
         AccentHex.Text = accent;
+        CheckPreset(accent);
         var variant = Application.Current?.RequestedThemeVariant;
         Theme.SelectedIndex = variant == ThemeVariant.Light ? 1 : variant == ThemeVariant.Dark ? 2 : 0;
         Density.SelectedIndex = _theme?.Density == DensityStyle.Compact ? 1 : 0;
@@ -106,11 +119,6 @@ internal sealed class ThemeBand
             if (_theme is not null)
                 _theme.ReduceTransparency = Tri(Transparency.SelectedIndex);
         };
-        AccentList.SelectionChanged += (_, _) =>
-        {
-            if (!_syncing && AccentList.SelectedIndex >= 0)
-                AccentHex.Text = Accents[AccentList.SelectedIndex].Hex;
-        };
         // The text property, not TextChanged: TextChanged is raised after the box renders, so it never fires while the
         // flyout is closed (a preset or hex set from code).
         AccentHex.PropertyChanged += (_, e) =>
@@ -122,7 +130,7 @@ internal sealed class ThemeBand
         // The swatch follows the accent however it is set, while the band is shown.
         IDisposable? accentWatch = null;
         Band.AttachedToVisualTree += (_, _) => accentWatch = _theme?.GetObservable(StandardsTheme.AccentProperty)
-            .Subscribe(new AnonymousObserver<Color>(c => _swatchChip.Background = new SolidColorBrush(c)));
+            .Subscribe(new AnonymousObserver<Color>(c => _swatch.Background = new SolidColorBrush(c)));
         Band.DetachedFromVisualTree += (_, _) => accentWatch?.Dispose();
     }
 
@@ -131,12 +139,16 @@ internal sealed class ThemeBand
 
     public SegmentedControl Theme { get; }
 
-    /// <summary>The accent swatch: a button showing the accent, opening <see cref="AccentFlyout"/>.</summary>
-    public Button Accent { get; }
+    /// <summary>The accent: a drop-down button showing the accent's chip, opening <see cref="AccentMenu"/>.</summary>
+    public DropDownButton Accent { get; }
 
-    public Flyout AccentFlyout { get; }
+    public MenuFlyout AccentMenu { get; }
 
-    public ListBox AccentList { get; }
+    /// <summary>The presets' radio items, in the order of <see cref="Accents"/>.</summary>
+    public IReadOnlyList<MenuItem> AccentPresets { get; }
+
+    /// <summary>The menu's last item, holding <see cref="AccentHex"/>.</summary>
+    public MenuItem AccentHexItem { get; }
 
     public TextBox AccentHex { get; }
 
@@ -165,47 +177,23 @@ internal sealed class ThemeBand
         return control;
     }
 
-    // A colour chip: a squircle with a hairline edge, as the Colours page's swatches.
-    private static SquircleBorder Chip()
+    // A preset: a check item with its chip and name, so the chosen one shows the menu's check mark; the presets are
+    // kept one-of-many here. Choosing one sets the hex box, which sets the accent, and checks it again (choosing the
+    // checked one unchecks it first).
+    private MenuItem Preset(string name, string hex)
     {
-        var chip = new SquircleBorder { CornerRadius = ChipRadius, BorderThickness = new Thickness(1) };
-        chip.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlForegroundBaseLowBrush"));
-        return chip;
-    }
-
-    /// <summary>
-    /// A subtle button, square at the button height as the band's icon buttons, holding the accent chip at the icon
-    /// size (20, 16 Compact): the chip covers an invisible <see cref="Icon"/>, which takes the size from the theme.
-    /// </summary>
-    private Button Swatch()
-    {
-        var button = new Button
+        var item = new MenuItem
         {
-            Content = new Panel { Children = { new Icon { Opacity = 0 }, _swatchChip } },
-            Padding = new Thickness(0),
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            Flyout = AccentFlyout,
+            Header = name,
+            Icon = new ChipIcon { Background = new SolidColorBrush(Color.Parse(hex)) },
+            ToggleType = MenuItemToggleType.CheckBox,
         };
-        button.Classes.Add("subtle");
-        button.Bind(Layoutable.MinWidthProperty, button.GetObservable(Layoutable.MinHeightProperty));
-        ToolTip.SetTip(button, "Accent colour");
-        AutomationProperties.SetName(button, "Accent colour");
-        return button;
-    }
-
-    private static Control AccentRow(string name, string hex)
-    {
-        var chip = Chip();
-        chip.Width = chip.Height = ListChipSize;
-        chip.Background = new SolidColorBrush(Color.Parse(hex));
-        var row = new StackPanel
+        item.Click += (_, _) =>
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Children = { chip, new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center } },
+            AccentHex.Text = hex;
+            CheckPreset(hex);
         };
-        AutomationProperties.SetName(row, name);
-        return row;
+        return item;
     }
 
     private void ApplyHex()
@@ -220,10 +208,37 @@ internal sealed class ThemeBand
             return;
 
         _theme.Accent = Color.Parse(text);
-        _syncing = true;
-        AccentList.SelectedIndex = Array.FindIndex(Accents, a => a.Hex.Equals(text, StringComparison.OrdinalIgnoreCase));
-        _syncing = false;
+        CheckPreset(text);
     }
+
+    // Checks the preset with this hex and no other; none when it matches no preset.
+    private void CheckPreset(string hex)
+    {
+        for (var i = 0; i < Accents.Length; i++)
+            AccentPresets[i].IsChecked = Accents[i].Hex.Equals(hex, StringComparison.OrdinalIgnoreCase);
+    }
+}
+
+/// <summary>
+/// A colour chip in an icon's place: a squircle at the Icon size (20, 16 Compact) filled with its <c>Background</c>,
+/// with a hairline edge and radius 4, as the Colours page's swatches. As an <see cref="Icon"/>, it sits where icons do:
+/// a toolbar band's icon drop-down, a menu item's icon column.
+/// </summary>
+internal sealed class ChipIcon : Icon
+{
+    public ChipIcon()
+    {
+        Template = new FuncControlTemplate<ChipIcon>((_, _) =>
+        {
+            var chip = new SquircleBorder { CornerRadius = new CornerRadius(4), BorderThickness = new Thickness(1) };
+            chip.Bind(SquircleBorder.BackgroundProperty, new TemplateBinding(BackgroundProperty));
+            chip.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlForegroundBaseLowBrush"));
+            return chip;
+        });
+    }
+
+    // The Icon theme, for its density size; the template above replaces its path.
+    protected override Type StyleKeyOverride => typeof(Icon);
 }
 
 /// <summary>

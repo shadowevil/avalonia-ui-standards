@@ -5,10 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -80,30 +79,44 @@ public class CatalogThemeBandTests
                     Assert.Equal(value, read());
                 }
 
-            // A preset sets the accent and the hex box; the swatch shows it.
-            var swatch = ((Panel)band.Accent.Content!).Children.OfType<SquircleBorder>().Single();
+            // Each preset, chosen in the accent menu, sets the accent and the hex box, checks its own item only, and
+            // the button's chip shows it.
+            var chip = Assert.IsType<ChipIcon>(band.Accent.Content);
             for (var i = 0; i < ThemeBand.Accents.Length; i++)
             {
-                band.AccentList.SelectedIndex = i;
-                Pump(window);
+                ClickCentre(window, band.Accent);
+                Assert.True(band.AccentMenu.IsOpen);
+                ClickCentre(window, band.AccentPresets[i]);
+                Assert.False(band.AccentMenu.IsOpen);
                 Assert.Equal(Color.Parse(ThemeBand.Accents[i].Hex), theme.Accent);
                 Assert.Equal(ThemeBand.Accents[i].Hex, band.AccentHex.Text);
-                Assert.Equal(theme.Accent, Assert.IsType<SolidColorBrush>(swatch.Background).Color);
+                Assert.Equal(i, CheckedPreset(band));
+                Assert.Equal(theme.Accent, Assert.IsType<SolidColorBrush>(chip.Background).Color);
             }
 
-            // A typed hex sets the accent and clears the preset; an invalid one changes nothing.
-            band.AccentHex.Text = "#123456";
+            // Choosing the chosen preset again keeps it checked.
+            var last = ThemeBand.Accents.Length - 1;
+            ClickCentre(window, band.Accent);
+            ClickCentre(window, band.AccentPresets[last]);
+            Assert.Equal(last, CheckedPreset(band));
+
+            // A hex typed in the menu's box sets the accent and clears the presets' check, and the menu stays open;
+            // an invalid one changes nothing.
+            ClickCentre(window, band.Accent);
+            ClickCentre(window, band.AccentHex);
+            Assert.True(band.AccentMenu.IsOpen);
+            Assert.True(band.AccentHex.IsFocused);
+            band.AccentHex.Text = "";
+            window.KeyTextInput("#123456");
+            Pump(window);
+            Assert.True(band.AccentMenu.IsOpen);
             Assert.Equal(Color.Parse("#123456"), theme.Accent);
-            Assert.Equal(-1, band.AccentList.SelectedIndex);
+            Assert.Equal(-1, CheckedPreset(band));
             band.AccentHex.Text = "#12";
             Assert.Equal(Color.Parse("#123456"), theme.Accent);
             band.AccentHex.Text = ThemeBand.Accents[2].Hex;
-            Assert.Equal(2, band.AccentList.SelectedIndex);
-
-            // Pressing the swatch opens the accent flyout.
-            ClickCentre(window, band.Accent);
-            Assert.True(band.AccentFlyout.IsOpen);
-            band.AccentFlyout.Hide();
+            Assert.Equal(2, CheckedPreset(band));
+            band.AccentMenu.Hide();
         }
         finally
         {
@@ -127,7 +140,7 @@ public class CatalogThemeBandTests
                 var band = window.ThemeControls;
                 band.Theme.SelectedIndex = 2;
                 band.Density.SelectedIndex = 1;
-                band.AccentList.SelectedIndex = 4;
+                band.AccentPresets[4].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 band.Motion.SelectedIndex = 1;
                 band.Transparency.SelectedIndex = 2;
                 Assert.True(store.IsPending);
@@ -156,7 +169,7 @@ public class CatalogThemeBandTests
                 var band = window.ThemeControls;
                 Assert.Equal(2, band.Theme.SelectedIndex);
                 Assert.Equal(1, band.Density.SelectedIndex);
-                Assert.Equal(4, band.AccentList.SelectedIndex);
+                Assert.Equal(4, CheckedPreset(band));
                 Assert.Equal(ThemeBand.Accents[4].Hex, band.AccentHex.Text);
                 Assert.Equal(1, band.Motion.SelectedIndex);
                 Assert.Equal(2, band.Transparency.SelectedIndex);
@@ -213,7 +226,7 @@ public class CatalogThemeBandTests
     }
 
     [AvaloniaFact]
-    public void OverflowMenu_ShowsSegmentedGroups_AndTheAccentEntryOpensTheFlyout()
+    public void OverflowMenu_ShowsSegmentedGroups_AndTheAccentSubmenu()
     {
         var controls = new ThemeBand();
         var band = controls.Band;
@@ -232,31 +245,49 @@ public class CatalogThemeBandTests
             var radios = entries.Where(e => e.ToggleType == MenuItemToggleType.Radio).Select(e => e.Header as string).ToList();
             Assert.Equal(["System", "Light", "Dark", "Normal", "Compact", "Follow OS", "Reduced", "Full", "Follow OS", "Reduced", "Full"], radios);
 
+            // The accent drop-down is a submenu: the presets as radio items, the chosen one checked, then "Custom colour…".
             var accent = entries.Single(e => e.Header as string == "Accent colour");
-            ClickCentre(window, accent);
-            Assert.True(controls.AccentFlyout.IsOpen);
-            Assert.Same(band.MoreButton, controls.AccentFlyout.Target);
-            Assert.Equal(PlacementMode.BottomEdgeAlignedRight, controls.AccentFlyout.Placement);
-            controls.AccentFlyout.Hide();
+            var items = accent.Items.OfType<MenuItem>().ToList();
+            Assert.Equal(ThemeBand.Accents.Select(a => a.Name).Append("Custom colour…"), items.Select(i => i.Header as string));
+            Assert.All(items.Take(ThemeBand.Accents.Length), i => Assert.Equal(MenuItemToggleType.CheckBox, i.ToggleType));
+            Assert.True(items[0].IsChecked);
+
+            // Choosing a preset there sets the accent.
+            var theme = AppTheme().Theme;
+            items[3].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Pump(window);
+            Assert.Equal(Color.Parse(ThemeBand.Accents[3].Hex), theme.Accent);
+            Assert.Equal(3, CheckedPreset(controls));
+
+            // "Custom colour…" opens the whole accent menu at the band's trailing end, right edges aligned.
+            band.OverflowMenu.Hide();
+            items[^1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Pump(window);
+            Assert.True(controls.AccentMenu.IsOpen);
+            Assert.Same(band, controls.AccentMenu.Target);
+            Assert.Equal(PlacementMode.BottomEdgeAlignedRight, controls.AccentMenu.Placement);
+            controls.AccentMenu.Hide();
             Pump(window);
 
-            // From the swatch it aligns left edges again.
+            // From the drop-down button it aligns left edges.
             band.Width = 1000;
             Pump(window);
             ClickCentre(window, controls.Accent);
-            Assert.True(controls.AccentFlyout.IsOpen);
-            Assert.Equal(PlacementMode.BottomEdgeAlignedLeft, controls.AccentFlyout.Placement);
-            controls.AccentFlyout.Hide();
+            Assert.True(controls.AccentMenu.IsOpen);
+            Assert.Same(controls.Accent, controls.AccentMenu.Target);
+            Assert.Equal(PlacementMode.BottomEdgeAlignedLeft, controls.AccentMenu.Placement);
+            controls.AccentMenu.Hide();
         }
         finally
         {
             band.OverflowMenu.Hide();
+            Reset(Application.Current!, AppTheme().Theme);
             window.Close();
         }
     }
 
     [AvaloniaFact]
-    public void AccentFlyoutFromTheMoreButton_StaysInsideTheWindow()
+    public void AccentMenuOpenedFromTheOverflow_StaysInsideTheWindow()
     {
         var window = new MainWindow { Width = 600, Height = 700 };
         window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
@@ -266,18 +297,45 @@ public class CatalogThemeBandTests
             Pump(window);
             var controls = window.ThemeControls;
             Assert.True(controls.Band.IsOverflowed(controls.Motion));
-            controls.AccentFlyout.ShowAt(controls.Band.MoreButton);
+            controls.AccentMenu.ShowAt(controls.Band);
             Pump(window);
-            var presenter = window.GetVisualDescendants().OfType<FlyoutPresenter>().Single(p => p.IsEffectivelyVisible);
-            var frame = window.GetVisualDescendants().OfType<Control>().First(c => c.Name == StandardsWindowTheme.FramePart);
+            var presenter = window.GetVisualDescendants().OfType<MenuFlyoutPresenter>().Single(p => p.IsEffectivelyVisible);
+            var band = controls.Band;
             var right = presenter.TranslatePoint(new Point(presenter.Bounds.Width, 0), window)!.Value.X;
-            var moreRight = controls.Band.MoreButton.TranslatePoint(new Point(controls.Band.MoreButton.Bounds.Width, 0), window)!.Value.X;
-            Assert.Equal(moreRight, right, 0.5);
-            Assert.True(right <= frame.TranslatePoint(new Point(frame.Bounds.Width, 0), window)!.Value.X);
+            var left = presenter.TranslatePoint(default, window)!.Value.X;
+            Assert.Equal(band.TranslatePoint(new Point(band.Bounds.Width, 0), window)!.Value.X, right, 0.5);
+            Assert.True(left >= band.TranslatePoint(default, window)!.Value.X);
         }
         finally
         {
-            window.ThemeControls.AccentFlyout.Hide();
+            window.ThemeControls.AccentMenu.Hide();
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(DensityStyle.Normal, 20)]
+    [InlineData(DensityStyle.Compact, 16)]
+    public void AccentButton_IsAnIconDropDown_WithTheChipAtTheIconSize(DensityStyle density, double size)
+    {
+        var controls = new ThemeBand();
+        var band = controls.Band;
+        band.HorizontalAlignment = HorizontalAlignment.Left;
+        var window = new Window { Width = 1400, Height = 300, Content = band };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        try
+        {
+            window.Show();
+            band.Width = 1300;
+            Pump(window);
+            var chip = Assert.IsType<ChipIcon>(controls.Accent.Content);
+            Assert.Equal(new Size(size, size), chip.Bounds.Size);
+            // The band's icon drop-down size: 48 x 32 (40 x 24 Compact).
+            Assert.Equal(density == DensityStyle.Compact ? new Size(40, 24) : new Size(48, 32), controls.Accent.Bounds.Size);
+            Assert.All(controls.AccentPresets, p => Assert.IsType<ChipIcon>(p.Icon));
+        }
+        finally
+        {
             window.Close();
         }
     }
@@ -335,20 +393,44 @@ public class CatalogThemeBandTests
         foreach (var density in new[] { DensityStyle.Normal, DensityStyle.Compact })
             Render($"catalog-toolbar-band-{label.ToLowerInvariant()}-{density.ToString().ToLowerInvariant()}.png", variant, density, 1200, 160);
 
+        // The accent menu, open, in light and dark, Normal and Compact.
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+        foreach (var density in new[] { DensityStyle.Normal, DensityStyle.Compact })
+            Render($"catalog-toolbar-band-accent-{label.ToLowerInvariant()}-{density.ToString().ToLowerInvariant()}.png", variant, density, 1200, 420,
+                w => w.ThemeControls.AccentMenu.ShowAt(w.ThemeControls.Accent));
+
         // A narrow window: what does not fit is in the "…" menu, shown open.
         Render("catalog-toolbar-band-narrow-light.png", ThemeVariant.Light, DensityStyle.Normal, 600, 520,
             w => w.ThemeControls.Band.OverflowMenu.ShowAt(w.ThemeControls.Band.MoreButton));
-        // The accent flyout opened from "…" in the narrow window: right edges aligned, inside the window.
-        Render("catalog-toolbar-band-accent-overflow-light.png", ThemeVariant.Light, DensityStyle.Normal, 600, 520,
-            w => w.ThemeControls.AccentFlyout.ShowAt(w.ThemeControls.Band.MoreButton));
-        // The accent swatch's flyout, open, with the selected preset's row without the accent flag (before) and with it (after).
-        foreach (var (label, variant) in ButtonRenderTests.Themes)
-        foreach (var flag in new[] { false, true })
-            Render($"catalog-toolbar-band-accent-{label.ToLowerInvariant()}-{(flag ? "after" : "before")}.png", variant, DensityStyle.Normal, 1200, 420, w =>
-            {
-                SelectionOptions.SetAccentFlag(w.ThemeControls.AccentList, flag);
-                w.ThemeControls.AccentFlyout.ShowAt(w.ThemeControls.Accent);
-            });
+
+        // The accent in the "…" menu: the window's minimum width keeps it in the band, so a band alone, 200 wide, with
+        // the accent submenu open.
+        var controls = new ThemeBand();
+        var band = controls.Band;
+        band.Width = 200;
+        band.HorizontalAlignment = HorizontalAlignment.Left;
+        band.VerticalAlignment = VerticalAlignment.Top;
+        var surface = new Border { Child = band };
+        surface.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SystemRegionColor"));
+        var window = new Window { Width = 560, Height = 420, Content = surface, RequestedThemeVariant = ThemeVariant.Light };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        try
+        {
+            window.SetRenderScaling(Sheet.Scale);
+            window.Show();
+            Pump(window);
+            band.OverflowMenu.ShowAt(band.MoreButton);
+            Pump(window);
+            band.MenuEntries.OfType<MenuItem>().Single(e => e.Header as string == "Accent colour").Open();
+            Pump(window);
+            using var frame = Frame.Capture(window);
+            frame.Save("catalog-toolbar-band-accent-overflow-light.png");
+        }
+        finally
+        {
+            band.OverflowMenu.Hide();
+            window.Close();
+        }
     }
 
     // The catalog window's frame from its top, <paramref name="height"/> high, with the application set to the variant
@@ -386,7 +468,7 @@ public class CatalogThemeBandTests
         }
         finally
         {
-            window.ThemeControls.AccentFlyout.Hide();
+            window.ThemeControls.AccentMenu.Hide();
             window.ThemeControls.Band.OverflowMenu.Hide();
             window.Close();
             Reset(app, theme);
@@ -411,6 +493,8 @@ public class CatalogThemeBandTests
     }
 
     private static string Label(Control item) => ToolbarBand.LabelOf(item);
+
+    private static int CheckedPreset(ThemeBand band) => band.AccentPresets.ToList().FindIndex(p => p.IsChecked);
 
     private static void ClickCentre(Window window, Control control)
     {
