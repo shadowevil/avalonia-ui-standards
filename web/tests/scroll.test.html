@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Scrolling tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/scroll.css">
+<style>
+  body { margin: 0; }
+  .viewer { width: 200px; height: 110px; overflow: auto; }
+  .line { height: 25px; white-space: nowrap; }
+  .wide { width: 600px; height: 20px; }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="v" class="viewer ui-scroll"></div>
+<div id="h" class="viewer ui-scroll"><div class="wide"></div></div>
+<div id="rtl" class="viewer ui-scroll" dir="rtl"><div class="wide"></div></div>
+<div id="short" class="viewer ui-scroll"><div class="line">One line</div></div>
+<div id="live" class="viewer ui-scroll"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setAccent } from "../style/index.js";
+import { refreshScroll, forceScrollbarState } from "../blocks/scroll.js";
+
+const $ = (id) => document.getElementById(id);
+for (const id of ["v", "live"]) $(id).innerHTML = Array.from({ length: 20 }, (_, i) => `<div class="line">Line ${i + 1}</div>`).join("");
+const frame = () => new Promise((r) => { requestAnimationFrame(() => r()); setTimeout(r, 100); });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const overlay = (el) => el.querySelector(":scope > .ui-scroll-overlay");
+const shadow = (el, edge) => overlay(el).querySelector(`[data-edge="${edge}"]`);
+const bar = (el, axis) => overlay(el).querySelector(`.ui-scroll-bar[data-orientation="${axis}"]`);
+const part = (el, axis, name) => bar(el, axis).querySelector(`.ui-scroll-${name}`);
+const shown = (el) => ["top", "bottom", "left", "right"].filter((e) => shadow(el, e).hasAttribute("data-shown")).join(",");
+
+function rgba(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [...[m[1], m[2], m[3]].map((v) => Math.round(v * 255)), m[4] === undefined ? 1 : +(+m[4]).toFixed(2)];
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +(+m[4]).toFixed(2)];
+  throw new Error(`unparsed colour ${text}`);
+}
+const colour = (text) => JSON.stringify(rgba(text));
+
+// The decision's shadow tone: the accent's hue and saturation at lightness l, alpha a.
+function tone(accent, l, a) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(accent.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), c = max - min;
+  let h = c === 0 ? 0 : max === r ? ((g - b) / c + 6) % 6 : max === g ? (b - r) / c + 2 : (r - g) / c + 4;
+  const s = c === 0 ? 0 : c / (1 - Math.abs(max + min - 1));
+  // HSL to RGB, as CSS Color 4
+  const hue = h * 60;
+  const fn = (n) => { const kk = (n + hue / 30) % 12; return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(kk - 3, 9 - kk, 1)); };
+  return JSON.stringify([fn(0), fn(8), fn(4)].map((v) => Math.round(v * 255)).concat(a));
+}
+
+// The shadow colour as resolved in the scroller.
+function shadowColour(el) {
+  const probe = document.createElement("i");
+  probe.style.color = "var(--ui-scroll-shadow-color)";
+  el.append(probe);
+  const value = getComputedStyle(probe).color;
+  probe.remove();
+  return colour(value);
+}
+
+test("attaches: an aria-hidden overlay last in the scroller, the native bars hidden, nothing focusable added", () => {
+  const el = $("v");
+  assert(overlay(el), "overlay");
+  assertEqual(el.lastElementChild, overlay(el));
+  assertEqual(overlay(el).getAttribute("aria-hidden"), "true");
+  assert(el.hasAttribute("data-scroll-overlay"), "marked");
+  assertEqual(getComputedStyle(el).scrollbarWidth, "none");
+  assertEqual(overlay(el).querySelectorAll("[tabindex], a, button, input").length, 0);
+  assertEqual(getComputedStyle(el).position, "relative");
+});
+
+test("without script the class gives thin native scrollbars in the thumb colour", () => {
+  const plain = document.createElement("div");
+  plain.className = "ui-scroll";
+  plain.style.overflow = "auto";
+  document.body.append(plain);
+  // Before the scan runs (a microtask away) it has no overlay yet.
+  assertEqual(getComputedStyle(plain).scrollbarWidth, "thin");
+  assert(getComputedStyle(plain).scrollbarColor.startsWith("rgba(0, 0, 0, 0.38"), getComputedStyle(plain).scrollbarColor);
+  plain.remove();
+});
+
+test("shadows: on each edge with content more than 0.5 px out of view", () => {
+  const el = $("v");
+  el.scrollTop = 0; refreshScroll(el);
+  assertEqual(shown(el), "bottom", "top");
+  el.scrollTop = 120; refreshScroll(el);
+  assertEqual(shown(el), "top,bottom", "middle");
+  el.scrollTop = 10000; refreshScroll(el);
+  assertEqual(shown(el), "top", "end");
+  const h = $("h");
+  h.scrollLeft = 150; refreshScroll(h);
+  assertEqual(shown(h), "left,right", "horizontal middle");
+  h.scrollLeft = 0; refreshScroll(h);
+  assertEqual(shown(h), "right");
+  assertEqual(shown($("short")), "", "no overflow, no shadow");
+});
+
+test("shadows mirror under rtl: content to the left is out of view at the start", () => {
+  const el = $("rtl");
+  el.scrollLeft = 0; refreshScroll(el);
+  assertEqual(shown(el), "left");
+  el.scrollLeft = -10000; refreshScroll(el);
+  assertEqual(shown(el), "right");
+});
+
+test("shadow: 12 px gradient from the accent tone to transparent, light 0.35 / 8 %, dark 0.12 / 18 %; follows setAccent", () => {
+  const el = $("v");
+  const top = getComputedStyle(shadow(el, "top"));
+  assertEqual(top.height, "12px");
+  assertEqual(getComputedStyle(shadow(el, "left")).width, "12px");
+  assert(top.backgroundImage.startsWith("linear-gradient("), top.backgroundImage);
+  assert(top.backgroundImage.endsWith("transparent)") || top.backgroundImage.includes("rgba(0, 0, 0, 0)"), top.backgroundImage);
+  assertEqual(shadowColour(el), tone("#007CEA", 0.35, 0.08), "light");
+  setTheme("dark");
+  assertEqual(shadowColour(el), tone("#007CEA", 0.12, 0.18), "dark");
+  setTheme("light");
+  setAccent("#2A9D8F");
+  assertEqual(shadowColour(el), tone("#2A9D8F", 0.35, 0.08), "another accent");
+  setAccent();
+});
+
+test("data-scroll-shadows=false turns the shadows off", () => {
+  const el = $("v");
+  el.setAttribute("data-scroll-shadows", "false");
+  assertEqual(getComputedStyle(shadow(el, "bottom")).display, "none");
+  el.removeAttribute("data-scroll-shadows");
+  assertEqual(getComputedStyle(shadow(el, "bottom")).display, "block");
+});
+
+test("the overlay stays over the viewport while the content scrolls", async () => {
+  const el = $("v");
+  el.scrollTop = 200;
+  refreshScroll(el);
+  assertEqual(el.style.getPropertyValue("--ui-scroll-max-y"), "390px");
+  assertEqual(el.style.getPropertyValue("--ui-scroll-client-height"), "110px");
+  if (CSS.supports("animation-timeline: scroll()")) {
+    // Moved by scroll-driven animations; this headless run draws no frames, so their configuration
+    // is checked here and their effect in the renders (tests/scroll.html).
+    const s = getComputedStyle(overlay(el));
+    assertEqual(s.animationName, "ui-scroll-pin-x, ui-scroll-pin-y");
+    assertEqual(s.animationTimeline, "scroll(x), scroll(y)");
+    assertEqual(getComputedStyle(part(el, "vertical", "thumb")).animationTimeline, "scroll(y)");
+  } else {
+    const a = overlay(el).getBoundingClientRect(), b = el.getBoundingClientRect();
+    assertEqual(Math.round(a.top), Math.round(b.top));
+  }
+  el.scrollTop = 0;
+  refreshScroll(el);
+});
+
+test("bar geometry: 18 px grab area at the inline end, pills 8 px in, clear of the ends by 8, minimum thumb 24", () => {
+  const el = $("v");
+  refreshScroll(el);
+  // Measured against the overlay (the viewport's box), which a frameless headless run may not
+  // have moved back after the last test's scrolling.
+  const b = bar(el, "vertical").getBoundingClientRect(), r = overlay(el).getBoundingClientRect();
+  assert(!bar(el, "vertical").hidden, "vertical bar shown");
+  assert(bar(el, "horizontal").hidden, "no horizontal overflow, no bar");
+  assertEqual(b.width, 18);
+  assertEqual(Math.round(b.right), Math.round(r.right));
+  const track = part(el, "vertical", "track").getBoundingClientRect();
+  assertEqual(Math.round(r.right - track.right), 8, "8 px from the edge");
+  assertEqual(Math.round(track.top - r.top), 8, "end inset");
+  assertEqual(Math.round(r.bottom - track.bottom), 8, "end inset");
+  // 94 px track; viewport 110 of 500: 94 * 0.22 = 20.7, so the minimum 24.
+  assertEqual(part(el, "vertical", "thumb").getBoundingClientRect().height, 24);
+  assertEqual(getComputedStyle(part(el, "vertical", "thumb")).borderRadius, "9999px");
+  assert(bar($("short"), "vertical").hidden, "no overflow, no bar");
+  const rtl = bar($("rtl"), "horizontal").getBoundingClientRect();
+  assertEqual(rtl.height, 18);
+});
+
+test("bar under rtl sits on the left", () => {
+  const el = document.createElement("div");
+  el.className = "viewer ui-scroll";
+  el.dir = "rtl";
+  el.innerHTML = Array.from({ length: 20 }, () => `<div class="line">x</div>`).join("");
+  document.body.append(el);
+  refreshScroll(el);
+  assertEqual(Math.round(bar(el, "vertical").getBoundingClientRect().left), Math.round(el.getBoundingClientRect().left));
+  el.remove();
+});
+
+test("states: idle invisible; scrolling 3 px thumb; 12 px away 5.5 px with track at half; hover and drag 8 px", () => {
+  const el = $("v");
+  const thumb = part(el, "vertical", "thumb"), track = part(el, "vertical", "track");
+  const check = (state, width, thumbOpacity, trackOpacity, label) => {
+    forceScrollbarState(el, "vertical", state);
+    assertEqual(getComputedStyle(thumb).width, width, `${label} width`);
+    assertEqual(getComputedStyle(track).width, width, `${label} track width`);
+    assertEqual(getComputedStyle(thumb).opacity, thumbOpacity, `${label} thumb opacity`);
+    assertEqual(getComputedStyle(track).opacity, trackOpacity, `${label} track opacity`);
+  };
+  check({}, "3px", "0", "0", "idle");
+  check({ scrolling: true }, "3px", "1", "0", "scrolling");
+  check({ closeness: 0.5 }, "5.5px", "1", "0.5", "12 px away");
+  check({ closeness: 0.25 }, "4.25px", "0.5", "0.25", "18 px away");
+  check({ hover: true }, "8px", "1", "1", "hover");
+  check({ hover: true, drag: true }, "8px", "1", "1", "drag");
+});
+
+test("colours: thumb 38 / 52 / 64 %, track 6 % black in light, white with track 8 % in dark", () => {
+  const el = $("v");
+  const thumb = part(el, "vertical", "thumb"), track = part(el, "vertical", "track");
+  for (const [theme, c, t] of [["light", 0, 0.06], ["dark", 255, 0.08]]) {
+    setTheme(theme);
+    forceScrollbarState(el, "vertical", { closeness: 0.5 });
+    assertEqual(colour(getComputedStyle(thumb).backgroundColor), JSON.stringify([c, c, c, 0.38]), `${theme} rest`);
+    assertEqual(colour(getComputedStyle(track).backgroundColor), JSON.stringify([c, c, c, t]), `${theme} track`);
+    forceScrollbarState(el, "vertical", { hover: true });
+    assertEqual(colour(getComputedStyle(thumb).backgroundColor), JSON.stringify([c, c, c, 0.52]), `${theme} hover`);
+    forceScrollbarState(el, "vertical", { hover: true, drag: true });
+    assertEqual(colour(getComputedStyle(thumb).backgroundColor), JSON.stringify([c, c, c, 0.64]), `${theme} drag`);
+  }
+  setTheme("light");
+});
+
+test("scrolling shows the thin thumb and hides it 1 s after the last scroll", async () => {
+  const el = $("live");
+  await frame(); await frame(); await frame();
+  const thumb = part(el, "vertical", "thumb");
+  // The time of the last scroll event: a headless run may dispatch the browser's own event for the
+  // change below late, and each event restarts the delay.
+  let last = performance.now();
+  el.addEventListener("scroll", () => { last = performance.now(); });
+  assertEqual(getComputedStyle(thumb).opacity, "0", "idle");
+  el.scrollTop = 50;
+  el.dispatchEvent(new Event("scroll")); // a frameless headless run may dispatch no scroll event itself
+  await wait(50);
+  assertEqual(getComputedStyle(thumb).opacity, "1", "shown while scrolling");
+  assertEqual(getComputedStyle(thumb).width, "3px");
+  await wait(700);
+  if (performance.now() - last < 900) assertEqual(getComputedStyle(thumb).opacity, "1", "still shown before 1 s");
+  for (let i = 0; i < 5 && performance.now() - last < 1100; i++) await wait(1100 - (performance.now() - last));
+  assertEqual(getComputedStyle(thumb).opacity, "0", "hidden 1 s after the last scroll");
+});
+
+test("data-scrollbar-auto-hide=false keeps the thumb shown", async () => {
+  const el = $("live");
+  el.setAttribute("data-scrollbar-auto-hide", "false");
+  await wait(0);
+  refreshScroll(el);
+  assertEqual(getComputedStyle(part(el, "vertical", "thumb")).opacity, "1");
+  el.removeAttribute("data-scrollbar-auto-hide");
+  refreshScroll(el);
+});
+
+test("pointer proximity: 12 px from the bar fully shows the thumb at 5.5 px; on the bar 8 px and hover colour; leaving resets", () => {
+  const el = $("live");
+  el.scrollTop = 0;
+  refreshScroll(el);
+  const b = bar(el, "vertical").getBoundingClientRect();
+  const thumb = part(el, "vertical", "thumb");
+  const move = (x, y) => el.dispatchEvent(new PointerEvent("pointermove", { clientX: x, clientY: y, bubbles: true, pointerType: "mouse" }));
+  move(b.left - 12, b.top + 50);
+  assertEqual(getComputedStyle(thumb).width, "5.5px");
+  assertEqual(getComputedStyle(thumb).opacity, "1");
+  move(b.left - 30, b.top + 50);
+  assertEqual(getComputedStyle(thumb).width, "3px", "beyond 24 px");
+  move(b.left + 9, b.top + 50);
+  assertEqual(getComputedStyle(thumb).width, "8px");
+  assertEqual(bar(el, "vertical").getAttribute("data-state"), "hover");
+  el.dispatchEvent(new PointerEvent("pointerleave", { pointerType: "mouse" }));
+  assertEqual(getComputedStyle(thumb).width, "3px");
+  assert(!bar(el, "vertical").hasAttribute("data-state"), "no hover");
+});
+
+test("dragging the thumb scrolls in proportion; the drag colour shows while it lasts", () => {
+  const el = $("live");
+  el.scrollTop = 0;
+  refreshScroll(el);
+  const thumb = part(el, "vertical", "thumb");
+  const t = thumb.getBoundingClientRect();
+  const at = (type, y) => thumb.dispatchEvent(new PointerEvent(type, { clientX: t.left + 2, clientY: y, button: 0, bubbles: true, cancelable: true, pointerId: 7, pointerType: "mouse" }));
+  at("pointerdown", t.top + 5);
+  assertEqual(bar(el, "vertical").getAttribute("data-state"), "drag");
+  at("pointermove", t.top + 5 + 35); // travel 94 - 24 = 70 px for 390 px of scrolling
+  assertEqual(Math.round(el.scrollTop), 195);
+  at("pointerup", t.top + 40);
+  assert(bar(el, "vertical").getAttribute("data-state") !== "drag", "drag ended");
+});
+
+test("a press on the track pages towards it; the end zones do not page", () => {
+  const el = $("live");
+  el.scrollTop = 0;
+  refreshScroll(el);
+  const b = bar(el, "vertical");
+  const r = el.getBoundingClientRect();
+  const press = (y) => {
+    b.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.right - 9, clientY: y, button: 0, bubbles: true, cancelable: true, pointerId: 8, pointerType: "mouse" }));
+    b.dispatchEvent(new PointerEvent("pointerup", { clientX: r.right - 9, clientY: y, bubbles: true, pointerId: 8, pointerType: "mouse" }));
+  };
+  press(r.bottom - 20);
+  assertEqual(el.scrollTop, 110, "one page down");
+  press(r.bottom - 3);
+  assertEqual(el.scrollTop, 110, "end zone");
+  press(r.top + 9);
+  assertEqual(el.scrollTop, 0, "one page up");
+});
+
+test("motion: fades and widening over MotionFast once live; instant under reduce motion", async () => {
+  const el = $("live");
+  await frame(); await frame();
+  assert(overlay(el).hasAttribute("data-live"), "live after settling");
+  document.documentElement.setAttribute("data-reduce-motion", "false");
+  const s = getComputedStyle(part(el, "vertical", "thumb"));
+  assertEqual(s.transitionProperty, "opacity, width, height, background-color");
+  assertEqual(s.transitionDuration, "0.1s, 0.1s, 0.1s, 0.1s");
+  assertEqual(getComputedStyle(shadow(el, "top")).transitionDuration, "0.1s");
+  document.documentElement.setAttribute("data-reduce-motion", "true");
+  assertEqual(getComputedStyle(part(el, "vertical", "thumb")).transitionDuration, "0s, 0s, 0s, 0s");
+});
+
+test("removing the class detaches the overlay and restores the native bars", async () => {
+  const el = $("short");
+  el.classList.remove("ui-scroll");
+  await wait(0);
+  assertEqual(overlay(el), null);
+  assert(!el.hasAttribute("data-scroll-overlay"), "unmarked");
+  el.classList.add("ui-scroll");
+  await wait(0);
+  assert(overlay(el), "attached again");
+});
+</script>
+</body>
+</html>

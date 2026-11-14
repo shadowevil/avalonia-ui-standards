@@ -1,0 +1,17 @@
+/*
+  Icon (0026): an inline <svg class="ui-icon" viewBox="0 0 256 256" aria-hidden="true"> holding
+  one icon's path, or one made by icon() in icon.js. The whole 256 x 256 design box is scaled to
+  the icon's size, so every icon keeps the proportions and placement it was drawn with. 20 px at
+  Normal density, 16 px at Compact (--ui-icon-size); for 24 px, set width and height on the
+  element. The fill is the text colour of the element it sits in, so it follows every state
+  colour of its host, disabled included.
+*/
+:where(.ui-icon) {
+  display: inline-block;
+  flex: none;
+  inline-size: var(--ui-icon-size);
+  block-size: var(--ui-icon-size);
+  fill: currentColor;
+  vertical-align: middle;
+  overflow: visible;
+}

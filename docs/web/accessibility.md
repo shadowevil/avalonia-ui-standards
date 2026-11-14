@@ -25,7 +25,7 @@ These standards are recorded in [0048](../decisions/0048-web-html-standards.md).
 ## Contrast
 
 - Text meets WCAG AA contrast, 4.5:1 for normal text and 3:1 for large text ([0011](../decisions/0011-colour.md)). The Style tier's accent fills, accent text, status text and secondary text values already meet it in light and dark, recomputed for any accent by `setAccent`.
-- A Block uses the matching text token on its background token (`--ui-accent-fill-color` with `--ui-danger-foreground`, `--ui-accent-text-color` for links) and never mixes them, so the guarantee holds.
+- A Block uses the matching text token on its background token (`--ui-accent-fill-color` with `--ui-accent-button-foreground`, `--ui-danger-fill-color` with `--ui-danger-foreground`, `--ui-accent-text-color` for links) and never mixes them, so the guarantee holds.
 - Meaningful non-text parts (a field's border, a checkbox indicator, a focus ring) reach 3:1 against their surroundings (WCAG 1.4.11). Disabled controls and decoration are exempt, as disabled text is on desktop ([0011](../decisions/0011-colour.md)).
 - Colour is never the only cue: errors and status also carry an icon or text, and selection also changes shape or weight where it matters.
 - Text the app places over its own `Backdrop` is the app's to keep at AA ([0022](../decisions/0022-window-layout.md)).

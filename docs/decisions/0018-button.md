@@ -16,4 +16,5 @@
   - Contrast: filled variants (Accent, Destructive) meet WCAG AA ([0011](0011-colour.md)); Standard and Subtle text also meets 4.5:1.
   - Background and border brushes fade over `MotionFast`, as does Fluent's 0.98 pressed scale (kept), with `MotionEasing` ([0016](0016-motion.md)).
 - **Accepted consequence:** App styles that target `PART_ContentPresenter`'s background no longer apply, because the chrome is `PART_Chrome`.
+  - Web ([0045](0045-web-library.md)): a native `<button class="ui-button">` with `ui-accent`, `ui-subtle` or `ui-destructive`, at the same sizes, colours and motion; an icon sits 8 px from its label.
 - **Why:** It keeps Fluent's behaviour and state model, adds the agreed shape, grid and motion, and covers neutral, primary, low-emphasis and dangerous actions.
