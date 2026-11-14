@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Style tokens</title>
+<link rel="stylesheet" href="../style/index.css">
+<style>
+  body { margin: 0; padding: var(--ui-spacing-xl); background: var(--ui-backdrop-wash); min-height: 100vh; box-sizing: border-box; }
+  main { display: flex; gap: var(--ui-spacing-xxxl); }
+  h2, p { margin: 0; }
+  .ramp div { margin-bottom: var(--ui-spacing-m); }
+  .label { color: var(--ui-system-base-medium-color); }
+  .swatches { display: grid; grid-template-columns: repeat(3, 160px); gap: var(--ui-spacing-s); align-content: start; }
+  .swatch { height: 56px; border-radius: var(--ui-corner-radius-control); padding: var(--ui-spacing-s); box-sizing: border-box; font-size: var(--ui-font-size-caption); color: #FFFFFF; }
+  .card { background: var(--ui-system-chrome-medium-low-color); border: 1px solid var(--ui-system-base-low-color); border-radius: var(--ui-corner-radius-overlay); padding: var(--ui-spacing-l); margin-top: var(--ui-spacing-l); }
+</style>
+</head>
+<body>
+<main>
+  <section class="ramp">
+    <h2 style="font-size: var(--ui-font-size-subtitle); font-weight: var(--ui-font-weight-subtitle); margin-bottom: var(--ui-spacing-l)">Ramp</h2>
+    <div><p class="label">12 px, weight 400</p><p style="font-size: var(--ui-font-size-caption)">Caption</p></div>
+    <div><p class="label">14 px, weight 400</p><p style="font-size: var(--ui-font-size-body)">Body</p></div>
+    <div><p class="label">14 px, weight 600</p><p style="font-size: var(--ui-font-size-body-strong); font-weight: var(--ui-font-weight-body-strong)">Body strong</p></div>
+    <div><p class="label">20 px, weight 600</p><p style="font-size: var(--ui-font-size-subtitle); font-weight: var(--ui-font-weight-subtitle)">Subtitle</p></div>
+    <div><p class="label">28 px, weight 600</p><p style="font-size: var(--ui-font-size-title); font-weight: var(--ui-font-weight-title)">Title</p></div>
+    <div><p class="label">40 px, weight 600</p><p style="font-size: var(--ui-font-size-large-title); font-weight: var(--ui-font-weight-large-title)">Large title</p></div>
+    <div><p class="label">68 px, weight 600</p><p style="font-size: var(--ui-font-size-display); font-weight: var(--ui-font-weight-display)">Display</p></div>
+  </section>
+  <section>
+    <div class="swatches">
+      <div class="swatch" style="background: var(--ui-accent-fill-color)">AccentFillColor</div>
+      <div class="swatch" style="background: var(--ui-accent-fill-color-pointer-over)">PointerOver</div>
+      <div class="swatch" style="background: var(--ui-accent-fill-color-pressed)">Pressed</div>
+      <div class="swatch" style="background: var(--ui-danger-fill-color)">DangerFillColor</div>
+      <div class="swatch" style="background: var(--ui-danger-fill-color-pointer-over)">PointerOver</div>
+      <div class="swatch" style="background: var(--ui-danger-fill-color-pressed)">Pressed</div>
+      <div class="swatch" style="background: var(--ui-success-color)">SuccessColor</div>
+      <div class="swatch" style="background: var(--ui-warning-color)">WarningColor</div>
+      <div class="swatch" style="background: var(--ui-system-base-medium-color)">BaseMedium</div>
+    </div>
+    <div class="card">
+      <p style="color: var(--ui-accent-text-color)">AccentTextColor</p>
+      <p style="color: var(--ui-accent-text-color-pressed)">AccentTextColorPressed</p>
+      <p style="color: var(--ui-success-text-color)">SuccessTextColor</p>
+      <p style="color: var(--ui-warning-text-color)">WarningTextColor</p>
+      <p style="color: var(--ui-danger-text-color)">DangerTextColor</p>
+      <p class="label">BaseMedium secondary text</p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

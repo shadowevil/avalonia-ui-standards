@@ -1,0 +1,36 @@
+/* Corners (0014). */
+:root {
+  --ui-corner-radius-control: 8px;
+  --ui-corner-radius-overlay: 16px;
+  --ui-corner-smoothing: 0.6;
+  /* How CSS draws that smoothing: corner-shape superellipse(1.3) with the radius scaled by 1.18,
+     fitted in Chrome to the desktop outline at smoothing 0.6 (within 0.04 px at radius 8, 0.07 px
+     at 16). Refit both if the smoothing changes. */
+  --ui-corner-shape: superellipse(1.3);
+  --ui-corner-radius-factor: 1.18;
+}
+
+/* The squircle for any Block: radius from --ui-squircle-radius (the control radius unless the
+   Block sets it). Set on the element itself, so it is not inherited from a squircle around it.
+   Engines without corner-shape get the plain radius. */
+:where(.ui-squircle) {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+}
+
+.ui-squircle {
+  border-radius: var(--ui-squircle-radius);
+}
+
+@supports (corner-shape: superellipse(2)) {
+  .ui-squircle {
+    corner-shape: var(--ui-corner-shape);
+    border-radius: calc(var(--ui-squircle-radius) * var(--ui-corner-radius-factor));
+  }
+}
+
+/* Focus ring (0019): 2 px accent with a 2 px gap, outside the shape; the outline follows the
+   element's border-radius and corner-shape. */
+.ui-focus-ring:focus-visible {
+  outline: 2px solid var(--ui-system-accent-color);
+  outline-offset: 2px;
+}

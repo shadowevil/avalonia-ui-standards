@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Style tier tests</title>
+<link rel="stylesheet" href="../style/index.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setAccent, setTheme, setDensity, setReduceMotion, setReduceTransparency } from "../style/index.js";
+import { contrastRatio, cssName, deriveColours, parseHex } from "../style/colour.js";
+
+const html = document.documentElement;
+const probe = document.getElementById("probe");
+
+// The computed colour of a custom property, as #RRGGBB.
+function colour(name) {
+  probe.style.color = `var(${name})`;
+  const [r, g, b] = getComputedStyle(probe).color.match(/\d+/g).map(Number);
+  return "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+}
+
+const value = (name) => getComputedStyle(html).getPropertyValue(name).trim();
+
+function reset() {
+  html.removeAttribute("style");
+  for (const a of ["data-theme", "data-density", "data-reduce-motion", "data-reduce-transparency"]) html.removeAttribute(a);
+}
+
+function assertColours(actual, expected, label) {
+  for (const [key, hex] of Object.entries(expected)) assertEqual(actual[key], hex, `${label} ${key}`);
+}
+
+// 0011 and 0037 defaults.
+const DEFAULTS = {
+  shared: {
+    SystemAccentColor: "#007CEA",
+    AccentFillColor: "#0075DD", AccentFillColorPointerOver: "#006AC9", AccentFillColorPressed: "#0060B4",
+    DangerFillColor: "#E02F26", DangerFillColorPointerOver: "#D4271E", DangerFillColorPressed: "#C2231B",
+  },
+  light: {
+    AccentTextColor: "#0068C4", AccentTextColorPressed: "#005DAF", SystemBaseMediumColor: "#686868",
+    SuccessTextColor: "#197726", WarningTextColor: "#965800", DangerTextColor: "#C9251C",
+  },
+  dark: {
+    AccentTextColor: "#1692FF", AccentTextColorPressed: "#2B9BFF", SystemBaseMediumColor: "#9E9E9E",
+    SuccessTextColor: "#23A736", WarningTextColor: "#D37C00", DangerTextColor: "#E96962",
+  },
+};
+
+// Values the desktop StandardsTheme produces for other accents.
+const DESKTOP = {
+  "#2A9D8F": {
+    shared: { AccentFillColor: "#238377", AccentFillColorPointerOver: "#1F7369", AccentFillColorPressed: "#1A635A" },
+    light: { AccentTextColor: "#1F756A", AccentTextColorPressed: "#1B655C", SystemBaseMediumColor: "#696969",
+      BackdropWashStartColor: "#E1ECEB", SuccessTextColor: "#1A7927", WarningTextColor: "#985A00", DangerTextColor: "#CB251D" },
+    dark: { AccentTextColor: "#2CA596", AccentTextColorPressed: "#30B5A5", SystemBaseMediumColor: "#9E9E9E",
+      BackdropWashStartColor: "#20302E", SuccessTextColor: "#24AC37", WarningTextColor: "#D87F00", DangerTextColor: "#EA6D66" },
+  },
+  "#FF8C00": {
+    shared: { AccentFillColor: "#B26200", AccentFillColorPointerOver: "#9E5700", AccentFillColorPressed: "#8A4C00" },
+    light: { AccentTextColor: "#A15800", AccentTextColorPressed: "#8C4D00", SystemBaseMediumColor: "#6A6A6A", BackdropWashStartColor: "#F6EADC" },
+    dark: { AccentTextColor: "#FF8C00", AccentTextColorPressed: "#FF9514", SystemBaseMediumColor: "#9E9E9E", BackdropWashStartColor: "#3E2D1A" },
+  },
+  "#7A00CC": {
+    shared: { AccentFillColor: "#7A00CC", AccentFillColorPointerOver: "#6E00B8", AccentFillColorPressed: "#6200A3" },
+    light: { AccentTextColor: "#7A00CC", AccentTextColorPressed: "#6E00B8", SystemBaseMediumColor: "#646464", BackdropWashStartColor: "#E9DCF1" },
+    dark: { AccentTextColor: "#C266FF", AccentTextColorPressed: "#CA7AFF", SystemBaseMediumColor: "#9E9E9E", BackdropWashStartColor: "#2B1A36" },
+  },
+};
+
+test("the default accent gives the 0011 and 0037 values", () => {
+  const d = deriveColours();
+  for (const part of ["shared", "light", "dark"]) assertColours(d[part], DEFAULTS[part], part);
+  assertEqual(d.light.BackdropWashStartColor, "#DCE9F4");
+  assertEqual(d.dark.BackdropWashStartColor, "#1A2B3B");
+});
+
+test("other accents give the desktop values", () => {
+  for (const [accent, expected] of Object.entries(DESKTOP)) {
+    const d = deriveColours(accent);
+    for (const part of ["shared", "light", "dark"]) assertColours(d[part], expected[part], `${accent} ${part}`);
+  }
+});
+
+test("accent fills reach 4.5:1 with white, each state darker", () => {
+  const white = [255, 255, 255];
+  for (const accent of ["#2A9D8F", "#FF8C00", "#00B7C3", "#0078D4", "#7A00CC"]) {
+    const s = deriveColours(accent).shared;
+    const ratios = [s.AccentFillColor, s.AccentFillColorPointerOver, s.AccentFillColorPressed].map((c) => contrastRatio(white, parseHex(c)));
+    assert(ratios.every((r) => r >= 4.5), `${accent} fills ${ratios}`);
+    assert(ratios[0] < ratios[1] && ratios[1] < ratios[2], `${accent} states not darker: ${ratios}`);
+  }
+});
+
+test("the 0011 palette is in the CSS", () => {
+  const palette = {
+    SystemRegionColor: ["#F5F5F5", "#1E1E1E"], SystemAltHighColor: ["#FFFFFF", "#1E1E1E"],
+    SystemBaseHighColor: ["#1A1A1A", "#F2F2F2"], SystemBaseMediumHighColor: ["#404040", "#D9D9D9"],
+    SystemBaseMediumLowColor: ["#A6A6A6", "#6B6B6B"], SystemBaseLowColor: ["#D4D4D4", "#454545"],
+    SystemChromeLowColor: ["#E8E8E8", "#2A2A2A"], SystemChromeMediumLowColor: ["#FFFFFF", "#2A2A2A"],
+    SystemChromeMediumColor: ["#E8E8E8", "#333333"], SystemChromeHighColor: ["#D4D4D4", "#525252"],
+    SystemListLowColor: ["#E8E8E8", "#2A2A2A"], SystemListMediumColor: ["#D4D4D4", "#404040"],
+  };
+  try {
+    for (const [i, theme] of ["light", "dark"].entries()) {
+      setTheme(theme);
+      for (const [key, pair] of Object.entries(palette)) assertEqual(colour(cssName(key)), pair[i], `${theme} ${key}`);
+    }
+  } finally { reset(); }
+});
+
+test("the CSS defaults equal the derivation for the default accent", () => {
+  const d = deriveColours();
+  try {
+    for (const theme of ["light", "dark"]) {
+      setTheme(theme);
+      for (const [key, hex] of Object.entries({ ...d.shared, ...d[theme] })) assertEqual(colour(cssName(key)), hex, `${theme} ${key}`);
+    }
+  } finally { reset(); }
+});
+
+test("setAccent writes light and dark values; the theme switch needs no recompute", () => {
+  const d = deriveColours("#2A9D8F");
+  try {
+    setAccent("#2A9D8F");
+    for (const theme of ["light", "dark"]) {
+      setTheme(theme);
+      for (const [key, hex] of Object.entries({ ...d.shared, ...d[theme] })) assertEqual(colour(cssName(key)), hex, `${theme} ${key}`);
+    }
+    setAccent();
+    setTheme("dark");
+    assertEqual(colour("--ui-accent-text-color"), "#1692FF");
+  } finally { reset(); }
+});
+
+test("system theme follows the browser preference", () => {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  setTheme("system");
+  assert(!html.hasAttribute("data-theme"));
+  assertEqual(colour("--ui-system-region-color"), dark ? "#1E1E1E" : "#F5F5F5");
+});
+
+test("compact density changes the control sizes", () => {
+  try {
+    assertEqual(value("--ui-control-min-height"), "32px");
+    assertEqual(value("--ui-icon-size"), "20px");
+    setDensity("compact");
+    assertEqual(html.getAttribute("data-density"), "compact");
+    assertEqual(value("--ui-control-min-height"), "24px");
+    assertEqual(value("--ui-control-padding"), "2px 8px");
+    assertEqual(value("--ui-icon-size"), "16px");
+    setDensity("normal");
+    assertEqual(value("--ui-control-min-height"), "32px");
+  } finally { reset(); }
+});
+
+test("reduce motion makes durations 0ms", () => {
+  try {
+    setReduceMotion(true);
+    for (const n of ["fast", "normal", "slow"]) assertEqual(value(`--ui-motion-${n}`), "0ms", n);
+    setReduceMotion(false);
+    assertEqual(value("--ui-motion-fast"), "100ms");
+    assertEqual(value("--ui-motion-slow"), "300ms");
+    setReduceMotion("system");
+    assert(!html.hasAttribute("data-reduce-motion"));
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    assertEqual(value("--ui-motion-normal"), reduced ? "0ms" : "200ms");
+  } finally { reset(); }
+});
+
+test("reduce transparency sets --ui-glass-solid", () => {
+  try {
+    setReduceTransparency(true);
+    assertEqual(value("--ui-glass-solid"), "1");
+    setReduceTransparency(false);
+    assertEqual(value("--ui-glass-solid"), "0");
+    setReduceTransparency("system");
+    assert(!html.hasAttribute("data-reduce-transparency"));
+    const reduced = matchMedia("(prefers-reduced-transparency: reduce)").matches;
+    assertEqual(value("--ui-glass-solid"), reduced ? "1" : "0");
+  } finally { reset(); }
+});
+
+test("invalid settings throw", () => {
+  for (const fn of [() => setTheme("blue"), () => setDensity("tight"), () => setReduceMotion("yes"), () => setAccent("#12345")]) {
+    let threw = false;
+    try { fn(); } catch { threw = true; }
+    assert(threw, fn.toString());
+  }
+  reset();
+});
+
+test("Inter loads in both weights", async () => {
+  for (const weight of [400, 600]) {
+    const faces = await document.fonts.load(`${weight} 14px Inter`);
+    assertEqual(faces.length, 1, `weight ${weight}`);
+    assertEqual(faces[0].status, "loaded", `weight ${weight}`);
+  }
+  assertEqual(getComputedStyle(document.body).fontFamily.split(",")[0].replace(/"/g, ""), "Inter");
+});
+</script>
+</body>
+</html>

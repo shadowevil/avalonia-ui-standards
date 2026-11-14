@@ -1,0 +1,21 @@
+/* Glass values (0015). --ui-glass-solid is 1 under reduce transparency: glass draws its solid fill. */
+:root {
+  --ui-glass-tint-color: light-dark(#FFFFFF, #1E1E1E);
+  --ui-glass-tint-opacity: 0.68;
+  --ui-glass-border-brush: light-dark(#FFFFFF99, #FFFFFF33);
+  --ui-glass-blur-sigma: 6px;
+  --ui-glass-refraction-strength: 28px;
+  --ui-glass-refraction-edge: 28px;
+  --ui-glass-chromatic-dispersion: 0.35;
+  --ui-glass-solid: 0;
+}
+
+:root[data-reduce-transparency="true"] {
+  --ui-glass-solid: 1;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-reduce-transparency="false"]) {
+    --ui-glass-solid: 1;
+  }
+}

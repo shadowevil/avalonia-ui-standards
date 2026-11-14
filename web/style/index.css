@@ -1,1 +1,9 @@
 /* Style tier: design values as CSS custom properties. */
+@import "./fonts.css";
+@import "./colour.css";
+@import "./type.css";
+@import "./spacing.css";
+@import "./shape.css";
+@import "./motion.css";
+@import "./glass.css";
+@import "./base.css";

@@ -1,0 +1,7 @@
+/* Page defaults: Inter body text in the primary text colour on the page colour. */
+body {
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  color: var(--ui-system-base-high-color);
+  background: var(--ui-system-region-color);
+}

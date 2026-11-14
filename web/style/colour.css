@@ -1,0 +1,60 @@
+/*
+  Colour (0011, 0022, 0037). Each theme-dependent value is light-dark(light, dark), resolved by
+  color-scheme: the browser's preference by default, or data-theme on <html>. The accent-derived
+  values are the defaults for #007CEA; setAccent() in theme.js rewrites them on <html>.
+*/
+:root {
+  color-scheme: light dark;
+
+  /* Palette */
+  --ui-system-region-color: light-dark(#F5F5F5, #1E1E1E);
+  --ui-system-alt-high-color: light-dark(#FFFFFF, #1E1E1E);
+  --ui-system-base-high-color: light-dark(#1A1A1A, #F2F2F2);
+  --ui-system-base-medium-high-color: light-dark(#404040, #D9D9D9);
+  --ui-system-base-medium-color: light-dark(#686868, #9E9E9E);
+  --ui-system-base-medium-low-color: light-dark(#A6A6A6, #6B6B6B);
+  --ui-system-base-low-color: light-dark(#D4D4D4, #454545);
+  --ui-system-chrome-low-color: light-dark(#E8E8E8, #2A2A2A);
+  --ui-system-chrome-medium-low-color: light-dark(#FFFFFF, #2A2A2A);
+  --ui-system-chrome-medium-color: light-dark(#E8E8E8, #333333);
+  --ui-system-chrome-high-color: light-dark(#D4D4D4, #525252);
+  --ui-system-list-low-color: light-dark(#E8E8E8, #2A2A2A);
+  --ui-system-list-medium-color: light-dark(#D4D4D4, #404040);
+
+  /* Accent */
+  --ui-system-accent-color: #007CEA;
+  --ui-accent-fill-color: #0075DD;
+  --ui-accent-fill-color-pointer-over: #006AC9;
+  --ui-accent-fill-color-pressed: #0060B4;
+  --ui-accent-text-color: light-dark(#0068C4, #1692FF);
+  --ui-accent-text-color-pressed: light-dark(#005DAF, #2B9BFF);
+
+  /* Danger, success, warning */
+  --ui-danger-color: #E1332A;
+  --ui-danger-foreground: #FFFFFF;
+  --ui-danger-fill-color: #E02F26;
+  --ui-danger-fill-color-pointer-over: #D4271E;
+  --ui-danger-fill-color-pressed: #C2231B;
+  --ui-danger-text-color: light-dark(#C9251C, #E96962);
+  --ui-success-color: #22A134;
+  --ui-success-text-color: light-dark(#197726, #23A736);
+  --ui-warning-color: #CE7900;
+  --ui-warning-text-color: light-dark(#965800, #D37C00);
+
+  /*
+    Backdrop wash: page colour with accent at the top left, to page colour at the bottom right.
+    The angle runs the gradient along the viewport's diagonal, as the desktop's corner-to-corner
+    brush does; the window shell fills the viewport.
+  */
+  --ui-backdrop-wash-start-color: light-dark(#DCE9F4, #1A2B3B);
+  --ui-backdrop-wash-end-color: light-dark(#F5F5F5, #1E1E1E);
+  --ui-backdrop-wash: linear-gradient(calc(90deg + atan2(100vh, 100vw)), var(--ui-backdrop-wash-start-color), var(--ui-backdrop-wash-end-color));
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}

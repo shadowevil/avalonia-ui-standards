@@ -12,4 +12,5 @@
     - The app developer opts in, in code, to the display rate (`StandardsWindow.HighRefreshRate`, default false, or a `StandardsTheme` default for the whole app). The library offers no end-user setting; an app may offer one.
     - Interactive rendering (scrolling, hover and press fades) runs at the display rate, because Avalonia drives it and exposes no cap.
     - Continuous animation stops under reduce motion and pauses when the window is inactive or minimised.
+  - Web ([0045](0045-web-library.md)): the durations are `--ui-motion-*`; ease-out cubic is `cubic-bezier(0.3333, 1, 0.6667, 1)`, exactly 1 − (1 − t)³. Reduce motion follows `prefers-reduced-motion` unless the app sets it, and makes the durations 0.
 - **Why:** Fluent hardcodes its timings per control; shared values keep motion consistent. Avalonia renders only when something changes, so capping continuous animation removes most of the ongoing cost.

@@ -11,6 +11,21 @@ The web counterpart of the desktop library: plain HTML, CSS and JavaScript (ES m
 - `tools/`: render and test scripts (`common.py` holds their shared helpers).
 - `out/`: render output (gitignored).
 
+## Use in an app
+
+Load the stylesheet and, for the theme functions, the module:
+
+    <link rel="stylesheet" href="/path/to/web/ui.css">
+    <script type="module">
+      import { setTheme, setAccent, setDensity, setReduceMotion, setReduceTransparency } from "/path/to/web/ui.js";
+      setAccent("#2A9D8F");   // #RRGGBB; recomputes the AA fills, text colours and wash for light and dark
+      setTheme("dark");       // "system" (default), "light" or "dark"
+      setDensity("compact");  // "normal" (default) or "compact"
+      setReduceMotion(true);  // "system" (default), true or false
+    </script>
+
+Without script, the page follows the browser's colour scheme and reduced motion preferences, with the default accent `#007CEA`. It follows `prefers-reduced-transparency` where the browser supports it (Chromium today); elsewhere set it with `setReduceTransparency`. The settings are attributes on `<html>` (`data-theme`, `data-density`, `data-reduce-motion`, `data-reduce-transparency`), so they can also be written in the markup. The design values are custom properties named after the desktop keys (`SpacingM` is `--ui-spacing-m`); colours that differ by theme are `light-dark()` values, resolved by `color-scheme`.
+
 ## Serve
 
     python3 -m http.server --directory web

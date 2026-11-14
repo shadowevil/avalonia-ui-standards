@@ -28,5 +28,4 @@ Milestones for the web library of [0045](../decisions/0045-web-library.md), buil
 
 ## Open questions
 
-- How Inter is shipped: a font file in the repo, or the system font stack when Inter is absent (W2).
 - How the web library is versioned and distributed beside the desktop version ([0023](../decisions/0023-versioning.md)).

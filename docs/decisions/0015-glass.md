@@ -65,4 +65,5 @@
     - Without Skia, when "reduce transparency" is on, or with `GlassQuality` `Solid`, it is a solid fill in the neutral palette ([0011](0011-colour.md)).
     - Glass in a popup shown as its own OS window is the solid fill; see [0036](0036-menus-and-flyouts.md).
   - The library reads "reduce transparency" from the OS once, when the theme is created (macOS accessibility settings, Windows transparency setting). Linux has no such setting, so it stays "not reduced" unless the app forces it. Apps can force it through `StandardsTheme` ([0017](0017-app-usage.md)).
+  - Web ([0045](0045-web-library.md)): reduce transparency follows `prefers-reduced-transparency` where the browser supports it (Chromium); in Safari and Firefox it stays "not reduced" unless the app sets it with `setReduceTransparency`.
 - **Why:** The glass is the same on every OS and in headless renders. Avalonia's `ExperimentalAcrylicBorder` renders nothing headless, and OS window effects differ per platform. Refraction makes the surface read as real glass, not a tinted overlay.

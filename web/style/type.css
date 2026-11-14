@@ -1,0 +1,16 @@
+/* Type ramp (0012). */
+:root {
+  --ui-content-control-theme-font-family: "Inter", system-ui, sans-serif;
+  --ui-font-size-caption: 12px;
+  --ui-font-size-body: 14px;
+  --ui-font-size-body-strong: 14px;
+  --ui-font-weight-body-strong: 600;
+  --ui-font-size-subtitle: 20px;
+  --ui-font-weight-subtitle: 600;
+  --ui-font-size-title: 28px;
+  --ui-font-weight-title: 600;
+  --ui-font-size-large-title: 40px;
+  --ui-font-weight-large-title: 600;
+  --ui-font-size-display: 68px;
+  --ui-font-weight-display: 600;
+}

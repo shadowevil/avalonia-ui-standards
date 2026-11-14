@@ -1,0 +1,21 @@
+/* The 4 px grid and density (0013). */
+:root {
+  --ui-spacing-xs: 4px;
+  --ui-spacing-s: 8px;
+  --ui-spacing-m: 12px;
+  --ui-spacing-l: 16px;
+  --ui-spacing-xl: 24px;
+  --ui-spacing-xxl: 32px;
+  --ui-spacing-xxxl: 48px;
+
+  /* Density-dependent sizes; the desktop holds these in the Blocks and Modules themes. */
+  --ui-control-min-height: 32px;
+  --ui-control-padding: var(--ui-spacing-xs) var(--ui-spacing-m);
+  --ui-icon-size: 20px;
+}
+
+:root[data-density="compact"] {
+  --ui-control-min-height: 24px;
+  --ui-control-padding: 2px var(--ui-spacing-s);
+  --ui-icon-size: 16px;
+}

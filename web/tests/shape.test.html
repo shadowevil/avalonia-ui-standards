@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shape tests</title>
+<link rel="stylesheet" href="../style/index.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="panel" class="ui-squircle" style="--ui-squircle-radius: var(--ui-corner-radius-overlay)">
+  <div id="control" class="ui-squircle ui-focus-ring" tabindex="0"></div>
+</div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+
+const panel = document.getElementById("panel");
+const control = document.getElementById("control");
+const style = (el) => getComputedStyle(el);
+
+test("Chrome draws the squircle with corner-shape", () => {
+  assert(CSS.supports("corner-shape", "superellipse(2)"), "corner-shape unsupported");
+  for (const el of [panel, control]) {
+    for (const c of ["TopLeft", "TopRight", "BottomRight", "BottomLeft"]) {
+      assertEqual(style(el)[`corner${c}Shape`], "superellipse(1.3)", `${el.id} ${c}`);
+    }
+  }
+});
+
+test("the radius is scaled by the factor; the control radius by default, not inherited", () => {
+  assertEqual(style(control).borderTopLeftRadius, "9.44px");
+  assertEqual(style(control).borderBottomRightRadius, "9.44px");
+  assertEqual(style(panel).borderTopLeftRadius, "18.88px");
+});
+
+test("the focus ring is a 2 px accent outline 2 px outside", () => {
+  control.focus({ focusVisible: true });
+  assert(control.matches(":focus-visible"), "control does not match :focus-visible");
+  const s = style(control);
+  assertEqual(s.outlineStyle, "solid");
+  assertEqual(s.outlineWidth, "2px");
+  assertEqual(s.outlineOffset, "2px");
+  assertEqual(s.outlineColor, "rgb(0, 124, 234)");
+  control.blur();
+  assertEqual(style(control).outlineStyle, "none");
+});
+</script>
+</body>
+</html>

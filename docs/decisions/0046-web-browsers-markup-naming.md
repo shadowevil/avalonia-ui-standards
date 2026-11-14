@@ -2,7 +2,7 @@
 
 - **Status:** Agreed, 2026-11-14
 - **Decision:**
-  - Browsers: the current versions of Chrome and Edge (Chromium), Safari and Firefox. Chromium is the reference: there the look matches the desktop library as closely as CSS allows, using CSS `corner-shape` for the squircle and SVG refraction in `backdrop-filter` for glass. Safari and Firefox get fallbacks (a squircle drawn another way, glass without refraction). Each gap is recorded in the decision for that look.
+  - Browsers: the current versions of Chrome and Edge (Chromium), Safari and Firefox. Chromium is the reference: there the look matches the desktop library as closely as CSS allows, using CSS `corner-shape` for the squircle and SVG refraction in `backdrop-filter` for glass. Safari and Firefox get fallbacks (rounded corners at the same radius, see [0014](0014-shape.md); glass without refraction). Each gap is recorded in the decision for that look.
   - Markup: a Block is a styled native element wherever one fits (`<button>`, `<input>`, `<select>`, `<dialog>`, `<progress>`), with classes. A Block or Module is a custom element only where no native element fits (for example the segmented control, the tree, the sidebar).
   - Naming, with the prefix `ui-` and kebab-case:
     - Custom properties take the desktop key's words ([0017](0017-app-usage.md)): `SpacingM` is `--ui-spacing-m`, `AccentFillColor` is `--ui-accent-fill-color`.

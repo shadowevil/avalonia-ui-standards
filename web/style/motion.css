@@ -1,0 +1,21 @@
+/* Durations and easing (0016); instant under reduce motion. */
+:root {
+  --ui-motion-fast: 100ms;
+  --ui-motion-normal: 200ms;
+  --ui-motion-slow: 300ms;
+  --ui-motion-easing: cubic-bezier(0.3333, 1, 0.6667, 1); /* ease-out cubic, 1 - (1 - t)^3 */
+}
+
+:root[data-reduce-motion="true"] {
+  --ui-motion-fast: 0ms;
+  --ui-motion-normal: 0ms;
+  --ui-motion-slow: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) {
+    --ui-motion-fast: 0ms;
+    --ui-motion-normal: 0ms;
+    --ui-motion-slow: 0ms;
+  }
+}

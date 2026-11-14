@@ -16,4 +16,5 @@
   - `StandardsWindow.ToolbarBand` holds a `ToolbarBand`, whose items take the attached properties `ToolbarBand.Zone` (a `ToolbarZone`), `Priority`, `Label`, `CanOverflow` and `BeginsGroup`; `ToolbarSpacer` is its flexible space ([0043](0043-toolbar-band.md)).
   - `StandardsTheme` properties: `Accent`, `Density`, `ReduceMotion`, `ReduceTransparency`, `HighRefreshRate`, `GlassQuality`.
   - `GlassQuality` (`Full`, the default; `Minimal`; `Solid`) sets how glass draws app-wide; see [0015](0015-glass.md).
+  - Web ([0045](0045-web-library.md)): a page loads `web/ui.css` and `web/ui.js`. The stylesheet also styles `body` (Inter, primary text, page background), as the desktop theme styles the whole window. `ui.js` exports `setTheme`, `setAccent`, `setDensity`, `setReduceMotion` and `setReduceTransparency`, which set the theme attributes of [0046](0046-web-browsers-markup-naming.md) and recompute the accent-derived values for both themes.
 - **Why:** Adopting the library takes one line, and the keys read like Avalonia's.
