@@ -2,7 +2,9 @@
 import functools
 import http.server
 import os
+import re
 import shutil
+import subprocess
 import tempfile
 import threading
 from contextlib import contextmanager
@@ -63,3 +65,21 @@ def profile_dir():
         yield path
     finally:
         shutil.rmtree(path, ignore_errors=True)
+
+
+def dump_dom(chrome, profile, url, width=1280, height=800, budget=5000):
+    """The page's DOM after `budget` ms of virtual time, as text ("" on a timeout)."""
+    try:
+        run = subprocess.run(
+            [chrome, "--headless=new", f"--user-data-dir={profile}", "--dump-dom", "--hide-scrollbars",
+             f"--window-size={width},{height}", f"--virtual-time-budget={budget}", url],
+            capture_output=True, text=True, timeout=120)
+        return run.stdout
+    except subprocess.TimeoutExpired:
+        return ""
+
+
+def html_attribute(dom, name):
+    """The value of attribute `name` on the dumped page's <html> element, or None."""
+    m = re.search(r"<html\b[^>]*?\s" + re.escape(name) + r'="([^"]*)"', dom)
+    return m.group(1) if m else None

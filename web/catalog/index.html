@@ -6,9 +6,27 @@
 <meta name="color-scheme" content="light dark">
 <title>Avalonia UI Standards Catalog</title>
 <link rel="stylesheet" href="../ui.css">
-<script type="module" src="../ui.js"></script>
+<link rel="stylesheet" href="catalog.css">
+<script type="module" src="catalog.js"></script>
 </head>
 <body>
-<h1>Catalog</h1>
+<div class="ui-shell catalog">
+  <div class="ui-shell-backdrop" aria-hidden="true"></div>
+  <a class="ui-skip-link" href="#main">Skip to content</a>
+  <header class="ui-shell-title-band">
+    <span class="ui-shell-title">Avalonia UI Standards catalog</span>
+  </header>
+  <div class="ui-shell-toolbar-band catalog-band" role="group" aria-label="Theme settings"></div>
+  <nav class="ui-shell-sidebar catalog-sidebar" aria-label="Pages">
+    <ui-list-box class="ui-squircle" navigation><ul></ul></ui-list-box>
+  </nav>
+  <div class="ui-shell-panel ui-glass ui-squircle">
+    <main class="ui-shell-content" id="main" tabindex="-1"></main>
+  </div>
+  <footer class="ui-shell-status-bar catalog-status">
+    <span class="catalog-status-page"></span>
+    <span class="catalog-status-version"></span>
+  </footer>
+</div>
 </body>
 </html>

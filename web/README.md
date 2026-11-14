@@ -6,7 +6,7 @@ The web counterpart of the desktop library: plain HTML, CSS and JavaScript (ES m
 
 - `style/`, `blocks/`, `modules/`, `screens/`: one folder per tier, each with `index.css` and `index.js`.
 - `ui.css`, `ui.js`: entry files that load every tier.
-- `catalog/`: the catalog pages.
+- `catalog/`: the catalog app.
 - `tests/`: test pages (`*.test.html`) and the harness.
 - `tools/`: render and test scripts (`common.py` holds their shared helpers).
 - `out/`: render output (gitignored).
@@ -38,6 +38,15 @@ Accessibility classes: `ui-focus-ring` (the focus ring on the element), `ui-focu
 
 Then open `http://localhost:8000/catalog/`.
 
+## Catalog
+
+`catalog/index.html` is the catalog app ([decision 0020](../docs/decisions/0020-catalog-app.md)): the app shell with one sidebar row per page, the page in the glass panel, the page name and library version in the status bar, and the theme controls in the toolbar band (theme, accent, density, motion, transparency and glass quality). The choices are saved in `localStorage` half a second after the last change and restored at startup. Each page has a route, `#button`.
+
+- `catalog/pages/`: one module per page; `pages/index.js` lists them in sidebar order. A page module exports `{ id, title, icon, render }`; adding a page is its module and its entry in `pages/index.js`. `pages/ui.js` and `pages/state-grid.js` hold the shared builders (headings, captions, the variants × states grid).
+- `catalog/settings.js` saves and restores the choices; `catalog/theme-band.js` builds the controls.
+- The library version shown is a constant in `catalog/catalog.js`, kept equal to `<Version>` in `src/AvaloniaUiStandards/AvaloniaUiStandards.csproj`, which the static server cannot read.
+- `?render` shows one page alone, as tall as its content, for the renders.
+
 ## Render and test
 
 Both need a locally installed Chrome (set `CHROME` to use another path) and Python 3.
@@ -45,4 +54,4 @@ Both need a locally installed Chrome (set `CHROME` to use another path) and Pyth
     python3 web/tools/render.py [page ...]
     python3 web/tools/test.py
 
-`render.py` writes light and dark PNGs of each page (default: every `catalog/*.html`) to `web/out/renders/`; options `--width` and `--height` (default 1280x800). `test.py` runs every `web/tests/*.test.html` and exits non-zero on any failure. A test page needs a `<pre id="results">` element and imports `tests/harness.js`.
+`render.py` writes light and dark PNGs to `web/out/renders/`. By default it renders every catalog page whole, at the desktop's whole-page content widths of 1000 and 620 px, as `catalog-page-<id>-<light|dark>[-narrow].png`; `--only button,listbox` limits it to those pages. Paths given relative to `web/` (with any query, such as `tests/shell.html?size=480x320`) are rendered at `--width` and `--height` instead (default 1280x800). Besides the catalog, `tests/shell.html` shows the shell at the desktop window sizes and `tests/scroll.html` the scroll shadows and scrollbar states. `test.py` runs every `web/tests/*.test.html` and exits non-zero on any failure. A test page needs a `<pre id="results">` element and imports `tests/harness.js`.

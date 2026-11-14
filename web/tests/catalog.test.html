@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Catalog tests</title>
+<style>
+  iframe { border: 0; display: block; }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="frames"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { pages } from "../catalog/pages/index.js";
+import { STORAGE_KEY, DEFAULTS, SAVE_DELAY, load, validate, saver } from "../catalog/settings.js";
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const frames = () => wait(30);
+
+// The catalog in an iframe; resolves once it has shown its first page. Errors and console.error
+// calls in it are collected in f.errors from the start.
+async function open(query = "", { width = 1280, height = 800 } = {}) {
+  const iframe = document.createElement("iframe");
+  iframe.width = width;
+  iframe.height = height;
+  const errors = [];
+  document.getElementById("frames").append(iframe);
+  // Hook the frame's window before its scripts run: the src is set after the hook is in place.
+  const hook = () => {
+    const win = iframe.contentWindow;
+    win.addEventListener("error", (e) => errors.push(e.message));
+    win.addEventListener("unhandledrejection", (e) => errors.push(String(e.reason)));
+    const original = win.console.error;
+    win.console.error = (...args) => {
+      errors.push(args.map(String).join(" "));
+      original.apply(win.console, args);
+    };
+  };
+  iframe.src = `../catalog/index.html${query}`;
+  await new Promise((resolve) => {
+    const poll = () => {
+      const doc = iframe.contentDocument;
+      if (doc && doc.URL.includes("/catalog/") && !iframe.contentWindow.__hooked) {
+        iframe.contentWindow.__hooked = true;
+        hook();
+      }
+      if (doc?.documentElement?.dataset.ready === "true") resolve();
+      else setTimeout(poll, 5);
+    };
+    poll();
+  });
+  const doc = iframe.contentDocument;
+  const html = doc.documentElement;
+  const q = (s) => doc.querySelector(s);
+  const qa = (s) => [...doc.querySelectorAll(s)];
+  const group = (label) => q(`.catalog-band [role="group"][aria-label="${label}"]`);
+  const button = (label, text) => [...group(label).querySelectorAll("button")].find((b) => (b.getAttribute("aria-label") ?? b.textContent) === text);
+  const go = async (hash) => {
+    iframe.contentWindow.location.hash = hash;
+    await new Promise((r) => setTimeout(r, 20));
+  };
+  return { iframe, win: iframe.contentWindow, doc, html, q, qa, group, button, go, errors, close: () => iframe.remove() };
+}
+
+const pressed = (group) => [...group.querySelectorAll("button")].filter((b) => b.getAttribute("aria-pressed") === "true");
+
+localStorage.removeItem(STORAGE_KEY);
+
+test("every registered page renders without errors, with its title as the h1", async () => {
+  const f = await open();
+  for (const page of pages) {
+    await f.go(`#${page.id}`);
+    assertEqual(f.q("main h1")?.textContent, page.title, `${page.id} h1`);
+    assert(!f.q(".catalog-error"), `${page.id} reported a render error`);
+    assertEqual(f.q("main").querySelectorAll("h1").length, 1, `${page.id}: one h1`);
+  }
+  assertEqual(f.errors.length, 0, `errors: ${f.errors.join("; ")}`);
+  f.close();
+});
+
+test("pages have unique ids and icons from the icon set", async () => {
+  const { iconNames } = await import("../ui.js");
+  assertEqual(new Set(pages.map((p) => p.id)).size, pages.length, "unique ids");
+  for (const p of pages) assert(iconNames.includes(p.icon), `${p.id}: icon ${p.icon}`);
+});
+
+test("the sidebar has one row per page, in order, each a link to its route with its icon", async () => {
+  const f = await open();
+  const links = f.qa(".catalog-sidebar .ui-list-item");
+  assertEqual(links.length, pages.length, "rows");
+  links.forEach((a, i) => {
+    assertEqual(a.getAttribute("href"), `#${pages[i].id}`, "href");
+    assertEqual(a.textContent, pages[i].title, "label");
+    assert(a.querySelector("svg.ui-icon"), "icon");
+  });
+  f.close();
+});
+
+test("routing: no hash shows the first page; a sidebar click shows its page", async () => {
+  const f = await open();
+  assertEqual(f.win.location.hash, `#${pages[0].id}`, "first route");
+  assertEqual(f.q(".catalog-status-page").textContent, pages[0].title, "status");
+  const link = f.q('.catalog-sidebar a[href="#button"]');
+  link.click();
+  await new Promise((r) => setTimeout(r, 20));
+  assertEqual(f.q("main h1").textContent, "Button", "page");
+  assertEqual(link.getAttribute("aria-current"), "page", "current row");
+  assertEqual(f.qa('.catalog-sidebar [aria-current="page"]').length, 1, "one current row");
+  assertEqual(f.q(".catalog-status-page").textContent, "Button", "status");
+  assertEqual(f.doc.title, "Button - Avalonia UI Standards Catalog", "title");
+  f.close();
+});
+
+test("routing: a hash opens its page; one that names no page leaves the page as it is", async () => {
+  const f = await open("#listbox");
+  assertEqual(f.q("main h1").textContent, "ListBox", "deep link");
+  await f.go("#main");
+  assertEqual(f.q("main h1").textContent, "ListBox", "unknown hash");
+  f.close();
+});
+
+test("the status bar shows the page name and the library version", async () => {
+  const f = await open("#icon");
+  assertEqual(f.q(".catalog-status-page").textContent, "Icon");
+  assert(/^AvaloniaUiStandards \d+\.\d+\.\d+$/.test(f.q(".catalog-status-version").textContent), "version");
+  f.close();
+});
+
+test("the theme controls set the attributes on <html>, one pressed per group", async () => {
+  localStorage.removeItem(STORAGE_KEY);
+  const f = await open();
+  const h = f.html;
+  const cases = [
+    ["Theme", "Dark", () => assertEqual(h.getAttribute("data-theme"), "dark", "dark")],
+    ["Theme", "Light", () => assertEqual(h.getAttribute("data-theme"), "light", "light")],
+    ["Theme", "System", () => assert(!h.hasAttribute("data-theme"), "system")],
+    ["Density", "Compact", () => assertEqual(h.getAttribute("data-density"), "compact", "compact")],
+    ["Density", "Normal", () => assertEqual(h.getAttribute("data-density"), "normal", "normal")],
+    ["Motion", "Reduced", () => assertEqual(h.getAttribute("data-reduce-motion"), "true", "motion reduced")],
+    ["Motion", "Full", () => assertEqual(h.getAttribute("data-reduce-motion"), "false", "motion full")],
+    ["Motion", "Follow OS", () => assert(!h.hasAttribute("data-reduce-motion"), "motion system")],
+    ["Transparency", "Reduced", () => assertEqual(h.getAttribute("data-reduce-transparency"), "true", "transparency reduced")],
+    ["Transparency", "Full", () => assertEqual(h.getAttribute("data-reduce-transparency"), "false", "transparency full")],
+    ["Transparency", "Follow OS", () => assert(!h.hasAttribute("data-reduce-transparency"), "transparency system")],
+    ["Glass quality", "Solid", () => assertEqual(h.getAttribute("data-glass-quality"), "solid", "solid")],
+    ["Glass quality", "Minimal", () => assertEqual(h.getAttribute("data-glass-quality"), "minimal", "minimal")],
+    ["Glass quality", "Full", () => assert(!h.hasAttribute("data-glass-quality"), "full")],
+    ["Accent colour", "Teal", () => assertEqual(h.style.getPropertyValue("--ui-system-accent-color").toUpperCase(), "#00899E", "teal")],
+    ["Accent colour", "Default", () => assertEqual(h.style.getPropertyValue("--ui-system-accent-color").toUpperCase(), "#007CEA", "default")],
+  ];
+  for (const [group, text, check] of cases) {
+    const b = f.button(group, text);
+    assert(b, `${group} ${text} exists`);
+    b.click();
+    check();
+    assertEqual(pressed(f.group(group)).length, 1, `${group}: one pressed`);
+    assertEqual(pressed(f.group(group))[0], b, `${group}: ${text} pressed`);
+    // A click on the pressed one keeps it pressed.
+    b.click();
+    assertEqual(b.getAttribute("aria-pressed"), "true", `${group}: ${text} stays pressed`);
+  }
+  f.close();
+  await wait(SAVE_DELAY + 100);
+  localStorage.removeItem(STORAGE_KEY);
+});
+
+test("the motion group's icon follows the chosen value", async () => {
+  const f = await open();
+  const lead = () => f.group("Motion").querySelector(".catalog-band-lead svg path").getAttribute("d");
+  const { icons } = await import("../blocks/icons.js");
+  assertEqual(lead(), icons["motion-system"], "system");
+  f.button("Motion", "Reduced").click();
+  assertEqual(lead(), icons["motion-reduced"], "reduced");
+  f.button("Motion", "Full").click();
+  assertEqual(lead(), icons["motion-full"], "full");
+  f.close();
+  await wait(SAVE_DELAY + 100);
+  localStorage.removeItem(STORAGE_KEY);
+});
+
+test("settings are saved half a second after the last change and restored at startup", async () => {
+  localStorage.removeItem(STORAGE_KEY);
+  const f = await open();
+  f.button("Theme", "Dark").click();
+  f.button("Density", "Compact").click();
+  f.button("Accent colour", "Purple").click();
+  f.button("Motion", "Reduced").click();
+  f.button("Transparency", "Full").click();
+  f.button("Glass quality", "Minimal").click();
+  assertEqual(localStorage.getItem(STORAGE_KEY), null, "not written at once");
+  await wait(SAVE_DELAY + 150);
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  assertEqual(saved.theme, "dark", "theme");
+  assertEqual(saved.density, "compact", "density");
+  assertEqual(saved.accent, "#7A4FD6", "accent");
+  assertEqual(saved.reduceMotion, true, "motion");
+  assertEqual(saved.reduceTransparency, false, "transparency");
+  assertEqual(saved.glassQuality, "minimal", "glass");
+  f.close();
+
+  const g = await open();
+  assertEqual(g.html.getAttribute("data-theme"), "dark", "theme restored");
+  assertEqual(g.html.getAttribute("data-density"), "compact", "density restored");
+  assertEqual(g.html.getAttribute("data-reduce-motion"), "true", "motion restored");
+  assertEqual(g.html.getAttribute("data-reduce-transparency"), "false", "transparency restored");
+  assertEqual(g.html.getAttribute("data-glass-quality"), "minimal", "glass restored");
+  assertEqual(g.html.style.getPropertyValue("--ui-system-accent-color").toUpperCase(), "#7A4FD6", "accent restored");
+  assertEqual(g.button("Theme", "Dark").getAttribute("aria-pressed"), "true", "theme pressed");
+  assertEqual(g.button("Accent colour", "Purple").getAttribute("aria-pressed"), "true", "accent pressed");
+  assertEqual(g.button("Glass quality", "Minimal").getAttribute("aria-pressed"), "true", "glass pressed");
+  g.close();
+  localStorage.removeItem(STORAGE_KEY);
+});
+
+test("unreadable or invalid saved settings give the defaults", async () => {
+  localStorage.setItem(STORAGE_KEY, "{not json");
+  const f = await open();
+  assert(!f.html.hasAttribute("data-theme"), "theme default");
+  assertEqual(f.button("Theme", "System").getAttribute("aria-pressed"), "true", "System pressed");
+  assertEqual(f.errors.length, 0, "no errors");
+  f.close();
+  localStorage.removeItem(STORAGE_KEY);
+
+  const checked = validate({ theme: "sepia", density: "compact", accent: "blue", reduceMotion: "true", glassQuality: "solid" });
+  assertEqual(checked.theme, "system", "bad theme");
+  assertEqual(checked.density, "compact", "good density kept");
+  assertEqual(checked.accent, DEFAULTS.accent, "bad accent");
+  assertEqual(checked.reduceMotion, "system", "the string true is not a value");
+  assertEqual(checked.glassQuality, "solid", "good glass kept");
+  const throwing = { getItem() { throw new Error("blocked"); } };
+  assertEqual(JSON.stringify(load(throwing)), JSON.stringify(DEFAULTS), "blocked storage");
+});
+
+test("the saver writes once, after the delay since the last change", async () => {
+  const writes = [];
+  const storage = { setItem: (k, v) => writes.push([k, v]), getItem: () => null };
+  const s = saver(storage, 50);
+  s.schedule({ ...DEFAULTS, theme: "light" });
+  await wait(30);
+  s.schedule({ ...DEFAULTS, theme: "dark" });
+  await wait(30);
+  assertEqual(writes.length, 0, "not yet");
+  assert(s.pending, "pending");
+  await wait(60);
+  assertEqual(writes.length, 1, "one write");
+  assertEqual(JSON.parse(writes[0][1]).theme, "dark", "the latest");
+  s.schedule({ ...DEFAULTS, density: "compact" });
+  s.flush();
+  assertEqual(writes.length, 2, "flush writes now");
+  assert(!s.pending, "nothing pending");
+});
+
+test("keyboard: the skip link comes first, every theme control is a Tab stop, the page list is one", async () => {
+  const f = await open("#button");
+  const tabbable = f.qa("a[href], button, [tabindex]").filter((e) => e.tabIndex >= 0 && !e.disabled && !e.closest("[inert], [hidden]"));
+  assert(tabbable[0].classList.contains("ui-skip-link"), "skip link first");
+  const bandButtons = f.qa(".catalog-band button");
+  assertEqual(bandButtons.length, 3 + 6 + 2 + 3 + 3 + 3, "band buttons");
+  for (const b of bandButtons) {
+    assert(tabbable.includes(b), `${b.getAttribute("aria-label") ?? b.textContent} is a Tab stop`);
+    assertEqual(b.type, "button", "type");
+    assert(b.textContent.trim() || b.getAttribute("aria-label"), "named");
+    b.focus();
+    assertEqual(f.doc.activeElement, b, "takes focus");
+  }
+  const rows = f.qa(".catalog-sidebar .ui-list-item");
+  const stops = rows.filter((r) => r.tabIndex === 0);
+  assertEqual(stops.length, 1, "one Tab stop in the page list");
+  assertEqual(stops[0].getAttribute("href"), "#button", "on the current page");
+  // DOM order: band, then sidebar, then the page.
+  const order = (a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
+  assert(order(bandButtons.at(-1), stops[0]), "band before sidebar");
+  assert(order(stops[0], f.q("main")), "sidebar before content");
+  // Each band group is a named group.
+  for (const g of f.qa(".catalog-band > [role=group]")) assert(g.getAttribute("aria-label"), "group named");
+  f.close();
+});
+
+test("keyboard: the skip link moves focus to the content and keeps the page", async () => {
+  const f = await open("#type");
+  f.q(".ui-skip-link").click();
+  assertEqual(f.doc.activeElement, f.q("main"), "focus in main");
+  assertEqual(f.q("main h1").textContent, "Type", "page kept");
+  f.close();
+});
+
+test("render mode: one page alone, with the page ids and its height on <html>", async () => {
+  const f = await open("?render#ranges");
+  await frames();
+  await wait(100);
+  assertEqual(f.q("main h1").textContent, "Ranges", "page");
+  assertEqual(f.html.dataset.pages, pages.map((p) => p.id).join(" "), "ids");
+  assert(Number(f.html.dataset.renderHeight) > 300, "height");
+  for (const slot of [".catalog-band", ".catalog-sidebar", ".catalog-status"]) assert(f.q(slot).hidden, `${slot} hidden`);
+  assertEqual(f.html.dataset.reduceMotion, "true", "still frames");
+  assertEqual(localStorage.getItem(STORAGE_KEY), null, "nothing saved");
+  f.close();
+});
+
+// The catalog's own instance of pages/ui.js, through a module script in its document.
+function frameModule(f, path) {
+  return new Promise((resolve) => {
+    f.win.__moduleReady = resolve;
+    const script = f.doc.createElement("script");
+    script.type = "module";
+    script.textContent = `import * as m from "${path}"; window.__moduleReady(m);`;
+    f.doc.body.append(script);
+  });
+}
+
+test("navigating does not pile up theme watchers", async () => {
+  const f = await open("#colours");
+  const ui = await frameModule(f, "./pages/ui.js");
+  await wait(20);
+  const start = ui.watcherCount();
+  assert(start > 0, "the Colours page watches the theme");
+  for (let i = 0; i < 10; i++) {
+    await f.go("#type");
+    await f.go("#colours");
+  }
+  assertEqual(ui.watcherCount(), start, "watchers after 10 round trips");
+  await f.go("#button");
+  assertEqual(ui.watcherCount(), 0, "none on a page without live values");
+  f.close();
+});
+
+test("the icon rail hides the labels visually and shows them as tooltips", async () => {
+  const f = await open("#button", { width: 848, height: 600 });
+  const { refreshShellStages } = await frameModule(f, "../modules/shell.js");
+  refreshShellStages();
+  await wait(20);
+  assertEqual(f.q(".catalog").dataset.sidebarStage, "compact", "rail stage");
+  for (const a of f.qa(".catalog-sidebar .ui-list-item")) {
+    const label = a.querySelector(".catalog-nav-label");
+    assert(label.classList.contains("ui-visually-hidden"), "label hidden");
+    assertEqual(a.title, label.textContent, "tooltip");
+  }
+  f.iframe.width = 1280;
+  refreshShellStages();
+  await wait(20);
+  const a = f.q(".catalog-sidebar .ui-list-item");
+  assert(!a.querySelector(".catalog-nav-label").classList.contains("ui-visually-hidden"), "label shown when expanded");
+  assert(!a.hasAttribute("title"), "no tooltip when expanded");
+  f.close();
+});
+
+test("live values: the Colours page shows the computed hex, and follows the theme", async () => {
+  const f = await open("#colours");
+  f.button("Theme", "Light").click();
+  await frames();
+  const card = (key) => f.qa(".catalog-swatch").find((c) => c.textContent.startsWith(key));
+  assertEqual(card("SystemRegionColor").querySelector(".catalog-caption").textContent, "#F5F5F5", "light");
+  f.button("Theme", "Dark").click();
+  await frames();
+  assertEqual(card("SystemRegionColor").querySelector(".catalog-caption").textContent, "#1E1E1E", "dark");
+  f.button("Accent colour", "Green").click();
+  await frames();
+  assertEqual(card("SystemAccentColor").querySelector(".catalog-caption").textContent, "#2E8B3E", "accent");
+  f.close();
+  await wait(SAVE_DELAY + 100);
+  localStorage.removeItem(STORAGE_KEY);
+});
+</script>
+</body>
+</html>

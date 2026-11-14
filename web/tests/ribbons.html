@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ribbon backdrop</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../modules/shell.css">
+<style>
+  /*
+    The catalog's ribbon backdrop (catalog/ribbons.js) in a catalog-like shell: sidebar, glass panel
+    with refraction, status bar. Render at the desktop frame's size, 1152 x 752. Query options:
+    ?t=SECONDS draws that moment of the loop and holds it, ?bare the backdrop alone (wash and
+    ribbons, no panel or scrim; the desktop catalog-ribbons-bare-*.png at 1152 x 512), ?theme=light|dark,
+    ?accent=RRGGBB, ?quality=minimal|solid the glass quality, ?reduce reduce motion, ?fps measures
+    for 5 s the frame rate and the time per draw.
+    Everything below is sample content for this page.
+  */
+  .sample-list { list-style: none; margin: 0; padding: var(--ui-spacing-xs) 0; }
+  .sample-list li { display: flex; align-items: center; min-height: var(--ui-control-min-height); margin-inline: var(--ui-spacing-xs); padding-inline: 10px; white-space: nowrap; overflow: hidden; }
+  .sample-list li[aria-current="page"] { background: var(--ui-accent-fill-color); color: #FFFFFF; border-radius: var(--ui-corner-radius-control); }
+  .ui-shell-content h1 { margin: 6px 0 0; font-size: var(--ui-font-size-title); font-weight: var(--ui-font-weight-title); }
+  .ui-shell-content h2 { margin: 26px 0 0; font-size: var(--ui-font-size-subtitle); font-weight: var(--ui-font-weight-subtitle); }
+  .sample-end { margin-inline-start: auto; }
+  .bare .ui-shell > :not(.ui-shell-backdrop) { display: none; }
+  #fps { position: fixed; inset-block-end: 40px; inset-inline-end: 24px; margin: 0; }
+</style>
+</head>
+<body>
+<div class="ui-shell" id="shell">
+  <div class="ui-shell-backdrop" aria-hidden="true"></div>
+  <header class="ui-shell-title-band"><span class="ui-shell-title">Avalonia UI Standards catalog</span></header>
+  <nav class="ui-shell-sidebar" aria-label="Pages"><ul class="sample-list"></ul></nav>
+  <div class="ui-shell-panel ui-glass ui-squircle">
+    <main class="ui-shell-content" id="main">
+      <h1>Button</h1>
+      <h2>Variants and states</h2>
+    </main>
+  </div>
+  <footer class="ui-shell-status-bar"><span>Button</span><span class="sample-end">AvaloniaUiStandards 0.1.0</span></footer>
+</div>
+<script type="module">
+import { setAccent, setTheme, setReduceMotion, setGlassQuality } from "../style/index.js";
+import "../modules/shell.js";
+import { startRibbons } from "../catalog/ribbons.js";
+
+const pages = ["Colours", "Type", "Spacing", "Shape", "Glass", "Motion", "Button", "Button family", "ListBox", "Icon",
+  "TextInput", "ComboBox", "Toggles", "Segmented", "TreeView", "Ranges", "NumericUpDown", "AutoCompleteBox", "Tabs", "Expander"];
+const list = document.querySelector(".sample-list");
+for (const name of pages) {
+  const item = document.createElement("li");
+  item.textContent = name;
+  if (name === "Button") item.setAttribute("aria-current", "page");
+  list.append(item);
+}
+
+const params = new URLSearchParams(location.search);
+const shell = document.getElementById("shell");
+if (params.has("bare")) document.body.classList.add("bare");
+if (params.get("theme")) setTheme(params.get("theme"));
+if (params.get("accent")) setAccent(`#${params.get("accent")}`);
+if (params.get("quality")) setGlassQuality(params.get("quality"));
+if (params.has("reduce")) setReduceMotion(true);
+const size = params.get("size")?.match(/^(\d+)x(\d+)$/);
+if (size) Object.assign(shell.style, { inset: "0 auto auto 0", width: `${size[1]}px`, height: `${size[2]}px` });
+
+const ribbons = startRibbons(document.querySelector(".ui-shell-backdrop"));
+window.ribbons = ribbons;
+if (params.has("t")) ribbons.drawAt(Number(params.get("t")));
+
+if (params.has("fps")) {
+  // Frames and draws counted over 5 s after a 1 s warm-up; the result is written into #fps.
+  const out = document.createElement("p");
+  out.id = "fps";
+  out.textContent = "measuring";
+  document.body.append(out);
+  let frames = 0, start = 0, draws0 = 0, drawTotal = 0, drawMax = 0, lastDraws = 0;
+  const tick = (t) => {
+    if (!start) start = t + 1000;
+    const s = ribbons.state();
+    if (t >= start) {
+      frames++;
+      if (s.frames !== lastDraws) { drawTotal += s.drawMs; drawMax = Math.max(drawMax, s.drawMs); }
+    } else draws0 = s.frames;
+    lastDraws = s.frames;
+    if (t < start + 5000) requestAnimationFrame(tick);
+    else {
+      const draws = s.frames - draws0;
+      out.textContent = `display fps ${(frames / 5).toFixed(1)}, ribbon fps ${(draws / 5).toFixed(1)}, draw ms avg ${(drawTotal / Math.max(1, draws)).toFixed(2)} max ${drawMax.toFixed(2)}`;
+    }
+  };
+  requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>

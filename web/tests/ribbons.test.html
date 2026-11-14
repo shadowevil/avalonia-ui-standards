@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="false">
+<head>
+<meta charset="utf-8">
+<title>Ribbon backdrop tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<style>
+  /* A shell-shaped box: the slot fills it, the panel sits inside it (no shell.css, only its classes). */
+  .ui-shell { position: relative; width: 600px; height: 400px; }
+  .ui-shell-backdrop { position: absolute; inset: 0; }
+  .ui-shell-panel { position: absolute; left: 200px; top: 50px; width: 360px; height: 300px; }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div class="ui-shell"><div class="ui-shell-backdrop" id="slot"></div><div class="ui-shell-panel" id="panel"></div></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setAccent, setTheme, setReduceMotion } from "../style/index.js";
+import { startRibbons } from "../catalog/ribbons.js";
+
+// Headless test runs (--dump-dom with virtual time) produce no animation frames, so frames come
+// from a 60 Hz timer here, with the frame time as requestAnimationFrame gives it.
+let nextFrame = 0;
+const frameTimers = new Map();
+window.requestAnimationFrame = (callback) => {
+  const id = ++nextFrame;
+  frameTimers.set(id, setTimeout(() => { frameTimers.delete(id); callback(performance.now()); }, 1000 / 60));
+  return id;
+};
+window.cancelAnimationFrame = (id) => { clearTimeout(frameTimers.get(id)); frameTimers.delete(id); };
+
+// Spies on everything the ribbons could leave behind: observers, listeners and frame requests.
+const live = { observers: 0, listeners: 0, queries: 0 };
+for (const Observer of [ResizeObserver, MutationObserver]) {
+  const { observe, disconnect } = Observer.prototype;
+  Observer.prototype.observe = function (...a) {
+    if (!this.__counted) { this.__counted = true; live.observers++; }
+    return observe.apply(this, a);
+  };
+  Observer.prototype.disconnect = function () {
+    if (this.__counted) { this.__counted = false; live.observers--; }
+    return disconnect.call(this);
+  };
+}
+const { addEventListener: docAdd, removeEventListener: docRemove } = document;
+document.addEventListener = function (type, ...a) { if (type === "visibilitychange") live.listeners++; return docAdd.call(this, type, ...a); };
+document.removeEventListener = function (type, ...a) { if (type === "visibilitychange") live.listeners--; return docRemove.call(this, type, ...a); };
+const mql = MediaQueryList.prototype;
+const { addEventListener: mqAdd, removeEventListener: mqRemove } = mql;
+mql.addEventListener = function (...a) { live.queries++; return mqAdd.apply(this, a); };
+mql.removeEventListener = function (...a) { live.queries--; return mqRemove.apply(this, a); };
+
+const slot = document.getElementById("slot");
+const panel = document.getElementById("panel");
+const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const canvas = () => slot.querySelector("canvas:last-child");
+const pixels = () => {
+  const c = canvas();
+  return c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+};
+// The average colour of the drawn pixels, weighted by alpha.
+function average() {
+  const d = pixels();
+  let r = 0, g = 0, b = 0, a = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i] * d[i + 3]; g += d[i + 1] * d[i + 3]; b += d[i + 2] * d[i + 3]; a += d[i + 3]; }
+  return [r / a, g / a, b / a];
+}
+const alphaAt = (x, y) => {
+  const c = canvas();
+  const k = c.width / slot.clientWidth;
+  return c.getContext("2d").getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data[3];
+};
+// Chrome moves a canvas off the GPU after its second read back, which changes its antialiasing; pixel
+// comparisons use frames drawn after that.
+function settle(stop) {
+  stop.drawAt(30);
+  pixels();
+  stop.drawAt(10);
+  pixels();
+}
+const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+function reset() {
+  setTheme("light");
+  setReduceMotion(false);
+  setAccent();
+  slot.style.width = "";
+}
+
+test("start fills the slot with a canvas at the device pixel ratio, aria-hidden; stop removes it", async () => {
+  const stop = startRibbons(slot);
+  const c = canvas();
+  assert(c, "canvas");
+  assertEqual(c.getAttribute("aria-hidden"), "true");
+  assertEqual(c.width, Math.round(600 * devicePixelRatio), "width");
+  assertEqual(c.height, Math.round(400 * devicePixelRatio), "height");
+  stop();
+  assertEqual(canvas(), null, "canvas after stop");
+  stop();
+});
+
+test("runs: the loop moves, at no more than 30 frames a second", async () => {
+  const stop = startRibbons(slot);
+  await frame();
+  const a = stop.state();
+  assert(a.running, "running");
+  await wait(1000);
+  const b = stop.state();
+  stop();
+  assert(b.phase > a.phase, `phase ${a.phase} -> ${b.phase}`);
+  const fps = b.frames - a.frames;
+  assert(fps >= 15 && fps <= 32, `frames in 1 s: ${fps}`);
+  // 45 s a loop: 1 s moves it about 1/45.
+  assert(Math.abs(b.phase - a.phase - 1 / 45) < 0.01, `phase step ${b.phase - a.phase}`);
+});
+
+test("the loop is seamless: 0 s and 45 s draw the same frame", () => {
+  const stop = startRibbons(slot);
+  settle(stop);
+  stop.drawAt(0);
+  const a = pixels();
+  stop.drawAt(45);
+  const b = pixels();
+  stop.drawAt(20);
+  const c = pixels();
+  stop();
+  assert(same(a, b), `0 s and 45 s differ in ${a.filter((v, i) => v !== b[i]).length} values`);
+  assert(!same(a, c), "20 s looks like 0 s");
+});
+
+test("reduce motion: stopped, drawn as a still frame, without the dots", async () => {
+  const stop = startRibbons(slot);
+  settle(stop);
+  stop.drawAt(1.8);
+  const withDots = pixels();
+  setReduceMotion(true);
+  await frame();
+  const s = stop.state();
+  assert(s.reduced && !s.running, "stopped");
+  assert(s.frames > 0, "a still frame is drawn");
+  stop.drawAt(1.8);
+  const still = pixels();
+  assert(!same(withDots, still), "dots still drawn");
+  assert(still.some((v, i) => i % 4 === 3 && v > 0), "still frame empty");
+  stop();
+
+  // Started under reduce motion: one still frame, and the loop does not move.
+  const again = startRibbons(slot);
+  await frame();
+  const a = again.state();
+  await wait(300);
+  const b = again.state();
+  again();
+  reset();
+  assert(!a.running && a.frames >= 1, "no still frame at start");
+  assertEqual(b.phase, a.phase, "phase moved");
+  assertEqual(b.frames, a.frames, "frames drawn while reduced");
+});
+
+test("reduce motion lifted: the loop runs again", async () => {
+  setReduceMotion(true);
+  const stop = startRibbons(slot);
+  await frame();
+  setReduceMotion(false);
+  await frame();
+  await wait(200);
+  const s = stop.state();
+  stop();
+  reset();
+  assert(s.running && s.phase > 0, `running ${s.running}, phase ${s.phase}`);
+});
+
+test("pauses while the page is hidden and resumes when shown", async () => {
+  const stop = startRibbons(slot);
+  await wait(200);
+  Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+  document.dispatchEvent(new Event("visibilitychange"));
+  const a = stop.state();
+  await wait(300);
+  const b = stop.state();
+  delete document.hidden;
+  document.dispatchEvent(new Event("visibilitychange"));
+  await wait(200);
+  const c = stop.state();
+  stop();
+  assert(!a.running, "running while hidden");
+  assertEqual(b.phase, a.phase, "phase moved while hidden");
+  assert(c.running && c.phase > b.phase, "did not resume");
+  // The first frame after resuming does not jump by the hidden time.
+  assert(c.phase - b.phase < 0.4 / 45, `jumped ${c.phase - b.phase}`);
+});
+
+test("an accent change re-tints, and a theme change redraws in the dark look", async () => {
+  const stop = startRibbons(slot);
+  stop.drawAt(10);
+  const blue = average();
+  setAccent("#2A9D8F");
+  await frame();
+  const teal = average();
+  setTheme("dark");
+  await frame();
+  const dark = average();
+  stop();
+  reset();
+  assert(blue[2] > blue[1] + 20, `blue: ${blue.map(Math.round)}`);
+  assert(teal[1] > blue[1] + 10 && teal[2] < blue[2] - 10, `teal: ${teal.map(Math.round)}`);
+  assert(dark[0] + dark[1] + dark[2] < teal[0] + teal[1] + teal[2], `dark: ${dark.map(Math.round)} vs ${teal.map(Math.round)}`);
+});
+
+test("the scrim covers outside the panel at 0.45 (light) and 0.64 (dark), and follows the panel", async () => {
+  const stop = startRibbons(slot);
+  stop.drawAt(0);
+  // Top left: outside the panel, above every ribbon. Inside the panel near its top: nothing drawn.
+  assertEqual(alphaAt(4, 4), Math.round(0.45 * 255), "light scrim");
+  assertEqual(alphaAt(380, 54), 0, "inside the panel");
+  setTheme("dark");
+  await frame();
+  assertEqual(alphaAt(4, 4), Math.round(0.64 * 255), "dark scrim");
+  // Each draw reads the panel's place (resize observations, which also redraw, need rendered frames).
+  panel.style.width = "100px";
+  stop.drawAt(0);
+  const followed = alphaAt(380, 54);
+  panel.style.width = "";
+  stop();
+  reset();
+  assert(followed > 0, "the scrim did not follow the panel");
+});
+
+test("no leaks: stop removes the observers, listeners and canvas, and nothing draws after it", async () => {
+  const before = { ...live };
+  const stop = startRibbons(slot);
+  const pendingFrames = frameTimers.size;
+  assert(live.observers > before.observers && live.listeners > before.listeners && live.queries > before.queries, "spies saw nothing");
+  await wait(100);
+  stop();
+  assertEqual(JSON.stringify(live), JSON.stringify(before), "left behind");
+  assert(pendingFrames > 0, "no frame requested while running");
+  assertEqual(frameTimers.size, 0, "frame requests left");
+  const frames = stop.state().frames;
+  setAccent("#E76F51");
+  setReduceMotion(true);
+  slot.style.width = "300px";
+  document.dispatchEvent(new Event("visibilitychange"));
+  await wait(200);
+  assertEqual(stop.state().frames, frames, "drew after stop");
+  assertEqual(stop.state().running, false);
+  assertEqual(slot.children.length, 0, "slot not empty");
+  reset();
+});
+</script>
+</body>
+</html>

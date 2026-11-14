@@ -1,0 +1,403 @@
+/*
+  The catalog app (0020): the shell's slots filled with the page list, the theme controls and the
+  status bar, and the page layout of the desktop catalog's Ui, StateGrid and pages. Sizes are the
+  desktop catalog's.
+*/
+
+/* Sidebar: the navigation ListBox, one row per page with its icon. */
+.catalog-sidebar ui-list-box {
+  padding-block: 0;
+}
+
+.catalog-nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Toolbar band: groups of subtle ToggleButtons; theme, accent and density lead, motion,
+   transparency and glass quality trail. It wraps onto a second row when narrow. */
+.catalog-band:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-spacing-xs) var(--ui-spacing-l);
+  padding-block: var(--ui-spacing-xs);
+  padding-inline: var(--ui-spacing-l) var(--ui-spacing-s);
+}
+
+.catalog-band-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.catalog-band-trailing {
+  margin-inline-start: auto;
+}
+
+.catalog-band-lead {
+  display: inline-flex;
+  margin-inline-end: calc(var(--ui-spacing-s) - 2px);
+  color: var(--ui-system-base-high-color);
+}
+
+.catalog-band-caption {
+  font-size: var(--ui-font-size-caption);
+  color: var(--ui-system-base-medium-color);
+}
+
+/* An accent preset: its chip at the icon size, hairline edge and radius 4, in a square button. */
+.catalog-chip-button {
+  inline-size: var(--ui-control-min-height);
+  padding: 0;
+}
+
+.catalog-chip {
+  --ui-squircle-radius: 4px;
+  box-sizing: border-box;
+  inline-size: var(--ui-icon-size);
+  block-size: var(--ui-icon-size);
+  border: 1px solid var(--ui-system-base-low-color);
+}
+
+/* Status bar: the page name, then the library version at the end, in the caption size. */
+.catalog-status {
+  justify-content: space-between;
+  gap: var(--ui-spacing-l);
+  font-size: var(--ui-font-size-caption);
+}
+
+.catalog main:focus {
+  outline: none;
+}
+
+body {
+  margin: 0;
+}
+
+/* Renders (?render): the shell is as tall as the page. */
+.catalog-render {
+  position: static;
+}
+
+.catalog-render .ui-shell-content {
+  overflow: visible;
+}
+
+/* Pages: a title and its sections stacked 24 apart; a section's heading 12 above its content. */
+.catalog-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-xl);
+}
+
+.catalog-title,
+.catalog-subtitle {
+  margin: 0;
+  line-height: normal;
+  overflow-wrap: anywhere;
+}
+
+.catalog-title {
+  font-size: var(--ui-font-size-title);
+  font-weight: var(--ui-font-weight-title);
+}
+
+.catalog-subtitle {
+  font-size: var(--ui-font-size-subtitle);
+  font-weight: var(--ui-font-weight-subtitle);
+}
+
+.catalog-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-m);
+  min-inline-size: 0;
+}
+
+.catalog-body {
+  font-size: var(--ui-font-size-body);
+}
+
+.catalog-caption {
+  font-size: var(--ui-font-size-caption);
+  color: var(--ui-system-base-medium-color);
+}
+
+.catalog-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ui-spacing-m);
+}
+
+.catalog-captioned {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-xs);
+}
+
+.catalog-side-scroll {
+  overflow: auto hidden;
+}
+
+.catalog-error {
+  color: var(--ui-danger-text-color);
+}
+
+/* State grid: a 150 px label column, one auto column per state, 8 between columns, 4 between
+   rows, each sample padded 12 and centred. */
+.catalog-state-grid {
+  display: grid;
+  grid-template-columns: 150px repeat(var(--catalog-state-columns), auto);
+  justify-content: start;
+  align-items: center;
+  gap: var(--ui-spacing-xs) var(--ui-spacing-s);
+}
+
+.catalog-state-caption,
+.catalog-state-cell {
+  justify-self: center;
+}
+
+.catalog-state-cell {
+  padding: var(--ui-spacing-m);
+}
+
+/* Colours: cards 340 wide (as wide as the panel when narrower), 24 apart, 8 below; the chip
+   72 x 32 with a hairline edge and radius 4, 12 before the key and hex. */
+.catalog-swatches {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.catalog-swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-spacing-m);
+  inline-size: min(340px, 100%);
+  margin: 0 var(--ui-spacing-xl) var(--ui-spacing-s) 0;
+}
+
+.catalog-swatch-chip {
+  flex: none;
+  box-sizing: border-box;
+  inline-size: 72px;
+  block-size: 32px;
+  border: 1px solid var(--ui-system-base-low-color);
+  border-radius: 4px;
+}
+
+.catalog-swatch-text {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Type: each style's values above its sample. */
+.catalog-type-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.catalog-type-sample {
+  line-height: normal;
+}
+
+/* Spacing: the key (110), the value (56) and the bar, 8 apart. */
+.catalog-spacing-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-spacing-s);
+}
+
+.catalog-spacing-row > :nth-child(1) {
+  inline-size: 110px;
+}
+
+.catalog-spacing-row > :nth-child(2) {
+  inline-size: 56px;
+}
+
+.catalog-spacing-bar {
+  block-size: 20px;
+  background: var(--ui-system-accent-color);
+}
+
+/* Shape: 160 x 96 squircles with an accent hairline, the value 8 below, 32 after, 16 below. */
+.catalog-shapes {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.catalog-shape {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-s);
+  margin: 0 var(--ui-spacing-xxl) var(--ui-spacing-l) 0;
+}
+
+.catalog-shape-sample {
+  box-sizing: border-box;
+  inline-size: 160px;
+  block-size: 96px;
+  border: 1px solid var(--ui-system-accent-color);
+  background: var(--ui-system-chrome-medium-low-color);
+}
+
+/* Glass: a 360 px scrolling backdrop with the panels over it, 12 in from its corner. */
+.catalog-glass-stage {
+  position: relative;
+  overflow: clip;
+}
+
+.catalog-glass-scroller {
+  block-size: 360px;
+  overflow: auto;
+  cursor: grab;
+}
+
+.catalog-glass-backdrop {
+  display: block;
+  inline-size: 1800px;
+  block-size: 900px;
+}
+
+.catalog-glass-cards {
+  position: absolute;
+  inset: var(--ui-spacing-m) 0 auto var(--ui-spacing-m);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  pointer-events: none;
+}
+
+.catalog-glass-card {
+  display: grid;
+  place-items: center;
+  margin: 0 var(--ui-spacing-m) var(--ui-spacing-m) 0;
+}
+
+/* Motion: the key (140), the value (60), a 200 px track with a 24 px dot, and Play, 12 apart. */
+.catalog-motion {
+  gap: var(--ui-spacing-l);
+}
+
+.catalog-motion-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.catalog-motion-row > * {
+  margin: 0 var(--ui-spacing-m) var(--ui-spacing-xs) 0;
+}
+
+.catalog-motion-row > :nth-child(1) {
+  inline-size: 140px;
+}
+
+.catalog-motion-row > :nth-child(2) {
+  inline-size: 60px;
+}
+
+.catalog-motion-track {
+  display: block;
+  inline-size: 200px;
+  block-size: 24px;
+}
+
+.catalog-motion-dot {
+  display: block;
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 50%;
+  background: var(--ui-system-accent-color);
+  transition-property: translate;
+  transition-timing-function: var(--ui-motion-easing);
+}
+
+.catalog-motion-dot.catalog-motion-end {
+  translate: 176px 0;
+}
+
+.catalog-motion-dot.catalog-motion-end:dir(rtl) {
+  translate: -176px 0;
+}
+
+/* Icon: the set in 232 px entries 12 apart; the sizes in groups 32 apart. */
+.catalog-icon-set {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catalog-icon-set > li {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-spacing-s);
+  inline-size: 232px;
+  margin-block-end: var(--ui-spacing-m);
+}
+
+.catalog-icon-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.catalog-icon-size {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-s);
+  margin: 0 var(--ui-spacing-xxl) var(--ui-spacing-m) 0;
+}
+
+.catalog-icon-row {
+  display: flex;
+  gap: var(--ui-spacing-s);
+}
+
+/* ListBox: the states 160 wide, 12 apart; the live lists 240 x 200, 24 apart and 16 between rows. */
+.catalog-list-states {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.catalog-list-states > * {
+  margin: 0 var(--ui-spacing-m) var(--ui-spacing-m) 0;
+}
+
+.catalog-list-states ui-list-box {
+  inline-size: 160px;
+}
+
+.catalog-list-options {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-spacing-m);
+}
+
+.catalog-list-live {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-spacing-l) var(--ui-spacing-xl);
+}
+
+.catalog-list-live ui-list-box {
+  inline-size: 240px;
+  block-size: 200px;
+}
+
+/* Ranges: a bar is 160 wide on desktop, held at its 200 minimum. */
+.catalog-range-bar {
+  inline-size: 160px;
+}
+
+.ui-progress.catalog-range-bar {
+  inline-size: 200px;
+}

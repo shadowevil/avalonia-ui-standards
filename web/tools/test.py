@@ -8,12 +8,26 @@ import sys
 import common
 
 
+def version_matches():
+    """The catalog's version constant equals <Version> in the desktop library project (0023)."""
+    csproj = (common.WEB.parent / "src/AvaloniaUiStandards/AvaloniaUiStandards.csproj").read_text()
+    catalog = (common.WEB / "catalog/catalog.js").read_text()
+    want = re.search(r"<Version>([^<]+)</Version>", csproj)
+    have = re.search(r'LIBRARY_VERSION = "([^"]+)"', catalog)
+    want, have = want and want.group(1), have and have.group(1)
+    if want and want == have:
+        print(f"version: catalog.js {have} matches AvaloniaUiStandards.csproj")
+        return True
+    print(f"version: catalog.js {have} differs from AvaloniaUiStandards.csproj {want}", file=sys.stderr)
+    return False
+
+
 def main():
+    failed = not version_matches()
     pages = sorted(common.WEB.glob("tests/*.test.html"))
     if not pages:
         sys.exit("No test pages found.")
     chrome = common.find_chrome()
-    failed = False
 
     with common.serve() as base, common.profile_dir() as profile:
         for page in pages:
