@@ -19,8 +19,8 @@ namespace AvaloniaUiStandards.Modules;
 /// and the optional <see cref="StatusBar"/>. An optional <see cref="Backdrop"/> sits behind them all.
 /// </summary>
 /// <remarks>
-/// Drag the window by the title band (double-click maximises or restores; on macOS it follows the
-/// system's title bar double-click setting), resize it from the frame's edges and corners.
+/// Drag the window by the title band (double-click maximises or restores; in the macOS layout it
+/// follows the macOS setting for a title bar double-click, on macOS), resize it from the frame's edges and corners.
 /// Maximised, or where the OS gives no transparency, the frame fills the window with square
 /// corners and no shadow, except on macOS, where the system keeps its shadow and rounds the
 /// corners with its own mask. On macOS the window is a native resizable window with its title bar
@@ -64,6 +64,8 @@ public class StandardsWindow : Window, IFrameTickSource
 
     private WindowButtons? _buttons;
     private Panel? _menuRowPart;
+    private readonly MenuShortcuts _shortcuts;
+    private bool _closed;
     private readonly MenuRow _menuRow = new()
     {
         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
@@ -84,6 +86,7 @@ public class StandardsWindow : Window, IFrameTickSource
     /// <param name="nativeFrame">Whether to use the native macOS frame; by OS and platform when null.</param>
     internal StandardsWindow(bool? nativeFrame)
     {
+        _shortcuts = new MenuShortcuts(this);
         _ticker = new FrameTicker(new Scheduler(this), (time, elapsed) => _frameTick?.Invoke(this, new FrameTickEventArgs(time, elapsed)));
         HasNativeFrame = nativeFrame ?? UsesNativeFrame(OperatingSystem.IsMacOS(), TryGetPlatformHandle()?.HandleDescriptor);
         WindowDecorations = DecorationsFor(HasNativeFrame);
@@ -124,8 +127,8 @@ public class StandardsWindow : Window, IFrameTickSource
     /// <summary>
     /// Optional content of the band directly below the title band, across the window on the window
     /// background (normally a <see cref="Modules.ToolbarBand"/>); shown only when set, with the
-    /// sidebar and the glass panel below it. On macOS its empty area drags the window, as a
-    /// unified toolbar's does; elsewhere it does not, as a command bar's does not.
+    /// sidebar and the glass panel below it. In the macOS layout its empty area drags the window, as a
+    /// unified toolbar's does; in the Windows layout it does not, as a command bar's does not.
     /// </summary>
     public object? ToolbarBand
     {
@@ -232,6 +235,9 @@ public class StandardsWindow : Window, IFrameTickSource
     /// <summary>The layout in use: <see cref="LayoutMode"/>, with Automatic resolved for this OS.</summary>
     internal WindowLayoutMode ResolvedLayoutMode => WindowLayout.Resolve(LayoutMode, OperatingSystem.IsMacOS());
 
+    /// <summary>The window shortcuts made from the menu's gestures.</summary>
+    internal MenuShortcuts MenuShortcuts => _shortcuts;
+
     /// <summary>The menu bar of the menu row (shown in the Windows layout when the window has a menu).</summary>
     internal MenuRow MenuRow => _menuRow;
 
@@ -308,6 +314,12 @@ public class StandardsWindow : Window, IFrameTickSource
     protected override void OnClosed(EventArgs e)
     {
         _ticker.Stop();
+        _closed = true;
+        // The menus outlive the window (the Application's for the whole app): let go of them.
+        _menuRowPart?.Children.Remove(_menuRow);
+        _menuRow.Source = null;
+        _menuRow.AppMenu = null;
+        _shortcuts.Dispose();
         base.OnClosed(e);
     }
 
@@ -360,6 +372,10 @@ public class StandardsWindow : Window, IFrameTickSource
     /// </summary>
     private void UpdateMenuRow()
     {
+        if (_closed)
+            return;
+        // The menu's shortcuts work in either layout while the menu is not exported.
+        _shortcuts.Menu = NativeMenu.GetMenu(this);
         if (_menuRowPart is null)
             return;
         var shown = IsMenuRowShown;

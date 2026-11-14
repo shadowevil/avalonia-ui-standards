@@ -284,6 +284,95 @@ public class MenuRowTests
         }
     }
 
+    [AvaloniaFact]
+    public void RadioItems_KeepTheNativeCheckState_WhenClickChangesNothing()
+    {
+        var radios = new[] { "_Small", "_Medium", "_Large" }
+            .Select((h, i) => new NativeMenuItem(h) { ToggleType = MenuItemToggleType.Radio, IsChecked = i == 0 }).ToList();
+        var size = new NativeMenu();
+        foreach (var radio in radios)
+            size.Add(radio);
+        var menu = new NativeMenu { new NativeMenuItem("_View") { Menu = size } };
+        var window = Show(menu);
+        try
+        {
+            var view = Title(window, "_View");
+            view.IsSubMenuOpen = true;
+            Pump(window);
+            var items = view.Items.OfType<MenuItem>().ToList();
+            items[2].Focus();
+            Press(window, Key.Enter);
+            Pump(window);
+            for (var i = 0; i < radios.Count; i++)
+                Assert.Equal(radios[i].IsChecked, items[i].IsChecked);
+            Assert.True(items[0].IsChecked);
+            Assert.False(items[2].IsChecked);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ClosedWindow_LetsGoOfTheMenus()
+    {
+        var app = Application.Current!;
+        var about = new NativeMenuItem("_About Menus") { Gesture = KeyGesture.Parse("Ctrl+Shift+A") };
+        NativeMenu.SetMenu(app, new NativeMenu { about });
+        var appItems = (Avalonia.Collections.AvaloniaList<NativeMenuItemBase>)NativeMenu.GetMenu(app)!.Items;
+        var handlersBefore = Handlers(appItems);
+        var appHandlersBefore = PropertyChangedHandlers(app);
+        var menu = FourMenus();
+        // NativeMenu watches its own list: that handler stays.
+        var menuHandlersBefore = Handlers(menu.Items);
+        var window = Show(menu);
+        try
+        {
+            var builtAbout = Title(window, "_Help").Items.OfType<MenuItem>().Last();
+            Assert.True(Handlers(appItems) > handlersBefore);
+            window.Close();
+            Pump(window);
+
+            // No subscriptions are left on the Application's menu, its items or the Application.
+            Assert.Equal(handlersBefore, Handlers(appItems));
+            Assert.Equal(appHandlersBefore, PropertyChangedHandlers(app));
+            Assert.Equal(0, PropertyChangedHandlers(about));
+            // The closed window's item no longer follows the Application's item (its binding is gone).
+            about.Header = "_About";
+            Assert.NotEqual("_About", builtAbout.Header);
+            Assert.Equal(menuHandlersBefore, Handlers(menu.Items));
+            Assert.Null(window.MenuRow.Parent);
+        }
+        finally
+        {
+            window.Close();
+            NativeMenu.SetMenu(app, null!);
+        }
+    }
+
+    // The number of handlers on a list's CollectionChanged event.
+    private static int Handlers(object list)
+    {
+        var count = 0;
+        for (var type = list.GetType(); type is not null; type = type.BaseType)
+            foreach (var field in type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                if (field.FieldType == typeof(System.Collections.Specialized.NotifyCollectionChangedEventHandler))
+                    count += (field.GetValue(list) as Delegate)?.GetInvocationList().Length ?? 0;
+        return count;
+    }
+
+    // The number of handlers on an object's PropertyChanged event, and of observers of its properties.
+    private static int PropertyChangedHandlers(AvaloniaObject target)
+    {
+        var count = 0;
+        for (var type = target.GetType(); type is not null; type = type.BaseType)
+            foreach (var field in type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                if (field.FieldType == typeof(EventHandler<AvaloniaPropertyChangedEventArgs>))
+                    count += (field.GetValue(target) as Delegate)?.GetInvocationList().Length ?? 0;
+        return count;
+    }
+
     // --- Application menu merge ---------------------------------------------------------------
 
     [AvaloniaFact]
@@ -371,7 +460,7 @@ public class MenuRowTests
             Assert.Equal(8, ShownTitles(window).Count);
             Assert.False(more.IsVisible);
 
-            // The four menus of an ordinary app fit at the minimum width (480 frame plus the shadow margin).
+            // Eight menus do not fit at the minimum width (480 frame plus the shadow margin): the last ones fold.
             window.Width = 528;
             Pump(window);
             var shown = ShownTitles(window);
@@ -467,7 +556,7 @@ public class MenuRowTests
     }
 
     [AvaloniaFact]
-    public void Gestures_AreWindowShortcuts_WhileTheMenuRowShows()
+    public void Gestures_AreWindowShortcuts_InEitherLayout_WhileTheMenuIsNotExported()
     {
         var menu = FourMenus();
         var nativeNew = menu.Items[0].As<NativeMenuItem>().Menu!.Items[0].As<NativeMenuItem>();
@@ -488,19 +577,32 @@ public class MenuRowTests
             Assert.Equal(1, clicks);
             nativeNew.IsEnabled = true;
 
-            // In the macOS layout the row is gone, and so are its shortcuts (the system menu bar has them).
+            // In the macOS layout with no system menu bar (headless, as on Windows or Linux) the row is gone, but the
+            // shortcuts stay; Alt, access keys and F10 open nothing.
             window.LayoutMode = WindowLayoutMode.MacOS;
             Pump(window);
-            Assert.DoesNotContain(window.KeyBindings, b => b.Gesture == nativeNew.Gesture);
+            Assert.False(NativeMenu.GetIsNativeMenuExported(window));
+            Assert.Contains(window.KeyBindings, b => b.Gesture == nativeNew.Gesture);
             Press(window, Key.N, RawInputModifiers.Control, "n");
-            Assert.Equal(1, clicks);
+            Assert.Equal(2, clicks);
+            Press(window, Key.LeftAlt, RawInputModifiers.Alt, physical: PhysicalKey.AltLeft);
+            Assert.False(window.MenuRow.IsOpen);
+            Press(window, Key.F, RawInputModifiers.Alt, "f", PhysicalKey.F);
+            Assert.False(window.MenuRow.IsOpen);
+            Assert.All(window.MenuRow.Titles, t => Assert.False(t.IsSubMenuOpen));
             Press(window, Key.F10);
             Assert.False(window.MenuRow.IsOpen);
 
-            window.LayoutMode = WindowLayoutMode.Windows;
+            // Shortcuts follow gestures that change, and leave with the menu.
+            nativeNew.Gesture = KeyGesture.Parse("Ctrl+M");
             Pump(window);
-            Press(window, Key.N, RawInputModifiers.Control, "n");
-            Assert.Equal(2, clicks);
+            Press(window, Key.M, RawInputModifiers.Control, "m");
+            Assert.Equal(3, clicks);
+            NativeMenu.SetMenu(window, null!);
+            Pump(window);
+            Assert.Empty(window.MenuShortcuts.Bindings);
+            Press(window, Key.M, RawInputModifiers.Control, "m");
+            Assert.Equal(3, clicks);
         }
         finally
         {

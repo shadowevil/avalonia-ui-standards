@@ -1,5 +1,5 @@
 using System.Collections.Specialized;
-using System.Windows.Input;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -19,8 +19,7 @@ namespace AvaloniaUiStandards.Modules;
 /// The in-window menu bar of <see cref="StandardsWindow"/>'s menu row: a Menu bar (0036's look) built
 /// from the window's <see cref="NativeMenu"/> and kept in sync with it, with the Application's menu items
 /// appended at the end of Help. Titles that do not fit fold, from the end, into a trailing "…" title that
-/// holds them as submenus. The menu items' input gestures are shortcuts of the window while the menu is
-/// not exported to a system menu bar (which handles them itself).
+/// holds them as submenus. The items' gestures are window shortcuts kept by <see cref="MenuShortcuts"/>.
 /// </summary>
 /// <remarks>
 /// Avalonia's <see cref="NativeMenuBar"/> is not used: it hides itself whenever the platform exports the
@@ -40,16 +39,15 @@ internal sealed class MenuRow : Menu
     // Each title's native item (null for the added Help title) and the Application's items it ends with.
     private readonly Dictionary<MenuItem, (NativeMenuItem? Native, Func<Node, IEnumerable<Control>>? Tail)> _titleSources = [];
     private int _foldedApplied;
-    private readonly List<KeyBinding> _keyBindings = [];
+    // The native item each built menu item stands for, so a click can put a radio group back as the native items have it.
+    private readonly ConditionalWeakTable<MenuItem, NativeMenuItem> _natives = new();
     private Node _root = new();
     private Node _moreNode = new();
     private NativeMenu? _source;
     private NativeMenu? _appMenu;
-    private TopLevel? _topLevel;
     private int _shownTitles = int.MaxValue;
     private bool _foldPosted;
     private bool _rebuildPosted;
-    private bool _keyBindingsPosted;
 
     public MenuRow()
     {
@@ -101,9 +99,6 @@ internal sealed class MenuRow : Menu
     /// <summary>The "…" title holding the folded titles.</summary>
     internal MenuItem MoreItem => _more;
 
-    /// <summary>The window shortcuts made from the menu items' gestures.</summary>
-    internal IReadOnlyList<KeyBinding> ShortcutBindings => _keyBindings;
-
     /// <summary>Opens the menu bar from the keyboard (F10), selecting its first title, or closes it when open.</summary>
     internal void ToggleFromKeyboard()
     {
@@ -116,9 +111,6 @@ internal sealed class MenuRow : Menu
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _topLevel = TopLevel.GetTopLevel(this);
-        if (_topLevel is not null)
-            _topLevel.PropertyChanged += OnTopLevelPropertyChanged;
         if (Application.Current is { } app)
             app.PropertyChanged += OnAppPropertyChanged;
         // The Help header comes from the resources, which are reachable from here on.
@@ -128,12 +120,6 @@ internal sealed class MenuRow : Menu
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        if (_topLevel is not null)
-        {
-            _topLevel.PropertyChanged -= OnTopLevelPropertyChanged;
-            RemoveKeyBindings();
-        }
-        _topLevel = null;
         if (Application.Current is { } app)
             app.PropertyChanged -= OnAppPropertyChanged;
     }
@@ -143,13 +129,6 @@ internal sealed class MenuRow : Menu
     {
         if (e.Property == NativeMenu.MenuProperty && _source is not null)
             AppMenu = e.NewValue as NativeMenu;
-    }
-
-    // The platform starts or stops exporting the menu: the system menu bar takes the gestures, or no longer does.
-    private void OnTopLevelPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        if (e.Property.Name == "IsNativeMenuExported")
-            ScheduleKeyBindings();
     }
 
     // --- Building -------------------------------------------------------------------------------
@@ -184,7 +163,12 @@ internal sealed class MenuRow : Menu
         {
             _root.Subs.Add(Observe(_source.Items, PostRebuild));
             if (_appMenu is not null)
+            {
                 _root.Subs.Add(Observe(_appMenu.Items, PostRebuild));
+                // An Application item shown or hidden can add or remove the added Help title.
+                foreach (var item in _appMenu.Items.OfType<NativeMenuItem>())
+                    _root.Subs.Add(item.GetObservable(NativeMenuItem.IsVisibleProperty).Skip1(PostRebuild));
+            }
 
             var helpHeader = HelpHeaderText();
             var titles = _source.Items.OfType<NativeMenuItem>().ToList();
@@ -213,7 +197,6 @@ internal sealed class MenuRow : Menu
         _more.IsVisible = false;
         _more.Items.Clear();
         Items.Add(_more);
-        ScheduleKeyBindings();
     }
 
     private string HelpHeaderText() =>
@@ -272,6 +255,7 @@ internal sealed class MenuRow : Menu
     /// <summary>Keeps <paramref name="menuItem"/> in step with <paramref name="native"/>: its properties, its submenu, and clicks forwarded to it.</summary>
     private void Link(MenuItem menuItem, NativeMenuItem native, Node node, bool isTitle, Func<Node, IEnumerable<Control>>? tail)
     {
+        _natives.AddOrUpdate(menuItem, native);
         node.Subs.Add(menuItem.Bind(HeaderedSelectingItemsControl.HeaderProperty, native.GetObservable(NativeMenuItem.HeaderProperty)));
         node.Subs.Add(menuItem.Bind(IsEnabledProperty, native.GetObservable(NativeMenuItem.IsEnabledProperty)));
         // A title's visibility belongs to the folding; a hidden title is left out of the row instead.
@@ -283,13 +267,12 @@ internal sealed class MenuRow : Menu
             node.Subs.Add(menuItem.Bind(MenuItem.InputGestureProperty, native.GetObservable(NativeMenuItem.GestureProperty)));
             node.Subs.Add(menuItem.Bind(ToolTip.TipProperty, native.GetObservable(NativeMenuItem.ToolTipProperty)));
             node.Subs.Add(menuItem.Bind(MenuItem.IconProperty, native.GetObservable(NativeMenuItem.IconProperty).Map(IconFor)));
-            node.Subs.Add(native.GetObservable(NativeMenuItem.GestureProperty).Skip1(ScheduleKeyBindings));
         }
 
         // Clicks bubble up from submenu items; only the item's own click is forwarded.
         EventHandler<Avalonia.Interactivity.RoutedEventArgs> click = (_, e) =>
         {
-            if (e.Source == menuItem && !menuItem.HasSubMenu())
+            if (e.Source == menuItem && !menuItem.HasSubMenu)
                 Forward(native, menuItem);
         };
         menuItem.Click += click;
@@ -309,11 +292,7 @@ internal sealed class MenuRow : Menu
                     menuItem.Items.Add(item);
         }
         FillSubmenu();
-        node.Subs.Add(native.GetObservable(NativeMenuItem.MenuProperty).Skip1(() =>
-        {
-            FillSubmenu();
-            ScheduleKeyBindings();
-        }));
+        node.Subs.Add(native.GetObservable(NativeMenuItem.MenuProperty).Skip1(FillSubmenu));
     }
 
     /// <summary>Fills <paramref name="target"/> with <paramref name="menu"/>'s items (and the <paramref name="tail"/>), again whenever they change.</summary>
@@ -330,22 +309,29 @@ internal sealed class MenuRow : Menu
             if (tail is not null)
                 foreach (var item in tail(level))
                     target.Items.Add(item);
-            ScheduleKeyBindings();
         }
         Refill();
         owner.Subs.Add(Observe(menu.Items, Refill));
     }
 
     /// <summary>
-    /// Forwards a click to the native item (its Click and Command). The native item keeps the check
-    /// state: a menu item that checked or unchecked itself takes the native item's state back, so the
-    /// app toggles it, as with a system menu.
+    /// Forwards a click to the native item (its Click and Command). The native items keep the check
+    /// state: menu items that checked or unchecked themselves (the clicked one, and its radio
+    /// siblings) take the native items' state back, at once and again once the menu has handled the
+    /// click, so the app checks and unchecks them, as with a system menu.
     /// </summary>
-    private static void Forward(NativeMenuItem native, MenuItem menuItem)
+    private void Forward(NativeMenuItem native, MenuItem menuItem)
     {
         ((INativeMenuItemExporterEventsImplBridge)native).RaiseClicked();
-        if (menuItem.IsChecked != native.IsChecked)
-            menuItem.SetCurrentValue(MenuItem.IsCheckedProperty, native.IsChecked);
+        var group = menuItem.Parent is ItemsControl parent ? parent.Items.OfType<MenuItem>().ToList() : [menuItem];
+        void Restore()
+        {
+            foreach (var item in group)
+                if (_natives.TryGetValue(item, out var source) && item.IsChecked != source.IsChecked)
+                    item.SetCurrentValue(MenuItem.IsCheckedProperty, source.IsChecked);
+        }
+        Restore();
+        Dispatcher.UIThread.Post(Restore);
     }
 
     private static object? IconFor(Bitmap? bitmap) => bitmap is null ? null : new Image { Source = bitmap };
@@ -500,71 +486,6 @@ internal sealed class MenuRow : Menu
         }
     }
 
-    // --- Shortcuts ------------------------------------------------------------------------------
-
-    private void ScheduleKeyBindings()
-    {
-        if (_keyBindingsPosted)
-            return;
-        _keyBindingsPosted = true;
-        Dispatcher.UIThread.Post(() =>
-        {
-            _keyBindingsPosted = false;
-            RefreshKeyBindings();
-        });
-    }
-
-    /// <summary>
-    /// One window shortcut per menu item with a gesture (the window's and the Application's menus), while
-    /// the row is in a window whose menu the platform does not export.
-    /// </summary>
-    internal void RefreshKeyBindings()
-    {
-        RemoveKeyBindings();
-        if (_topLevel is null || NativeMenu.GetIsNativeMenuExported(_topLevel))
-            return;
-        foreach (var menu in new[] { _source, _appMenu })
-            if (menu is not null)
-                AddKeyBindings(menu, []);
-        foreach (var binding in _keyBindings)
-            _topLevel.KeyBindings.Add(binding);
-    }
-
-    private void AddKeyBindings(NativeMenu menu, IReadOnlyList<NativeMenuItem> parents)
-    {
-        foreach (var item in menu.Items.OfType<NativeMenuItem>())
-        {
-            List<NativeMenuItem> path = [.. parents, item];
-            if (item.Gesture is { } gesture)
-                _keyBindings.Add(new KeyBinding { Gesture = gesture, Command = new ShortcutCommand(this, path) });
-            if (item.Menu is { } submenu)
-                AddKeyBindings(submenu, path);
-        }
-    }
-
-    private void RemoveKeyBindings()
-    {
-        if (_topLevel is not null)
-            foreach (var binding in _keyBindings)
-                _topLevel.KeyBindings.Remove(binding);
-        _keyBindings.Clear();
-    }
-
-    /// <summary>Clicks the item at the end of <paramref name="path"/>, while it and its menus are enabled and shown and the row is shown.</summary>
-    private sealed class ShortcutCommand(MenuRow row, IReadOnlyList<NativeMenuItem> path) : ICommand
-    {
-        public event EventHandler? CanExecuteChanged { add { } remove { } }
-
-        public bool CanExecute(object? parameter) =>
-            row.IsEffectivelyVisible && path.All(item => item.IsEnabled && item.IsVisible);
-
-        public void Execute(object? parameter)
-        {
-            if (CanExecute(parameter))
-                ((INativeMenuItemExporterEventsImplBridge)path[^1]).RaiseClicked();
-        }
-    }
-
     // --- Subscriptions --------------------------------------------------------------------------
 
     /// <summary>The subscriptions of one built item and the items below it, released together when they are rebuilt.</summary>
@@ -592,9 +513,6 @@ internal sealed class MenuRow : Menu
 
 internal static class MenuRowExtensions
 {
-    /// <summary>Whether the item opens a submenu.</summary>
-    public static bool HasSubMenu(this MenuItem item) => item.ItemCount > 0;
-
     /// <summary>Calls <paramref name="changed"/> on every value after the current one.</summary>
     public static IDisposable Skip1<T>(this IObservable<T> source, Action changed) =>
         source.Subscribe(new SkipFirst<T>(changed));
