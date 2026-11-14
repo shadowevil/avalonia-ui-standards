@@ -53,7 +53,7 @@ public class SegmentedControlThemeTests
     [InlineData("Compact", 24, 8)]
     public void Size_FollowsDensity(string density, double height, double side)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var (window, control, _, _) = Show(Items("Day", "Week"), theme: theme);
         try
         {
@@ -369,7 +369,7 @@ public class SegmentedControlThemeTests
     [AvaloniaFact]
     public void Pill_LandsOnTheSelection_UnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true };
         var (window, control, _, _) = Show(Items("Day", "Week", "Month", "Year"), theme: theme);
         try
         {

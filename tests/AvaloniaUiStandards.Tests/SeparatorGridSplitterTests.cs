@@ -144,7 +144,7 @@ public class SeparatorGridSplitterTests
     [InlineData(true)]
     public void GridSplitter_Grip_FadesUnlessMotionIsReduced(bool reduceMotion)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion };
         var (window, splitter) = ShowSplitter(columns: true, ThemeVariant.Light, theme);
         try
         {

@@ -79,7 +79,7 @@ public class GlassNestingTests
     [AvaloniaFact]
     public void ReducedTransparency_KeepsEveryLevelSolid()
     {
-        var theme = new StandardsTheme(new OsAccessibility.Settings(false, false)) { ReduceTransparency = true };
+        var theme = new StandardsTheme(new AccessibilitySettings(false, false)) { ReduceTransparency = true };
         var (window, levels) = Nest(4, theme);
         Assert.All(levels, g => Assert.True(g.IsSolid));
 

@@ -107,7 +107,7 @@ public class ButtonThemeTests
     [AvaloniaFact]
     public void BrandColours_StayAsSet_AndFillsAreDerivedFromThem()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         Assert.True(theme.TryGetResource("SystemAccentColor", ThemeVariant.Light, out var accent));
         Assert.True(theme.TryGetResource("DangerColor", ThemeVariant.Light, out var danger));
         Assert.Equal(Color.Parse("#007CEA"), accent);
@@ -124,7 +124,7 @@ public class ButtonThemeTests
     [InlineData("#7A00CC")]
     public void AccentOverride_KeepsAaContrast(string accent)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Accent = Color.Parse(accent) };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Accent = Color.Parse(accent) };
         foreach (var key in new[] { "AccentFillColor", "AccentFillColorPointerOver", "AccentFillColorPressed" })
             Assert.True(AccessibleColors.ContrastRatio(Colors.White, Resource<Color>(theme, key)) >= 4.5, key);
     }
@@ -165,7 +165,7 @@ public class ButtonThemeTests
     [AvaloniaFact]
     public void CompactDensity_Is24High_WithSpacingSSides()
     {
-        var (_, button) = Show(variant: null, theme: new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact });
+        var (_, button) = Show(variant: null, theme: new StandardsTheme(AccessibilitySettings.NotReduced) { Density = DensityStyle.Compact });
 
         Assert.Equal(new Thickness(8, 2, 8, 2), button.Padding);
         Assert.Equal(24, button.MinHeight);
@@ -175,7 +175,7 @@ public class ButtonThemeTests
     [AvaloniaFact]
     public void Density_FollowsRuntimeChanges()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, button) = Show(variant: null, theme: theme);
         Assert.Equal(32, button.Bounds.Height);
 
@@ -206,7 +206,7 @@ public class ButtonThemeTests
     [AvaloniaFact]
     public void Transitions_UseMotionFast_AndBecomeInstantUnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, button) = Show(variant: null, theme: theme);
         var transitions = Chrome(button).Transitions!.Cast<TransitionBase>().ToList();
 

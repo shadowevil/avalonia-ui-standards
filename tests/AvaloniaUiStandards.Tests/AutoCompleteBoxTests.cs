@@ -31,7 +31,7 @@ public class AutoCompleteBoxTests
     [InlineData("Compact", 24, 8, 2)]
     public void Field_IsATextInput(string density, double height, double side, double vertical)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var box = New();
         var window = Show(new StackPanel { Children = { box } }, theme: theme);
         try

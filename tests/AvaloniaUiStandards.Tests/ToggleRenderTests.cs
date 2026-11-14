@@ -14,7 +14,7 @@ public class ToggleRenderTests
     internal static readonly (string Label, Action<Window>? BeforeShow)[] Densities =
     [
         ("Normal", null),
-        ("Compact", w => w.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact })),
+        ("Compact", w => w.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { Density = DensityStyle.Compact })),
     ];
 
     [AvaloniaFact]

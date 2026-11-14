@@ -29,7 +29,7 @@ public class CatalogLayoutModeTests
     public void LayoutMode_RoundTripsThroughTheSettingsFile_AndUnknownValuesGiveAutomatic()
     {
         var app = Application.Current!;
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var path = NewPath();
         try
         {
@@ -59,7 +59,7 @@ public class CatalogLayoutModeTests
     public void Store_SavesALayoutModeChange()
     {
         var app = Application.Current!;
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var path = NewPath();
         var store = CatalogSettingsStore.Start(app, theme, path);
         try
@@ -83,7 +83,7 @@ public class CatalogLayoutModeTests
     {
         var app = Application.Current!;
         var window = new MainWindow { Width = 1200, Height = 800 };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         try
         {
             window.Show();
@@ -119,7 +119,7 @@ public class CatalogLayoutModeTests
         var app = Application.Current!;
         App.ApplyIdentity(app);
         var window = new MainWindow { Width = 1200, Height = 800, LayoutMode = WindowLayoutMode.Windows };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         try
         {
             window.Show();
@@ -167,7 +167,7 @@ public class CatalogLayoutModeTests
         // The catalog's Edit, Select all has the platform's select-all gesture (Ctrl+A, Cmd+A on macOS).
         var app = Application.Current!;
         var window = new Catalog.MainWindow { Width = 1000, Height = 700 };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         var list = new ListBox { SelectionMode = SelectionMode.Multiple, ItemsSource = new[] { "One", "Two", "Three" } };
         var box = new TextBox { Text = "Some text" };
         window.Content = new StackPanel { Children = { list, box } };
@@ -248,7 +248,7 @@ public class CatalogLayoutModeTests
             RequestedThemeVariant = variant,
             Background = new SolidColorBrush(Color.Parse(variant == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced)
         {
             ReduceMotion = true,
             Density = compact ? Avalonia.Themes.Fluent.DensityStyle.Compact : Avalonia.Themes.Fluent.DensityStyle.Normal,

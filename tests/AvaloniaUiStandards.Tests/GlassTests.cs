@@ -36,7 +36,7 @@ public class GlassTests
     [InlineData(true, null)]
     public void Glass_FallsBackToSolid_WhenTransparencyIsReduced(bool os, bool? setting)
     {
-        var theme = new StandardsTheme(new OsAccessibility.Settings(false, os)) { ReduceTransparency = setting };
+        var theme = new StandardsTheme(new AccessibilitySettings(false, os)) { ReduceTransparency = setting };
         using var frame = Render(_ => { }, theme, tintOpacity: null);
 
         for (var y = Top + 10; y < Top + Height - 10; y += 3)
@@ -70,7 +70,7 @@ public class GlassTests
     [InlineData(false, true, true)]
     public void ReduceTransparency_OverridesOrFollowsOs(bool os, bool? setting, bool expected)
     {
-        var theme = new StandardsTheme(new OsAccessibility.Settings(false, os)) { ReduceTransparency = setting };
+        var theme = new StandardsTheme(new AccessibilitySettings(false, os)) { ReduceTransparency = setting };
         var glass = new GlassBorder();
         var window = new Window { Content = glass };
         window.Styles.Add(theme);

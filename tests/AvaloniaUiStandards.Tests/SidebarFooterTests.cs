@@ -267,7 +267,7 @@ public class SidebarFooterTests
         window.Sidebar = null;
         window.Close();
         var second = new StandardsWindow { Width = Wide, Height = 520, Sidebar = sidebar, Content = new TextBlock { Text = "Content" } };
-        second.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        second.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         try
         {
             second.Show();
@@ -367,7 +367,7 @@ public class SidebarFooterTests
             RequestedThemeVariant = theme ?? ThemeVariant.Light,
             Background = new SolidColorBrush(Color.Parse(theme == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Show();
         window.Activate();
         Pump(window);

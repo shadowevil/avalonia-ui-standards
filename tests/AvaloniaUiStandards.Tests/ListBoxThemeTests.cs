@@ -53,7 +53,7 @@ public class ListBoxThemeTests
     [InlineData("Compact", 24, 8, 2)]
     public void ItemSize_FollowsDensity(string density, double height, double side, double vertical)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var (window, list) = Show(Items(2), theme: theme);
         try
         {

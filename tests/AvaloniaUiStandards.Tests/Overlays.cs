@@ -35,7 +35,7 @@ internal static class Overlays
         wash.Bind(Border.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
 
         var window = new Window { Width = width, Height = height, RequestedThemeVariant = variant };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion });
         window.Content = wash;
         window.SetRenderScaling(Sheet.Scale);
         window.Show();

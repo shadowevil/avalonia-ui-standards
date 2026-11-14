@@ -464,7 +464,7 @@ public class ToolbarBandTests
         var outside = Icon("B");
         var band = new ToolbarBand { Items = { inside } };
         var window = new Window { Width = 600, Height = 300, Content = new StackPanel { Children = { band, outside } } };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced));
         try
         {
             window.Show();
@@ -659,7 +659,7 @@ public class ToolbarBandTests
     public void WindowSlot_ShowsOnlyWhenSet_AndMovesTheContentPanelDown()
     {
         var window = new StandardsWindow { Width = 700, Height = 400, Content = new TextBlock { Text = "Content" } };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced));
         try
         {
             window.Show();
@@ -706,7 +706,7 @@ public class ToolbarBandTests
             WindowButtonStyle = WindowButtonStyle.CaptionButtons,
         };
         window.LayoutMode = macOS ? WindowLayoutMode.MacOS : WindowLayoutMode.Windows;
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced));
         try
         {
             window.Show();
@@ -778,7 +778,7 @@ public class ToolbarBandTests
             RequestedThemeVariant = theme,
             Background = new SolidColorBrush(Color.Parse(theme == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         try
         {
             window.SetRenderScaling(Sheet.Scale);
@@ -899,7 +899,7 @@ public class ToolbarBandTests
         band.HorizontalAlignment = HorizontalAlignment.Left;
         band.VerticalAlignment = VerticalAlignment.Top;
         var window = new Window { Width = 1000, Height = 400, Content = band };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         window.Show();
         Pump(window);
         return window;
