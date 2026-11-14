@@ -65,6 +65,7 @@ public class StandardsWindow : Window, IFrameTickSource
     private WindowButtons? _buttons;
     private Panel? _menuRowPart;
     private readonly MenuShortcuts _shortcuts;
+    private bool _opened;
     private bool _closed;
     private readonly MenuRow _menuRow = new()
     {
@@ -311,6 +312,13 @@ public class StandardsWindow : Window, IFrameTickSource
             UpdateTicker();
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        _opened = true;
+        UpdateMenuRow();
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _ticker.Stop();
@@ -374,8 +382,9 @@ public class StandardsWindow : Window, IFrameTickSource
     {
         if (_closed)
             return;
-        // The menu's shortcuts work in either layout while the menu is not exported.
-        _shortcuts.Menu = NativeMenu.GetMenu(this);
+        // The menu's shortcuts work in either layout while the menu is not exported, once the window is open
+        // (a window never shown is not kept alive by the Application's menu).
+        _shortcuts.Menu = _opened ? NativeMenu.GetMenu(this) : null;
         if (_menuRowPart is null)
             return;
         var shown = IsMenuRowShown;

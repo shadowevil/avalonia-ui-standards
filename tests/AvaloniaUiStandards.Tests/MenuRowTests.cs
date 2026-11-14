@@ -610,6 +610,48 @@ public class MenuRowTests
         }
     }
 
+    [AvaloniaFact]
+    public void ControlA_InAFocusedListBox_SelectsAll_NotTheCatalogsSelectAll()
+    {
+        // The catalog's Edit, Select all has the platform's select-all gesture (Ctrl+A, Cmd+A on macOS).
+        var app = Application.Current!;
+        var window = new Catalog.MainWindow { Width = 1000, Height = 700 };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        var list = new ListBox { SelectionMode = SelectionMode.Multiple, ItemsSource = new[] { "One", "Two", "Three" } };
+        var box = new TextBox { Text = "Some text" };
+        window.Content = new StackPanel { Children = { list, box } };
+        var selectAll = window.Menus.TextActions[^1];
+        var gesture = selectAll.Gesture!;
+        Assert.Equal(app.PlatformSettings!.HotkeyConfiguration.SelectAll[0], gesture);
+        try
+        {
+            window.Show();
+            Pump(window);
+            var clicks = 0;
+            selectAll.Click += (_, _) => clicks++;
+
+            // A list focused: the list selects all; the menu entry is disabled and claims nothing.
+            list.SelectedIndex = 0;
+            list.ContainerFromIndex(0)!.Focus();
+            Pump(window);
+            Assert.False(selectAll.IsEnabled);
+            Press(window, gesture.Key, (RawInputModifiers)gesture.KeyModifiers, "a");
+            Assert.Equal(0, clicks);
+            Assert.Equal(3, list.SelectedItems!.Count);
+
+            // A text box focused: the entry is enabled and acts on it.
+            box.Focus();
+            Pump(window);
+            Assert.True(selectAll.IsEnabled);
+            Press(window, gesture.Key, (RawInputModifiers)gesture.KeyModifiers, "a");
+            Assert.Equal(box.Text!.Length, box.SelectionEnd - box.SelectionStart);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Drag ---------------------------------------------------------------------------------
 
     [AvaloniaFact]
