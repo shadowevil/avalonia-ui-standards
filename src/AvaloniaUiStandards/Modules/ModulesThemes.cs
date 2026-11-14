@@ -19,6 +19,7 @@ internal static class ModulesThemes
         resources[typeof(SidebarFooter)] = SidebarTheme.Footer();
         resources[SidebarTheme.FooterTextKey] = SidebarTheme.FooterText;
         resources[typeof(ToolbarBand)] = ToolbarBandTheme.Create();
+        resources[MenuRow.HelpHeaderKey] = MenuRow.HelpHeader;
     }
 
     /// <summary>

@@ -21,6 +21,13 @@ public partial class MainWindow : StandardsWindow
         ToolbarBand = ThemeControls.Band;
         StatusVersion.Text = AppInfo.LibraryText;
 
+        // The menus: in the system menu bar on macOS, in the window's menu row in the Windows layout. The layout
+        // follows the Settings page's layout mode.
+        Menus = new CatalogMenu(this);
+        NativeMenu.SetMenu(this, Menus.Menu);
+        if (Application.Current is { } app)
+            this.Bind(LayoutModeProperty, app.GetObservable(CatalogLayout.LayoutModeProperty));
+
         PageList.ItemsSource = CatalogPages.List.Select(p => new SidebarItem { Icon = p.Icon, Content = p.Title }).ToList();
         PageList.FooterItems.AddRange(CatalogPages.Footer.Select(p => new SidebarItem { Icon = p.Icon, Content = p.Title }));
         PageList.SelectionChanged += (_, _) =>
@@ -57,6 +64,12 @@ public partial class MainWindow : StandardsWindow
     internal FrameRateMeter FrameRateMeter => _meter;
 
     internal ThemeBand ThemeControls { get; }
+
+    internal CatalogMenu Menus { get; }
+
+    /// <summary>The index in <see cref="CatalogPages.All"/> of the page shown.</summary>
+    internal int SelectedPage => PageList.SelectedIndex >= 0 ? PageList.SelectedIndex
+        : PageList.SelectedFooterIndex >= 0 ? CatalogPages.List.Count + PageList.SelectedFooterIndex : -1;
 
     /// <summary>Shows the page at <paramref name="index"/> in <see cref="CatalogPages.All"/>, by selecting its sidebar row (list or footer).</summary>
     internal void SelectPage(int index)
