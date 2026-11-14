@@ -2,7 +2,7 @@
 
 Milestones for the web library of [0045](../decisions/0045-web-library.md), built tier by tier under [0004](../decisions/0004-tier-names.md). Each milestone's contents are agreed before work starts.
 
-1. **W1 Skeleton:**
+1. **W1 Skeleton:** Done.
    1. The `web/` layout: one folder per tier (`style/`, `blocks/`, `modules/`, `screens/`), the catalog in `web/catalog/`, and one entry stylesheet and one entry module that load every tier.
    2. Serving: every page runs from a static file server (for example `python3 -m http.server`), with no build step.
    3. Renders: a script renders pages headlessly to PNG with a locally installed Chromium browser, in light and dark, the web counterpart of [0009](../decisions/0009-screenshots-from-tests.md). Render output is gitignored, added to the ignore rules of [0006](../decisions/0006-tooling-ignores.md).
