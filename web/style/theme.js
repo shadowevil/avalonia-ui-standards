@@ -30,6 +30,12 @@ export function setReduceTransparency(value) {
   setAttribute("data-reduce-transparency", value, ["system", true, false]);
 }
 
+/** "full" (the default), "minimal" or "solid": the glass quality (0015), the app's performance switch. */
+export function setGlassQuality(quality) {
+  setAttribute("data-glass-quality", quality, ["full", "minimal", "solid"]);
+  if (quality === "full") root().removeAttribute("data-glass-quality");
+}
+
 /** Sets the accent (#RRGGBB) and every value derived from it, for light and dark. */
 export function setAccent(accent = DEFAULT_ACCENT) {
   const { shared, light, dark } = deriveColours(accent);

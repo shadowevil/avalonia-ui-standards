@@ -8,5 +8,5 @@
     - Custom properties take the desktop key's words ([0017](0017-app-usage.md)): `SpacingM` is `--ui-spacing-m`, `AccentFillColor` is `--ui-accent-fill-color`.
     - Classes: `ui-` plus the Block name, with variants as further classes, for example `class="ui-button ui-accent"`.
     - Custom elements: `ui-` plus the name, for example `<ui-segmented-control>`.
-    - Theme settings are attributes on `<html>`: `data-theme`, `data-density`, `data-reduce-motion`, `data-reduce-transparency`.
+    - Theme settings are attributes on `<html>`: `data-theme`, `data-density`, `data-reduce-motion`, `data-reduce-transparency`, `data-glass-quality`.
 - **Why:** The library works for everyone in the three engines while showing the full desktop look where the engine can draw it. Native elements keep the browser's accessibility, keyboard and form behaviour without rebuilding them in script. Names that follow the desktop keys let a value be found in either library, and the short prefix keeps the library's names apart from a page's own CSS.

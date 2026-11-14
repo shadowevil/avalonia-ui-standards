@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>Glass tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<style>
+  .box { width: 200px; height: 120px; padding: 20px; box-sizing: border-box; }
+  .small { width: 200px; height: 60px; }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="l1" class="box ui-glass ui-squircle">
+  <div id="l2" class="box ui-glass ui-squircle">
+    <div id="l3" class="box ui-glass ui-squircle"></div>
+  </div>
+</div>
+<div id="small" class="small ui-glass ui-squircle"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setGlassQuality, setReduceTransparency, setTheme } from "../style/index.js";
+import { displacementMap, refreshGlassRefraction } from "../style/glass.js";
+
+const html = document.documentElement;
+const [l1, l2, l3, small] = ["l1", "l2", "l3", "small"].map((id) => document.getElementById(id));
+const before = (el) => getComputedStyle(el, "::before");
+const after = (el) => getComputedStyle(el, "::after");
+
+// A computed colour (rgb(), rgba() or color(srgb …)) as [r, g, b, alpha] with r, g, b in 0-255.
+function rgba(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [...[m[1], m[2], m[3]].map((v) => Math.round(v * 255)), m[4] === undefined ? 1 : +(+m[4]).toFixed(3)];
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +(+m[4]).toFixed(3)];
+  throw new Error(`unparsed colour ${text}`);
+}
+
+function assertColour(actual, expected, label) {
+  assertEqual(JSON.stringify(rgba(actual)), JSON.stringify(expected), label);
+}
+
+// The colours of the inset box-shadows on ::after, in order.
+const shadowColours = (el) => after(el).boxShadow.split(/,(?![^(]*\))/).map((s) => rgba(s.trim().match(/^(rgba?\([^)]*\)|color\([^)]*\))/)[0]));
+
+const tick = () => new Promise((r) => setTimeout(r));
+const filters = () => document.querySelectorAll("filter[id^=ui-glass-refraction]").length;
+
+// Back to the defaults, with l1's refraction filter taken off so the CSS tests see glass without
+// script (as a page without JS); the refraction tests put it back with refreshGlassRefraction().
+function reset() {
+  for (const a of ["data-glass-quality", "data-reduce-transparency"]) html.removeAttribute(a);
+  setTheme("light");
+  l1.style.removeProperty("--ui-glass-refraction");
+}
+
+test("first-level glass: blur sigma 6 (CSS blur radius is the standard deviation), tint white at 0.68", () => {
+  reset();
+  assertEqual(before(l1).backdropFilter, "blur(6px)");
+  assertColour(before(l1).backgroundColor, [255, 255, 255, 0.68], "tint");
+});
+
+test("dark tint is #1E1E1E at 0.68", () => {
+  reset();
+  setTheme("dark");
+  assertColour(before(l1).backgroundColor, [30, 30, 30, 0.68], "tint");
+  setTheme("light");
+});
+
+test("glass takes the overlay radius on the squircle; the layers follow the shape", () => {
+  reset();
+  assertEqual(getComputedStyle(l1).borderTopLeftRadius, "18.88px");
+  for (const layer of [before(l1), after(l1)]) {
+    assertEqual(layer.borderTopLeftRadius, "18.88px");
+    assertEqual(layer.cornerTopLeftShape, "superellipse(1.3)");
+  }
+});
+
+test("the element is not a backdrop root; blur and tint sit behind the content", () => {
+  reset();
+  const s = getComputedStyle(l1);
+  assertEqual(s.backdropFilter, "none");
+  assertEqual(s.filter, "none");
+  assertEqual(s.opacity, "1");
+  assertEqual(before(l1).zIndex, "-1");
+  assertEqual(s.isolation, "isolate");
+});
+
+test("rim: top hairline at full rim strength, sides at 0.7, glow; no border", () => {
+  reset();
+  const [top, side, glow, border] = shadowColours(l1);
+  assertEqual(JSON.stringify(top), JSON.stringify([255, 255, 255, 0.702]), "top");
+  assertEqual(JSON.stringify(side), JSON.stringify([255, 255, 255, 0.491]), "side");
+  assertEqual(JSON.stringify(glow), JSON.stringify(side), "glow");
+  assertEqual(border[3], 0, "border alpha");
+});
+
+test("second level is minimal: blur only, even with a refraction filter set", () => {
+  reset();
+  l2.style.setProperty("--ui-glass-refraction", "url(#x)");
+  assertEqual(before(l2).backdropFilter, "blur(6px)");
+  l2.style.removeProperty("--ui-glass-refraction");
+  assertColour(before(l2).backgroundColor, [255, 255, 255, 0.68], "tint");
+});
+
+test("third level is solid: no backdrop, opaque tint, the fixed border and no rim", () => {
+  reset();
+  assertEqual(before(l3).backdropFilter, "none");
+  assertColour(before(l3).backgroundColor, [255, 255, 255, 1], "fill");
+  const [top, side, glow, border] = shadowColours(l3);
+  assertEqual(top[3] + side[3] + glow[3], 0, "rim alpha");
+  assertEqual(JSON.stringify(border), JSON.stringify([255, 255, 255, 0.6]), "border");
+});
+
+test("dark solid border is white at 20%", () => {
+  reset();
+  setTheme("dark");
+  assertColour(before(l3).backgroundColor, [30, 30, 30, 1], "fill");
+  assertEqual(JSON.stringify(shadowColours(l3)[3]), JSON.stringify([255, 255, 255, 0.2]), "border");
+  setTheme("light");
+});
+
+test("quality minimal: every level blur only; level 3 stays solid", () => {
+  reset();
+  setGlassQuality("minimal");
+  assertEqual(html.dataset.glassQuality, "minimal");
+  l1.style.setProperty("--ui-glass-refraction", "url(#x)");
+  assertEqual(before(l1).backdropFilter, "blur(6px)");
+  l1.style.removeProperty("--ui-glass-refraction");
+  assertEqual(before(l3).backdropFilter, "none");
+});
+
+test("quality solid: every level solid", () => {
+  reset();
+  setGlassQuality("solid");
+  for (const el of [l1, l2, l3, small]) {
+    assertEqual(before(el).backdropFilter, "none", el.id);
+    assertColour(before(el).backgroundColor, [255, 255, 255, 1], el.id);
+  }
+  setGlassQuality("full");
+  assert(!html.hasAttribute("data-glass-quality"), "full removes the attribute");
+  assertEqual(before(l1).backdropFilter, "blur(6px)");
+});
+
+test("setGlassQuality rejects other values", () => {
+  let threw = false;
+  try { setGlassQuality("low"); } catch { threw = true; }
+  assert(threw, "no error for low");
+});
+
+test("reduce transparency makes every level solid, whatever the quality", () => {
+  reset();
+  setReduceTransparency(true);
+  for (const el of [l1, l2, l3]) {
+    assertEqual(before(el).backdropFilter, "none", el.id);
+    assertColour(before(el).backgroundColor, [255, 255, 255, 1], el.id);
+    assertEqual(JSON.stringify(shadowColours(el)[3]), JSON.stringify([255, 255, 255, 0.6]), `${el.id} border`);
+  }
+  setReduceTransparency("system");
+});
+
+test("refraction is on by default in Chromium: first level gets an SVG filter before the blur; small and nested glass do not (sizes read now; in a browser a ResizeObserver reads them each frame)", async () => {
+  reset();
+  await tick();
+  refreshGlassRefraction();
+  const value = before(l1).backdropFilter;
+  const m = value.match(/^url\("#(ui-glass-refraction-\d+)"\) blur\(6px\)$/);
+  assert(m, `backdrop-filter ${value}`);
+  const filter = document.getElementById(m[1]);
+  assertEqual(filter.getAttribute("color-interpolation-filters"), "sRGB");
+  const image = filter.querySelector("feImage");
+  assertEqual(image.getAttribute("width"), "200");
+  assertEqual(image.getAttribute("height"), "120");
+  const scales = [...filter.querySelectorAll("feDisplacementMap")].map((f) => +(+f.getAttribute("scale")).toFixed(2));
+  assertEqual(scales.join(","), "36.4,56,75.6", "scales (strength 28 x 2, dispersion 0.35)");
+  assertEqual(before(small).backdropFilter, "blur(6px)", "under 64 px");
+  assertEqual(before(l2).backdropFilter, "blur(6px)", "second level");
+  assertEqual(l2.style.getPropertyValue("--ui-glass-refraction"), "", "no filter made for nested glass");
+});
+
+test("quality minimal or solid and reduce transparency stop refraction; full resumes it", async () => {
+  for (const [label, off, on] of [
+    ["minimal", () => setGlassQuality("minimal"), () => setGlassQuality("full")],
+    ["solid", () => setGlassQuality("solid"), () => setGlassQuality("full")],
+    ["reduce transparency", () => setReduceTransparency(true), () => setReduceTransparency("system")],
+  ]) {
+    reset();
+    await tick();
+    refreshGlassRefraction();
+    assertEqual(filters(), 1, `${label}: on before`);
+    off();
+    await tick();
+    assertEqual(filters(), 0, `${label}: filters removed`);
+    assertEqual(l1.style.getPropertyValue("--ui-glass-refraction"), "", `${label}: property removed`);
+    on();
+    await tick();
+    refreshGlassRefraction();
+    assertEqual(filters(), 1, `${label}: on again`);
+  }
+});
+
+test("refraction follows the size", async () => {
+  reset();
+  await tick();
+  refreshGlassRefraction();
+  l1.style.width = "300px";
+  refreshGlassRefraction();
+  const id = before(l1).backdropFilter.match(/#([\w-]+)/)[1];
+  assertEqual(document.getElementById(id).querySelector("feImage").getAttribute("width"), "300");
+  l1.style.height = "60px";
+  refreshGlassRefraction();
+  assertEqual(before(l1).backdropFilter, "blur(6px)", "shrunk under 64 px");
+  assertEqual(filters(), 0, "filter removed");
+  l1.style.width = l1.style.height = "";
+});
+
+test("displacement map: flat centre, bend inward at the rim along the normal", async () => {
+  const url = displacementMap(200, 120, [18.88, 18.88, 18.88, 18.88], 28);
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = 200; c.height = 120;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  const at = (x, y) => [...g.getImageData(x, y, 1, 1).data];
+  assertEqual(at(100, 60).join(","), "128,128,128,255", "centre");
+  assertEqual(at(40, 60).join(","), "128,128,128,255", "inside the band's inner edge");
+  assertEqual(at(0, 60).join(","), "231,128,128,255", "left rim bends right");
+  assertEqual(at(199, 60).join(","), "24,128,128,255", "right rim bends left");
+  assertEqual(at(100, 0).join(","), "128,231,128,255", "top rim bends down");
+  const [r, gg] = at(2, 2);
+  assert(r > 200 && gg > 200, `corner bends diagonally inward: ${r}, ${gg}`);
+});
+</script>
+</body>
+</html>

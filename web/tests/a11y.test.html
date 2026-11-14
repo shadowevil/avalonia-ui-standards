@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>Accessibility helper tests</title>
+<link rel="stylesheet" href="../style/index.css">
+</head>
+<body>
+<a id="skip" class="ui-skip-link" href="#main">Skip to content</a>
+<pre id="results">running</pre>
+<div id="wrapper" class="ui-focus-ring-within"><input id="field" aria-label="Field"></div>
+<span id="hidden" class="ui-visually-hidden">Only for screen readers</span>
+<main id="main" tabindex="-1"></main>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+
+const $ = (id) => document.getElementById(id);
+const style = (el) => getComputedStyle(el);
+
+function assertVisuallyHidden(el) {
+  const s = style(el);
+  assertEqual(s.position, "absolute", "position");
+  assertEqual(s.width, "1px", "width");
+  assertEqual(s.height, "1px", "height");
+  assertEqual(s.overflow, "hidden", "overflow");
+  assertEqual(s.clipPath, "inset(50%)", "clip-path");
+  assertEqual(s.whiteSpace, "nowrap", "white-space");
+  assert(s.display !== "none" && s.visibility !== "hidden", "must stay in the accessibility tree");
+}
+
+test("ui-visually-hidden clips the element to nothing but keeps it rendered", () => {
+  assertVisuallyHidden($("hidden"));
+  assertEqual($("hidden").textContent, "Only for screen readers");
+});
+
+test("ui-focus-ring-within rings the wrapper while its content shows keyboard focus", () => {
+  const wrapper = $("wrapper");
+  assertEqual(style(wrapper).outlineStyle, "none", "before focus");
+  $("field").focus({ focusVisible: true });
+  const s = style(wrapper);
+  assertEqual(s.outlineStyle, "solid");
+  assertEqual(s.outlineWidth, "2px");
+  assertEqual(s.outlineOffset, "2px");
+  assertEqual(s.outlineColor, "rgb(0, 124, 234)");
+  $("field").blur();
+  assertEqual(style(wrapper).outlineStyle, "none", "after blur");
+});
+
+test("ui-skip-link is hidden until focused, then shown top left with the focus ring", () => {
+  const skip = $("skip");
+  assertVisuallyHidden(skip);
+  skip.focus({ focusVisible: true });
+  const s = style(skip);
+  assertEqual(s.position, "fixed");
+  assertEqual(s.top, "8px");
+  assertEqual(s.left, "8px");
+  assertEqual(s.clipPath, "none");
+  assert(skip.getBoundingClientRect().width > 50, "shown at full size");
+  assertEqual(s.backgroundColor, "rgb(255, 255, 255)");
+  assertEqual(s.color, "rgb(0, 104, 196)");
+  assertEqual(s.outlineStyle, "solid");
+  assertEqual(s.outlineWidth, "2px");
+  assertEqual(s.outlineOffset, "2px");
+  assertEqual(s.outlineColor, "rgb(0, 124, 234)");
+  skip.blur();
+  assertVisuallyHidden(skip);
+});
+
+test("in forced colours the focus rings use Highlight", () => {
+  // Headless Chrome cannot switch forced colours on, so the rule is checked in the stylesheet.
+  const rules = [];
+  const walk = (list) => {
+    for (const rule of list) {
+      if (rule.styleSheet) walk(rule.styleSheet.cssRules);
+      else if (rule instanceof CSSMediaRule && rule.conditionText === "(forced-colors: active)") rules.push(...rule.cssRules);
+    }
+  };
+  for (const sheet of document.styleSheets) walk(sheet.cssRules);
+  const rule = rules.find((r) => r.style?.outlineColor === "highlight" || r.style?.outlineColor === "Highlight");
+  assert(rule, "no forced-colors rule setting outline-color: Highlight");
+  for (const selector of [".ui-focus-ring:focus-visible", ".ui-focus-ring-within:has(:focus-visible)", ".ui-skip-link:focus"]) {
+    assert(rule.selectorText.includes(selector), `missing ${selector}`);
+  }
+});
+</script>
+</body>
+</html>

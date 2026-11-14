@@ -1,0 +1,32 @@
+/* Accessibility helpers. */
+
+/* Hidden on screen, still read by screen readers. */
+.ui-visually-hidden,
+.ui-skip-link:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A link to the main content, first in the page: hidden until it takes focus, then shown at the
+   top left with the focus ring (0019). */
+.ui-skip-link:focus {
+  position: fixed;
+  top: var(--ui-spacing-s);
+  left: var(--ui-spacing-s);
+  z-index: 1000;
+  padding: var(--ui-control-padding);
+  border-radius: var(--ui-corner-radius-control);
+  background: var(--ui-system-alt-high-color);
+  color: var(--ui-accent-text-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  outline: 2px solid var(--ui-system-accent-color);
+  outline-offset: 2px;
+}

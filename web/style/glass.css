@@ -8,6 +8,14 @@
   --ui-glass-refraction-edge: 28px;
   --ui-glass-chromatic-dispersion: 0.35;
   --ui-glass-solid: 0;
+  /*
+    The rim as CSS draws it: a fixed white hairline (top edge at full strength, the other edges at
+    the 0.7 bias) with a 4 px inner glow from half its strength (a blurred inset shadow is at half
+    its colour at its edge). The desktop rim follows the backdrop along the edge; these match its
+    look over the catalog's backdrop.
+  */
+  --ui-glass-rim-color: light-dark(#FFFFFFB3, #FFFFFFCC);
+  --ui-glass-rim-side-bias: 0.7;
 }
 
 :root[data-reduce-transparency="true"] {
@@ -17,5 +25,78 @@
 @media (prefers-reduced-transparency: reduce) {
   :root:not([data-reduce-transparency="false"]) {
     --ui-glass-solid: 1;
+  }
+}
+
+/*
+  Glass surface: .ui-glass on any element, with .ui-squircle for the shape (overlay radius).
+  The blur and tint are on ::before, behind the content, so the element itself is not a backdrop
+  root: glass inside it blurs the page with this glass drawn on it, as on the desktop. The rim
+  (or the solid fallback's border) is on ::after, above the content.
+  Levels and quality (0015): the second level is minimal glass (no refraction), the third level
+  and deeper is solid; data-glass-quality on <html> makes every level minimal or solid.
+  Refraction needs glass.js (Chromium only); without it, glass is minimal everywhere.
+*/
+.ui-glass {
+  --ui-squircle-radius: var(--ui-corner-radius-overlay);
+  isolation: isolate;
+}
+
+:where(.ui-glass) {
+  position: relative;
+  overflow: clip;
+}
+
+.ui-glass::before,
+.ui-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  pointer-events: none;
+}
+
+.ui-glass::before {
+  z-index: -1;
+  /* glass.js sets --ui-glass-refraction (url(#…)) on full glass. */
+  backdrop-filter: var(--ui-glass-refraction, ) blur(calc(var(--ui-glass-blur-sigma) * (1 - var(--ui-glass-solid))));
+  background: color-mix(in srgb, var(--ui-glass-tint-color)
+    calc((var(--ui-glass-tint-opacity) + var(--ui-glass-solid) * (1 - var(--ui-glass-tint-opacity))) * 100%), transparent);
+}
+
+.ui-glass::after {
+  --ui-glass-rim-top: color-mix(in srgb, var(--ui-glass-rim-color) calc((1 - var(--ui-glass-solid)) * 100%), transparent);
+  --ui-glass-rim-side: color-mix(in srgb, var(--ui-glass-rim-top) calc(var(--ui-glass-rim-side-bias) * 100%), transparent);
+  box-shadow:
+    inset 0 1px 0 0 var(--ui-glass-rim-top),
+    inset 0 0 0 1px var(--ui-glass-rim-side),
+    inset 0 0 4px 1px var(--ui-glass-rim-side),
+    inset 0 0 0 1px color-mix(in srgb, var(--ui-glass-border-brush) calc(var(--ui-glass-solid) * 100%), transparent);
+}
+
+/* Minimal glass: the second level, or every level with quality minimal. */
+.ui-glass .ui-glass::before,
+:root[data-glass-quality="minimal"] .ui-glass::before {
+  backdrop-filter: blur(calc(var(--ui-glass-blur-sigma) * (1 - var(--ui-glass-solid))));
+}
+
+/* Solid: the third level and deeper, or every level with quality solid. */
+.ui-glass .ui-glass .ui-glass,
+:root[data-glass-quality="solid"] .ui-glass {
+  --ui-glass-solid: 1;
+}
+
+/* Solid draws no backdrop at all. (An app that sets --ui-glass-solid itself gets the solid look
+   over a zero blur.) */
+.ui-glass .ui-glass .ui-glass::before,
+:root[data-glass-quality="solid"] .ui-glass::before,
+:root[data-reduce-transparency="true"] .ui-glass::before {
+  backdrop-filter: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-reduce-transparency="false"]) .ui-glass::before {
+    backdrop-filter: none;
   }
 }

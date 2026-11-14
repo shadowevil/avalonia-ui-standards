@@ -29,8 +29,19 @@
 }
 
 /* Focus ring (0019): 2 px accent with a 2 px gap, outside the shape; the outline follows the
-   element's border-radius and corner-shape. */
-.ui-focus-ring:focus-visible {
+   element's border-radius and corner-shape. ui-focus-ring-within draws it on a wrapper while
+   something inside it shows keyboard focus. */
+.ui-focus-ring:focus-visible,
+.ui-focus-ring-within:has(:focus-visible) {
   outline: 2px solid var(--ui-system-accent-color);
   outline-offset: 2px;
+}
+
+/* In forced colours (Windows high contrast) the ring takes the system highlight colour. */
+@media (forced-colors: active) {
+  .ui-focus-ring:focus-visible,
+  .ui-focus-ring-within:has(:focus-visible),
+  .ui-skip-link:focus {
+    outline-color: Highlight;
+  }
 }

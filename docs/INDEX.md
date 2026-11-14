@@ -47,6 +47,14 @@
 - [0044 — Menu bar](decisions/0044-menu-bar.md) — where NativeMenu menus show per layout, the in-window menu row's size, drag, folding into "…", the application menu merge into Help, sync and keyboard
 - [0045 — Web library in plain HTML, CSS and JavaScript](decisions/0045-web-library.md) — what the web library is, where it lives, how it shares decisions with desktop and why no framework
 - [0046 — Web browsers, markup and naming](decisions/0046-web-browsers-markup-naming.md) — which browsers the web library supports, native elements versus custom elements, and the ui- naming of properties, classes, elements and theme attributes
+- [0048 — Web HTML standards](decisions/0048-web-html-standards.md) — which documents are the web HTML standards, and the roles, landmarks, custom element, keyboard, file, shortcut and unit choices they make
+
+## Web
+- [Web semantics](web/semantics.md) — native elements first, when a custom element is allowed, landmarks, headings, forms, language and direction
+- [Web accessibility](web/accessibility.md) — accessible names, roles and states, contrast, focus visibility, zoom and reflow, user preferences, hidden text, live regions
+- [Web keyboard](web/keyboard.md) — Tab order, roving tabindex in composite elements, key conventions, no traps, shortcuts
+- [Web theming](web/theming.md) — the theme attributes and setters, light and dark, accent, density, reduce motion and transparency, how Blocks consume tokens
+- [Web composition](web/composition.md) — tiers and dependencies on the web, file layout, naming, squircle and focus ring in a Block, composing Modules, tests and renders
 
 ## Plan
 - [Roadmap](plan/roadmap.md) — the ordered milestones and the open questions
