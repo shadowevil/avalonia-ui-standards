@@ -1,7 +1,8 @@
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
@@ -235,11 +236,92 @@ public class CatalogThemeBandTests
             ClickCentre(window, accent);
             Assert.True(controls.AccentFlyout.IsOpen);
             Assert.Same(band.MoreButton, controls.AccentFlyout.Target);
+            Assert.Equal(PlacementMode.BottomEdgeAlignedRight, controls.AccentFlyout.Placement);
+            controls.AccentFlyout.Hide();
+            Pump(window);
+
+            // From the swatch it aligns left edges again.
+            band.Width = 1000;
+            Pump(window);
+            ClickCentre(window, controls.Accent);
+            Assert.True(controls.AccentFlyout.IsOpen);
+            Assert.Equal(PlacementMode.BottomEdgeAlignedLeft, controls.AccentFlyout.Placement);
             controls.AccentFlyout.Hide();
         }
         finally
         {
             band.OverflowMenu.Hide();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AccentFlyoutFromTheMoreButton_StaysInsideTheWindow()
+    {
+        var window = new MainWindow { Width = 600, Height = 700 };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        try
+        {
+            window.Show();
+            Pump(window);
+            var controls = window.ThemeControls;
+            Assert.True(controls.Band.IsOverflowed(controls.Motion));
+            controls.AccentFlyout.ShowAt(controls.Band.MoreButton);
+            Pump(window);
+            var presenter = window.GetVisualDescendants().OfType<FlyoutPresenter>().Single(p => p.IsEffectivelyVisible);
+            var frame = window.GetVisualDescendants().OfType<Control>().First(c => c.Name == StandardsWindowTheme.FramePart);
+            var right = presenter.TranslatePoint(new Point(presenter.Bounds.Width, 0), window)!.Value.X;
+            var moreRight = controls.Band.MoreButton.TranslatePoint(new Point(controls.Band.MoreButton.Bounds.Width, 0), window)!.Value.X;
+            Assert.Equal(moreRight, right, 0.5);
+            Assert.True(right <= frame.TranslatePoint(new Point(frame.Bounds.Width, 0), window)!.Value.X);
+        }
+        finally
+        {
+            window.ThemeControls.AccentFlyout.Hide();
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(DensityStyle.Normal, 20)]
+    [InlineData(DensityStyle.Compact, 16)]
+    public void MotionAndTransparency_HaveADecorativeLeadingIcon_ThatOverflowsWithTheGroup(DensityStyle density, double size)
+    {
+        var controls = new ThemeBand();
+        var band = controls.Band;
+        band.HorizontalAlignment = HorizontalAlignment.Left;
+        var window = new Window { Width = 1400, Height = 300, Content = band };
+        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        try
+        {
+            window.Show();
+            band.Width = 1300;
+            Pump(window);
+            foreach (var (control, data) in new[] { (controls.Motion, Icons.Play), (controls.Transparency, Icons.Drop) })
+            {
+                var icon = Assert.IsType<LeadingIconSegmentedControl>(control).Icon;
+                Assert.Same(data, icon.Data);
+                Assert.Equal(new Size(size, size), icon.Bounds.Size);
+                Assert.False(icon.Focusable);
+                Assert.Equal(AccessibilityView.Raw, AutomationProperties.GetAccessibilityView(icon));
+                Assert.Equal(Label(control), AutomationProperties.GetName(control));
+                // The icon leads, 8 px before the segments.
+                var track = control.GetVisualChildren().OfType<Control>().Single(c => c != icon);
+                Assert.Equal(0, icon.Bounds.X);
+                Assert.Equal(size + 8, track.Bounds.X);
+                Assert.True(icon.IsEffectivelyVisible);
+            }
+
+            // Narrowed until both groups are in the menu: their icons go with them.
+            band.Width = 500;
+            Pump(window);
+            Assert.True(band.IsOverflowed(controls.Motion));
+            Assert.True(band.IsOverflowed(controls.Transparency));
+            Assert.False(((LeadingIconSegmentedControl)controls.Motion).Icon.IsEffectivelyVisible);
+            Assert.False(((LeadingIconSegmentedControl)controls.Transparency).Icon.IsEffectivelyVisible);
+        }
+        finally
+        {
             window.Close();
         }
     }
@@ -256,11 +338,17 @@ public class CatalogThemeBandTests
         // A narrow window: what does not fit is in the "…" menu, shown open.
         Render("catalog-toolbar-band-narrow-light.png", ThemeVariant.Light, DensityStyle.Normal, 600, 520,
             w => w.ThemeControls.Band.OverflowMenu.ShowAt(w.ThemeControls.Band.MoreButton));
-        // The accent swatch's flyout, open.
-        Render("catalog-toolbar-band-accent-light.png", ThemeVariant.Light, DensityStyle.Normal, 1200, 420,
-            w => w.ThemeControls.AccentFlyout.ShowAt(w.ThemeControls.Accent));
-        Render("catalog-toolbar-band-accent-dark.png", ThemeVariant.Dark, DensityStyle.Normal, 1200, 420,
-            w => w.ThemeControls.AccentFlyout.ShowAt(w.ThemeControls.Accent));
+        // The accent flyout opened from "…" in the narrow window: right edges aligned, inside the window.
+        Render("catalog-toolbar-band-accent-overflow-light.png", ThemeVariant.Light, DensityStyle.Normal, 600, 520,
+            w => w.ThemeControls.AccentFlyout.ShowAt(w.ThemeControls.Band.MoreButton));
+        // The accent swatch's flyout, open, with the selected preset's row without the accent flag (before) and with it (after).
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+        foreach (var flag in new[] { false, true })
+            Render($"catalog-toolbar-band-accent-{label.ToLowerInvariant()}-{(flag ? "after" : "before")}.png", variant, DensityStyle.Normal, 1200, 420, w =>
+            {
+                SelectionOptions.SetAccentFlag(w.ThemeControls.AccentList, flag);
+                w.ThemeControls.AccentFlyout.ShowAt(w.ThemeControls.Accent);
+            });
     }
 
     // The catalog window's frame from its top, <paramref name="height"/> high, with the application set to the variant
@@ -292,8 +380,9 @@ public class CatalogThemeBandTests
             var frame = window.GetVisualDescendants().OfType<Control>().First(c => c.Name == StandardsWindowTheme.FramePart);
             var origin = frame.TranslatePoint(default, window)!.Value;
             using var capture = window.CaptureRenderedFrame()!;
-            SaveCrop(capture, new PixelRect((int)(origin.X * Sheet.Scale), (int)(origin.Y * Sheet.Scale),
-                (int)(frame.Bounds.Width * Sheet.Scale), (int)(height * Sheet.Scale)), name);
+            using var crop = Frame.Of(Frame.Crop(capture, new PixelRect((int)(origin.X * Sheet.Scale), (int)(origin.Y * Sheet.Scale),
+                (int)(frame.Bounds.Width * Sheet.Scale), (int)(height * Sheet.Scale))));
+            crop.Save(name);
         }
         finally
         {
@@ -302,26 +391,6 @@ public class CatalogThemeBandTests
             window.Close();
             Reset(app, theme);
         }
-    }
-
-    private static void SaveCrop(WriteableBitmap capture, PixelRect crop, string name)
-    {
-        using var source = capture.Lock();
-        var rect = crop.Intersect(new PixelRect(source.Size));
-        using var cropped = new WriteableBitmap(rect.Size, new Vector(96, 96), source.Format, source.AlphaFormat);
-        using (var target = cropped.Lock())
-        {
-            var row = new byte[rect.Width * 4];
-            for (var y = 0; y < rect.Height; y++)
-            {
-                Marshal.Copy(source.Address + (rect.Y + y) * source.RowBytes + rect.X * 4, row, 0, row.Length);
-                Marshal.Copy(row, 0, target.Address + y * target.RowBytes, row.Length);
-            }
-        }
-        var dir = Path.Combine(AppContext.BaseDirectory, "screenshots");
-        Directory.CreateDirectory(dir);
-        using var stream = File.Create(Path.Combine(dir, name));
-        cropped.Save(stream, new PngBitmapEncoderOptions());
     }
 
     // --- Helpers ----------------------------------------------------------------------------

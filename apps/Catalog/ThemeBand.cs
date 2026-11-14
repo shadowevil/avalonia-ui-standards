@@ -43,10 +43,10 @@ internal sealed class ThemeBand
 
     public ThemeBand()
     {
-        Theme = Segmented("Theme", "System", "Light", "Dark");
-        Density = Segmented("Density", "Normal", "Compact");
-        Motion = Segmented("Motion", "Follow OS", "Reduced", "Full");
-        Transparency = Segmented("Transparency", "Follow OS", "Reduced", "Full");
+        Theme = Segmented("Theme", ["System", "Light", "Dark"]);
+        Density = Segmented("Density", ["Normal", "Compact"]);
+        Motion = Segmented("Motion", ["Follow OS", "Reduced", "Full"], Icons.Play);
+        Transparency = Segmented("Transparency", ["Follow OS", "Reduced", "Full"], Icons.Drop);
 
         _swatchChip = Chip();
         AccentList = new ListBox
@@ -54,16 +54,19 @@ internal sealed class ThemeBand
             Width = 200,
             ItemsSource = Accents.Select(a => AccentRow(a.Name, a.Hex)).ToList(),
         };
+        SelectionOptions.SetAccentFlag(AccentList, true);
         AutomationProperties.SetName(AccentList, "Accent presets");
         AccentHex = new TextBox { MaxLength = 9 };
         ToolTip.SetTip(AccentHex, "Accent colour as #RRGGBB");
         AutomationProperties.SetName(AccentHex, "Accent colour as #RRGGBB");
         AccentFlyout = new Flyout
         {
-            Placement = PlacementMode.BottomEdgeAlignedLeft,
             Content = new StackPanel { Spacing = 8, Children = { AccentList, AccentHex } },
         };
         Accent = Swatch();
+        // Below the swatch, left edges aligned; opened from "…" at the trailing end, right edges aligned, as the "…" menu.
+        AccentFlyout.Opening += (_, _) => AccentFlyout.Placement =
+            AccentFlyout.Target == Accent ? PlacementMode.BottomEdgeAlignedLeft : PlacementMode.BottomEdgeAlignedRight;
 
         // Zones and overflow order: theme and accent stay longest; the accessibility pair at the trailing end goes first.
         ToolbarBand.SetPriority(Accent, 1);
@@ -108,7 +111,8 @@ internal sealed class ThemeBand
             if (!_syncing && AccentList.SelectedIndex >= 0)
                 AccentHex.Text = Accents[AccentList.SelectedIndex].Hex;
         };
-        // The text property, not TextChanged: the box sits in the closed flyout, out of the tree, when a preset sets it.
+        // The text property, not TextChanged: TextChanged is raised after the box renders, so it never fires while the
+        // flyout is closed (a preset or hex set from code).
         AccentHex.PropertyChanged += (_, e) =>
         {
             if (e.Property == TextBox.TextProperty)
@@ -149,9 +153,9 @@ internal sealed class ThemeBand
 
     private static int Index(bool? value) => value switch { true => 1, false => 2, null => 0 };
 
-    private static SegmentedControl Segmented(string label, params string[] values)
+    private static SegmentedControl Segmented(string label, string[] values, Geometry? icon = null)
     {
-        var control = new SegmentedControl();
+        var control = icon is null ? new SegmentedControl() : new LeadingIconSegmentedControl(icon);
         foreach (var value in values)
             control.Items.Add(new SegmentedControlItem { Content = value });
         control.SelectedIndex = 0;
@@ -177,7 +181,7 @@ internal sealed class ThemeBand
     {
         var button = new Button
         {
-            Content = new Panel { Children = { new Icon { Data = Icons.Plus, Opacity = 0 }, _swatchChip } },
+            Content = new Panel { Children = { new Icon { Opacity = 0 }, _swatchChip } },
             Padding = new Thickness(0),
             HorizontalContentAlignment = HorizontalAlignment.Center,
             Flyout = AccentFlyout,
@@ -220,4 +224,63 @@ internal sealed class ThemeBand
         AccentList.SelectedIndex = Array.FindIndex(Accents, a => a.Hex.Equals(text, StringComparison.OrdinalIgnoreCase));
         _syncing = false;
     }
+}
+
+/// <summary>
+/// A segmented control with a decorative icon on its leading side, 8 px before the segments. The icon is part of the
+/// control, so it moves into the "…" menu with it; it takes no focus and is hidden from automation, where the control
+/// keeps its own name. It is drawn as the band's icon buttons draw theirs: at the Icon size (20, 16 Compact) in the
+/// subtle button's text colour.
+/// </summary>
+internal sealed class LeadingIconSegmentedControl : SegmentedControl
+{
+    private const double Gap = 8;
+
+    public LeadingIconSegmentedControl(Geometry icon)
+    {
+        Icon = new Icon { Data = icon, Focusable = false, IsHitTestVisible = false };
+        Icon.Bind(TemplatedControl.ForegroundProperty, new DynamicResourceExtension("ButtonForeground"));
+        AutomationProperties.SetAccessibilityView(Icon, AccessibilityView.Raw);
+        LogicalChildren.Add(Icon);
+    }
+
+    internal Icon Icon { get; }
+
+    protected override Type StyleKeyOverride => typeof(SegmentedControl);
+
+    // Applying the template replaces the visual children, so the icon joins them afterwards.
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        if (!VisualChildren.Contains(Icon))
+            VisualChildren.Add(Icon);
+    }
+
+    private double Lead => Icon.DesiredSize.Width + Gap;
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        Icon.Measure(Size.Infinity);
+        var available = new Size(Math.Max(0, availableSize.Width - Lead), availableSize.Height);
+        var size = default(Size);
+        foreach (var child in Segments())
+        {
+            child.Measure(available);
+            size = new Size(Math.Max(size.Width, child.DesiredSize.Width), Math.Max(size.Height, child.DesiredSize.Height));
+        }
+        return new Size(size.Width + Lead, Math.Max(size.Height, Icon.DesiredSize.Height));
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        var icon = Icon.DesiredSize;
+        Icon.Arrange(new Rect(0, (finalSize.Height - icon.Height) / 2, icon.Width, icon.Height));
+        var rest = new Rect(Lead, 0, Math.Max(0, finalSize.Width - Lead), finalSize.Height);
+        foreach (var child in Segments())
+            child.Arrange(rest);
+        return finalSize;
+    }
+
+    // The template's root: every visual child but the icon.
+    private IEnumerable<Layoutable> Segments() => VisualChildren.OfType<Layoutable>().Where(c => c != Icon);
 }

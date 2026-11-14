@@ -1,13 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
-using System.Runtime.InteropServices;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using AvaloniaUiStandards.Style;
@@ -359,18 +356,7 @@ public class GlassRimTests
 
         var scale = 4 * Sheet.Scale;
         var (left, top, width, height) = ((int)(x * scale), (int)(y * scale), (int)(70 * scale), (int)(42 * scale));
-        using var source = capture.Lock();
-        var crop = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), source.Format, AlphaFormat.Premul);
-        using (var target = crop.Lock())
-        {
-            var row = new byte[width * 4];
-            for (var r = 0; r < height; r++)
-            {
-                Marshal.Copy(source.Address + (top + r) * source.RowBytes + left * 4, row, 0, row.Length);
-                Marshal.Copy(row, 0, target.Address + r * target.RowBytes, row.Length);
-            }
-        }
-        using (crop)
+        using (var crop = Frame.Crop(capture, new PixelRect(left, top, width, height)))
             return sheet.Image(crop);
     }
 
