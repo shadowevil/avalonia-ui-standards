@@ -126,6 +126,39 @@ public class CatalogThemeBandTests
     }
 
     [AvaloniaFact]
+    public void AccentMenu_Keyboard_ReachesTheHexBoxAndBack()
+    {
+        var window = new MainWindow();
+        try
+        {
+            window.Show();
+            Pump(window);
+            var band = window.ThemeControls;
+            var pink = band.AccentPresets[^1];
+            ClickCentre(window, band.Accent);
+            Assert.True(band.AccentMenu.IsOpen);
+            pink.Focus(Avalonia.Input.NavigationMethod.Directional);
+            Pump(window);
+
+            // Down from Pink puts the caret in the hex box; Up returns to Pink; Escape closes the menu.
+            Press(window, Avalonia.Input.Key.Down);
+            Assert.True(band.AccentHex.IsFocused);
+            Press(window, Avalonia.Input.Key.Up);
+            Assert.True(pink.IsFocused);
+            Assert.True(band.AccentMenu.IsOpen);
+            Press(window, Avalonia.Input.Key.Down);
+            Assert.True(band.AccentHex.IsFocused);
+            Press(window, Avalonia.Input.Key.Escape);
+            Assert.False(band.AccentMenu.IsOpen);
+        }
+        finally
+        {
+            window.ThemeControls.AccentMenu.Hide();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void BandChoices_PersistAndReload()
     {
         var (app, theme) = AppTheme();
@@ -245,7 +278,7 @@ public class CatalogThemeBandTests
             var radios = entries.Where(e => e.ToggleType == MenuItemToggleType.Radio).Select(e => e.Header as string).ToList();
             Assert.Equal(["System", "Light", "Dark", "Normal", "Compact", "Follow OS", "Reduced", "Full", "Follow OS", "Reduced", "Full"], radios);
 
-            // The accent drop-down is a submenu: the presets as radio items, the chosen one checked, then "Custom colour…".
+            // The accent drop-down is a submenu: the presets as check items, the chosen one checked, then "Custom colour…".
             var accent = entries.Single(e => e.Header as string == "Accent colour");
             var items = accent.Items.OfType<MenuItem>().ToList();
             Assert.Equal(ThemeBand.Accents.Select(a => a.Name).Append("Custom colour…"), items.Select(i => i.Header as string));
@@ -260,9 +293,16 @@ public class CatalogThemeBandTests
             Assert.Equal(3, CheckedPreset(controls));
 
             // "Custom colour…" opens the whole accent menu at the band's trailing end, right edges aligned.
+            // Chosen with the pointer in the open submenu, as a user would; it opens once the "…" menu has closed.
             band.OverflowMenu.Hide();
-            items[^1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Pump(window);
+            band.OverflowMenu.ShowAt(band.MoreButton);
+            Pump(window);
+            var submenu = band.MenuEntries.OfType<MenuItem>().Single(e => e.Header as string == "Accent colour");
+            ClickCentre(window, submenu);
+            Assert.True(submenu.IsSubMenuOpen);
+            ClickCentre(window, submenu.Items.OfType<MenuItem>().Last());
+            Assert.False(band.OverflowMenu.IsOpen);
             Assert.True(controls.AccentMenu.IsOpen);
             Assert.Same(band, controls.AccentMenu.Target);
             Assert.Equal(PlacementMode.BottomEdgeAlignedRight, controls.AccentMenu.Placement);
@@ -520,6 +560,13 @@ public class CatalogThemeBandTests
     private static string Label(Control item) => ToolbarBand.LabelOf(item);
 
     private static int CheckedPreset(ThemeBand band) => band.AccentPresets.ToList().FindIndex(p => p.IsChecked);
+
+    private static void Press(Window window, Avalonia.Input.Key key)
+    {
+        window.KeyPress(key, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.None, null);
+        window.KeyRelease(key, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.None, null);
+        Pump(window);
+    }
 
     private static void ClickCentre(Window window, Control control)
     {

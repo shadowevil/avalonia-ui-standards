@@ -24,7 +24,7 @@
     - Overflowed items go into a trailing "…" button: a subtle square icon button with `Icons.DotsThree`, the tooltip and automation name "More", opening a glass MenuFlyout below it, aligned to its right edge:
       - a button is a menu item with its icon in the icon column and its label as the header (attached `ToolbarBand.Label`, else its tooltip, else its automation name, else the text of its content); choosing it clicks the button, or opens the button's own flyout at "…";
       - a toggle is a checkable item;
-      - a drop-down with a menu is a submenu with the same entries (a non-text header shows as its label); choosing one checks or unchecks it, or checks a radio entry and clears the rest of its group, as in its own menu, then raises its click;
+      - a drop-down with a menu is a submenu with the same entries (a non-text header shows as its label) and copies of their icons (a path icon of any kind, such as a colour chip, an image or a text block; other controls show none); choosing one checks or unchecks it, or checks a radio entry and clears the rest of its group, as in its own menu, then raises its click;
       - a SegmentedControl is a group: a non-selectable header with its label (caption size, secondary text), then one radio item per segment, the selected one marked; the marks follow the control while the menu is open, and choosing one selects its segment;
       - separators, group starts and zone boundaries between two overflowed items become menu separators, and a segmented group has a separator on each side;
       - spacers vanish.

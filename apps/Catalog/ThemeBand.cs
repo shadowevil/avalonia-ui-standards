@@ -10,6 +10,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Reactive;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.Themes.Fluent;
 using AvaloniaUiStandards;
 using AvaloniaUiStandards.Blocks;
@@ -69,11 +70,11 @@ internal sealed class ThemeBand
         // Below the button, left edges aligned; opened at the band's trailing end (from "…"), right edges aligned.
         AccentMenu.Opening += (_, _) => AccentMenu.Placement =
             AccentMenu.Target == Accent ? PlacementMode.BottomEdgeAlignedLeft : PlacementMode.BottomEdgeAlignedRight;
-        // Keyboard: moving onto the hex row puts the caret in the box.
-        AccentHexItem.GotFocus += (_, e) =>
+        // Keyboard: moving onto the hex row puts the caret in the box, once the menu has finished moving its focus.
+        AccentHexItem.PropertyChanged += (_, e) =>
         {
-            if (e.Source == AccentHexItem)
-                AccentHex.Focus(NavigationMethod.Directional);
+            if (e.Property == InputElement.IsFocusedProperty && AccentHexItem.IsFocused)
+                Dispatcher.UIThread.Post(() => AccentHex.Focus(NavigationMethod.Directional));
         };
         // Zones and overflow order: theme and accent stay longest; the accessibility pair at the trailing end goes first.
         ToolbarBand.SetPriority(Accent, 1);
@@ -85,11 +86,12 @@ internal sealed class ThemeBand
         ToolbarBand.SetPriority(Transparency, 4);
         ToolbarBand.SetBeginsGroup(Transparency, true);
         Band = new ToolbarBand { Items = { Theme, Accent, Density, Motion, Transparency } };
-        // Chosen from the "…" menu's submenu (the menu itself is closed then): the whole accent menu opens.
+        // Chosen from the "…" menu's submenu (the accent menu itself is closed then): the whole accent menu opens, once
+        // the "…" menu has closed, as the band opens a button's own flyout.
         AccentHexItem.Click += (_, _) =>
         {
             if (!AccentMenu.IsOpen)
-                AccentMenu.ShowAt(Band);
+                Dispatcher.UIThread.Post(() => AccentMenu.ShowAt(Band));
         };
 
         // The controls start at the theme's current values (the catalog's saved settings), before they set them.
@@ -146,7 +148,7 @@ internal sealed class ThemeBand
 
     public MenuFlyout AccentMenu { get; }
 
-    /// <summary>The presets' radio items, in the order of <see cref="Accents"/>.</summary>
+    /// <summary>The presets' check items, in the order of <see cref="Accents"/>.</summary>
     public IReadOnlyList<MenuItem> AccentPresets { get; }
 
     /// <summary>The menu's last item, holding <see cref="AccentHex"/>.</summary>
