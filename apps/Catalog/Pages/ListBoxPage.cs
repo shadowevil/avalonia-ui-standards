@@ -38,9 +38,10 @@ internal sealed class ListBoxPage : UserControl
 
     private static Control Live()
     {
-        var withIcons = new ListBox { Width = 240, Height = 200, SelectedIndex = 1 };
+        var withIcons = new ListBox { Width = 240, Height = 200 };
         foreach (var (name, icon) in Places)
             withIcons.Items.Add(new ListBoxItem { Content = Row(name, icon) });
+        withIcons.SelectedIndex = 1;
 
         var text = new ListBox { Width = 240, Height = 200, ItemsSource = Names, SelectedIndex = 2 };
         var multiple = new ListBox { Width = 240, Height = 200, SelectionMode = SelectionMode.Multiple, ItemsSource = Names };
