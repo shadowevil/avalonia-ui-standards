@@ -192,7 +192,10 @@ public class StatusBarTests
                 "4000 × 3000 px · 300 ppi | 30 fps | RGB/8 · sRGB | 100 %",
                 "4000 × 3000 px | 30 fps | RGB/8 · sRGB | 100 %",
                 "4000 × 3000 px | 30 fps | RGB/8 | 100 %",
+                // The readout hides, and the colour mode takes its full text again in the room it left.
+                "4000 × 3000 px | RGB/8 · sRGB | 100 %",
                 "4000 × 3000 px | RGB/8 | 100 %",
+                "RGB/8 · sRGB | 100 %",
                 "RGB/8 | 100 %",
                 "100 %",
                 "",
@@ -207,8 +210,6 @@ public class StatusBarTests
             bar.Width = 1000;
             Pump(window);
             Assert.Equal("4000 × 3000 px · 300 ppi | 30 fps · High refresh rate: off | RGB/8 · sRGB | 100 %", Shown());
-            // The app's own text is kept underneath the shorter form.
-            Assert.Equal("30 fps · High refresh rate: off", frames.GetBaseValue(TextBlock.TextProperty).GetValueOrDefault());
         }
         finally
         {
@@ -234,6 +235,60 @@ public class StatusBarTests
             bar.Width = 1000;
             Pump(window);
             Assert.Equal("60 fps · High refresh rate: on", frames.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void HidingAnItem_GivesItsRoomBackToAShortenedItem()
+    {
+        // The size shortens first (it has a shorter form); when the readout (higher priority, no shorter form) still has
+        // to hide, the size takes its full text again in the room the readout left.
+        var size = Text("4000 × 3000 px · 300 ppi");
+        StatusBar.SetShortTexts(size, ["4000 × 3000 px"]);
+        StatusBar.SetPriority(size, 1);
+        var frames = Text("30 fps · High refresh rate: off");
+        StatusBar.SetPriority(frames, 2);
+        StatusBar.SetZone(frames, StatusZone.Trailing);
+        var bar = new StatusBar { Message = "Ready", Items = { size, frames } };
+        var window = Host(bar, 1000);
+        try
+        {
+            // Room for the message and the full size, but not for the short size beside the readout.
+            var full = size.Bounds.Width;
+            bar.Width = 16 + bar.MessageBlock.Bounds.Width + 16 + full + 16 + 4;
+            Pump(window);
+            Assert.False(bar.IsShown(frames));
+            Assert.True(bar.IsShown(size));
+            Assert.Equal("4000 × 3000 px · 300 ppi", size.Text);
+            AssertFits(bar);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ShortenedItem_TakesANewTextOfItsOwn_WithoutNewShortTexts()
+    {
+        // The app sets a short text under the shorter form, leaving ShortTexts as they were: the bar measures again
+        // and shows the new text, which fits.
+        var frames = Text("30 fps · High refresh rate: off");
+        StatusBar.SetShortTexts(frames, ["30 fps"]);
+        StatusBar.SetZone(frames, StatusZone.Trailing);
+        var bar = new StatusBar { Message = "A long status message for a narrow bar", Items = { frames } };
+        var window = Host(bar, 340);
+        try
+        {
+            Assert.Equal("30 fps", frames.Text);
+            frames.Text = "Paused";
+            Pump(window);
+            Assert.Equal("Paused", frames.Text);
+            Assert.True(bar.IsShown(frames));
         }
         finally
         {

@@ -3,7 +3,6 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
-using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
@@ -45,7 +44,8 @@ public enum StatusZone
 /// <para>
 /// The bar never wraps. When the items do not fit, first every item takes its shorter texts
 /// (<see cref="ShortTextsProperty"/>, longest first), highest <see cref="PriorityProperty"/> first and,
-/// among equal priorities, from the trailing end; then items hide in the same order. The message
+/// among equal priorities, from the trailing end; then items hide in the same order, and the room a
+/// hidden item leaves goes back to the shortened items still shown, the last shortened first. The message
 /// never hides; it is trimmed when nothing else is left to hide. There is no overflow menu.
 /// </para>
 /// <para>
@@ -103,7 +103,8 @@ public class StatusBar : Control
     private readonly TextBlock _message;
     private readonly ToolbarBand.Slot _messageSlot;
     private readonly Dictionary<Control, ToolbarBand.Slot> _slots = [];
-    private readonly Dictionary<Control, IDisposable> _shortened = [];
+    private readonly Dictionary<Control, Shortened> _shortened = [];
+    private bool _showingForm;
     private State _applied = State.Empty;
     private State? _planned;
 
@@ -257,12 +258,68 @@ public class StatusBar : Control
         foreach (var (item, slot) in _slots)
         {
             slot.IsVisible = !state.Hidden.Contains(item);
-            Restore(item);
-            if (state.Texts.TryGetValue(item, out var form) && TextOf(item) is { } text
-                && text.Target.SetValue(text.Property, form, BindingPriority.Animation) is { } undo)
-                _shortened[item] = undo;
+            Show(item, state.Texts.GetValueOrDefault(item));
         }
         _applied = state;
+    }
+
+    // An item showing a shorter form, and the app's own text, shown again when there is room.
+    private sealed class Shortened(TextTarget text, string? full)
+    {
+        public TextTarget Text { get; } = text;
+        public string? Full { get; } = full;
+        public string? Form { get; set; }
+    }
+
+    // Shows a shorter form, or the app's own text when null. The form is set as the current value, which keeps the
+    // app's bindings, and any text the app sets then replaces it (see OnShortenedTextChanged).
+    private void Show(Control item, string? form)
+    {
+        _shortened.TryGetValue(item, out var shortened);
+        if (shortened?.Form == form)
+            return;
+        if (form is null)
+        {
+            Restore(item);
+            return;
+        }
+        if (shortened is null)
+        {
+            if (TextOf(item) is not { } text)
+                return;
+            shortened = new Shortened(text, text.Target.GetValue(text.Property) as string);
+            _shortened[item] = shortened;
+            text.Target.PropertyChanged += OnShortenedTextChanged;
+        }
+        shortened.Form = form;
+        SetText(shortened.Text, form);
+    }
+
+    private void SetText(TextTarget text, string? value)
+    {
+        _showingForm = true;
+        try
+        {
+            text.Target.SetCurrentValue(text.Property, value);
+        }
+        finally
+        {
+            _showingForm = false;
+        }
+    }
+
+    // The app set a new text where a shorter form shows: it is the item's full text now, and the bar measures again.
+    private void OnShortenedTextChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (_showingForm)
+            return;
+        var item = _shortened.FirstOrDefault(s => s.Value.Text.Target == sender && s.Value.Text.Property == e.Property).Key;
+        if (item is null)
+            return;
+        _shortened[item].Text.Target.PropertyChanged -= OnShortenedTextChanged;
+        _shortened.Remove(item);
+        _applied = new State(_applied.Hidden, _applied.Texts.Where(t => t.Key != item).ToDictionary());
+        InvalidateMeasure();
     }
 
     // What the bar shows: the hidden items and the shorter text each shortened item shows.
@@ -280,8 +337,10 @@ public class StatusBar : Control
 
     private void Restore(Control item)
     {
-        if (_shortened.Remove(item, out var shortened))
-            shortened.Dispose();
+        if (!_shortened.Remove(item, out var shortened))
+            return;
+        shortened.Text.Target.PropertyChanged -= OnShortenedTextChanged;
+        SetText(shortened.Text, shortened.Full);
     }
 
     private List<Fit.Entry> Entries()
@@ -320,12 +379,9 @@ public class StatusBar : Control
         _ => null,
     };
 
-    private static string? FullText(TextTarget text) => text.Target switch
-    {
-        TextBlock block => block.GetBaseValue(TextBlock.TextProperty).GetValueOrDefault(),
-        ContentControl control => control.GetBaseValue(ContentControl.ContentProperty).GetValueOrDefault() as string,
-        _ => null,
-    };
+    // The app's own text: kept by the bar while a shorter form shows.
+    private string? FullText(TextTarget text) =>
+        _shortened.Values.FirstOrDefault(s => s.Text.Target == text.Target)?.Full ?? text.Target.GetValue(text.Property) as string;
 
     private static double TextWidth(TextTarget text, string? value)
     {
@@ -345,6 +401,8 @@ public class StatusBar : Control
         internal sealed record Entry(Control Item, ToolbarBand.Slot Slot, StatusZone Zone, double[] Widths, int Priority, double Inset, bool IsMessage);
 
         // Shorten, then hide: highest priority first, ties from the trailing end. The message is never a candidate.
+        // Then the room a hidden item freed goes back to the shortened items still shown, in reverse order (the
+        // last to shorten lengthens first), a step at a time while the bar still fits.
         public static Plan Plan(IReadOnlyList<Entry> entries, double width)
         {
             var plan = new Plan([], []);
@@ -356,6 +414,17 @@ public class StatusBar : Control
             foreach (var entry in candidates)
                 if (Required(entries, plan) > width + 0.01)
                     plan.Hidden.Add(entry.Item);
+            if (plan.Hidden.Count == 0)
+                return plan;
+            foreach (var entry in Enumerable.Reverse(candidates).Where(e => !plan.Hidden.Contains(e.Item)))
+                while (plan.Levels.GetValueOrDefault(entry.Item) is > 0 and var level)
+                {
+                    plan.Levels[entry.Item] = level - 1;
+                    if (Required(entries, plan) <= width + 0.01)
+                        continue;
+                    plan.Levels[entry.Item] = level;
+                    break;
+                }
             return plan;
         }
 

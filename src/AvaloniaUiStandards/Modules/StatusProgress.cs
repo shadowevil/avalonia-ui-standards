@@ -21,7 +21,7 @@ public enum StatusProgressKind
 /// <summary>
 /// A <see cref="StatusBar"/> progress item: a ProgressBar (160 px) or a ProgressRing (16 px), its
 /// text <c>SpacingS</c> after it, and an optional cancel button (a subtle 20 px icon button with
-/// <c>Icons.X</c>, named by the <c>StatusBarCancelText</c> resource) <c>SpacingXS</c> after that.
+/// <c>Icons.X</c>, its name and tooltip from the <c>StatusBarCancelText</c> resource) <c>SpacingXS</c> after that.
 /// <see cref="Value"/> is a percentage.
 /// </summary>
 public class StatusProgress : Control
