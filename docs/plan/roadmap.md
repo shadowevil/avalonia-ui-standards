@@ -31,11 +31,19 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
 4. **M4 First Modules:** the shell Module `StandardsWindow` (frame, title band, glass content panel, status bar, sidebar slot; [0022](../decisions/0022-window-layout.md)), built at step 3 of M3, and the sidebar Module that plugs into its slot, built at step 10. See Open questions for the rest.
    - Toolbar band: a Module directly below the title band, holding commands and settings (icons, segmented controls, menus), following toolbar best practices. Done as a Module ([0043](../decisions/0043-toolbar-band.md)), with a catalog page. The catalog then moves its theme controls out of the title band into the toolbar band, using segmented controls where a setting has a few options (for example theme System/Light/Dark, density Normal/Compact, motion and transparency Follow OS/Reduced/Full). Done ([0020](../decisions/0020-catalog-app.md)).
    - Menu bar: apps define their menus once with Avalonia's `NativeMenu`. On macOS they go to the system menu bar at the top of the screen; on Windows and Linux `StandardsWindow` shows them inside the window, in the title band or the toolbar band (decided at that step), using the menu look of [0036](../decisions/0036-menus-and-flyouts.md). Each OS gets the menu placement its users expect, from one definition.
+   - Then these Modules, in this order; each one's design is researched and agreed at its step, with a catalog page:
+     1. Status bar: the bottom row of `StandardsWindow`, with zones for status text, progress and small indicators.
+     2. Dialogs and sheets: confirmation and content dialogs from one API, a sheet on macOS and a centred dialog on Windows and Linux.
+     3. Notifications: brief toasts and an inline info bar (info, success, warning, error), with optional actions.
+     4. Settings page: sections of rows that pair a label and caption with a control, for app preferences.
+     5. Command palette: Cmd/Ctrl+K search over the app's commands, fed by the same menu definition as the menu bar.
+     6. Document tabs: closable, reorderable tabs with overflow, for apps with several documents open.
+     7. Split panes: resizable, collapsible side and bottom panels, such as an inspector or an output panel.
+     8. Search field: a search box with suggestions and recent searches, for the toolbar band or the sidebar.
 5. **M5 First Screen:** the app shell ([0022](../decisions/0022-window-layout.md)).
 
 Then the web decision is due ([0002](../decisions/0002-desktop-first.md)).
 
 ## Open questions
 
-- First Modules beyond the app shell's (M4).
 - Which Screens beyond the app shell (M5).
