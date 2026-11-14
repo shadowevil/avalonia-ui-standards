@@ -1,0 +1,41 @@
+# 0043 — Toolbar band
+
+- **Status:** Agreed, 2026-11-13
+- **Decision:**
+  - `ToolbarBand` is a Module ([0004](0004-tier-names.md)) for a new `StandardsWindow` content slot, `ToolbarBand`, directly below the title band and across the window ([0022](0022-window-layout.md)). The title band's `Toolbar` slot keeps its meaning. The band shows only when the slot is set; the sidebar and the glass content panel sit below it.
+    - **Why:** Commands and settings get a row of their own without crowding the title, as in Fluent's command bar and the macOS unified toolbar. Avalonia 12.1.6's `CommandBar` estimates item widths with fixed numbers and takes only `ICommandBarElement` items, so it cannot host a SegmentedControl or a drop-down properly.
+  - Height 48 at Normal density and 40 at Compact, as the title band, so 32 and 24 px controls get 8 px above and below. Side padding `SpacingL` (16). Items are `SpacingS` (8) apart within a group; between groups `SpacingL` (16), or a vertical Separator with `SpacingS` on each side. An item with `ToolbarBand.BeginsGroup` starts a group; the zones are groups of their own.
+    - **Why:** The band lines up with the title band and the buttons' density sizes ([0013](0013-spacing-and-density.md), [0018](0018-button.md)); the wider gap separates groups without a line.
+  - The band sits on the window background, not glass, and forms one area with the title band; no line under it.
+    - **Why:** The glass panel stays the only panel ([0015](0015-glass.md)); title and toolbar read as one unified area.
+  - Items are icon-only with a tooltip and an automation name; text-only buttons only where no icon fits. Labels appear in the overflow menu. Item kinds:
+    - icon button: a subtle Button ([0018](0018-button.md)), square at the button height, with an `Icon` of 20 px (16 Compact; [0026](0026-icon.md)) centred;
+    - toggle: a subtle ToggleButton ([0021](0021-button-siblings.md)), square in the same way;
+    - SegmentedControl ([0032](0032-segmented-control.md)), unchanged; its segments may be text;
+    - menu or drop-down button: a subtle DropDownButton ([0021](0021-button-siblings.md)) with a glass MenuFlyout ([0036](0036-menus-and-flyouts.md)); with an icon, the icon and the chevron are inset as far as a square button's icon, `SpacingXS` apart (48 × 32, 40 × 24 Compact);
+    - vertical Separator ([0039](0039-separator-and-gridsplitter.md)): 1 px wide and the icon's height (20, 16 Compact), centred;
+    - `ToolbarSpacer`: flexible space that takes the free room on its side of the band (a spacer in the centre zone makes the zone span the room between the other two).
+    Any other control can be hosted too.
+    - **Why:** Fluent 2 and Apple HIG: toolbar items are icons, and an icon needs a tooltip and an accessible name; the subtle variant keeps the band quiet until used.
+  - Three zones, Leading, Center and Trailing (attached `ToolbarBand.Zone`). Leading items start at the padding, trailing items end before the "…" button, and the centre zone is centred in the band, moved aside only as far as the other zones need. No user customisation.
+    - **Why:** Apple HIG's toolbar zones.
+  - Overflow: the band never wraps.
+    - Attached `ToolbarBand.Priority` (int, default 0): higher overflows first; ties overflow from the trailing end. Trailing items with `ToolbarBand.CanOverflow` false never overflow. Controls with no menu form (anything but buttons, toggles, drop-downs and segmented controls) stay in the band.
+    - Overflowed items go into a trailing "…" button: a subtle square icon button with `Icons.DotsThree`, the tooltip and automation name "More", opening a glass MenuFlyout below it, aligned to its right edge:
+      - a button is a menu item with its icon in the icon column and its label as the header (attached `ToolbarBand.Label`, else its tooltip, else its automation name, else the text of its content); choosing it clicks the button, or opens the button's own flyout at "…";
+      - a toggle is a checkable item;
+      - a drop-down with a menu is a submenu with the same entries (a non-text header shows as its label); choosing one checks or unchecks it, or checks a radio entry and clears the rest of its group, as in its own menu, then raises its click;
+      - a SegmentedControl is a group: a non-selectable header with its label (caption size, secondary text), then one radio item per segment, the selected one marked; the marks follow the control while the menu is open, and choosing one selects its segment;
+      - separators, group starts and zone boundaries between two overflowed items become menu separators, and a segmented group has a separator on each side;
+      - spacers vanish.
+    - Separators show in the band only between two shown items of their zone.
+    - The band measures each item's real width. Which items show is applied after layout (posted), as in the catalog's theme toolbar, so layout never loops; until then an item that no longer fits is laid out empty.
+    - Hidden items take no focus; if the focused item overflows, focus moves to "…".
+    - **Why:** Fluent 2 (never wrap; overflow is a trailing "…" menu) and Apple HIG (zones, labels in the overflow menu). Priorities let an app keep its key commands; the trailing end goes first by default, as in Fluent.
+  - Keyboard: one Tab stop per item, in visual order (leading, centre, trailing, then "…"), whatever the order the items were added in. Arrow keys stay inside segmented controls ([0032](0032-segmented-control.md)). The "…" button opens its menu with Enter, Space or Down.
+    - **Why:** Every item is reachable with Tab; a toolbar's roving arrow keys would clash with the segmented controls' arrows.
+  - Automation: the band reports the toolbar control type (`AutomationProperties.ControlTypeOverride` with `AutomationControlType.ToolBar`) and the name "Toolbar" unless the app sets one.
+  - Window drag: on macOS the band's empty area drags the window, and double-clicking it acts as on the title band; on Windows and Linux it does not. Pressing an item (enabled or disabled), a separator or anything hosted in the band never starts a drag. The band has no chrome role; on macOS the library starts the move drag itself, as for the title band ([0022](0022-window-layout.md)).
+    - **Why:** macOS unified toolbars are part of the title bar; Windows command bars below the title bar are not drag areas. With no chrome role, an OS that extends the client area never takes input meant for the band's items.
+  - Density, light and dark follow the Blocks; no new motion beyond the menu fade of [0036](0036-menus-and-flyouts.md); every focusable item shows the focus ring ([0019](0019-focus-ring.md)).
+- **Why:** One band for commands and settings that follows Fluent 2 and Apple HIG, built from the library's Blocks, and that keeps every command reachable at any window width.

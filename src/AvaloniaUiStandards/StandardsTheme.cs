@@ -136,6 +136,8 @@ public class StandardsTheme : Styles
         Modules.ModulesThemes.AddTo(Resources, windowTheme as ControlTheme);
         Modules.ModulesThemes.ApplyDensity(Resources, _fluent.DensityStyle);
         Add(Modules.StandardsWindowTheme.StatusBarTextStyle());
+        foreach (var style in Modules.ToolbarBandTheme.ItemStyles())
+            Add(style);
         // Frame ticks for continuous animation: the app-wide rate default and reduce motion.
         Add(new Avalonia.Styling.Style(x => x.Is<Modules.StandardsWindow>())
         {
