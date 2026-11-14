@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>CheckBox, RadioButton and ToggleSwitch tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/toggles.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<form id="form">
+  <label class="ui-toggle" id="box-label"><input id="box" type="checkbox" name="box" value="yes" class="ui-check-box ui-squircle ui-focus-ring"> Label</label>
+  <label class="ui-toggle"><input id="box-on" type="checkbox" class="ui-check-box ui-squircle ui-focus-ring" checked> Label</label>
+  <label class="ui-toggle"><input id="box-mixed" type="checkbox" class="ui-check-box ui-squircle ui-focus-ring"> Label</label>
+  <label class="ui-toggle" id="box-alone-label"><input id="box-alone" type="checkbox" class="ui-check-box ui-squircle ui-focus-ring" aria-label="Alone"></label>
+  <input id="box-for" type="checkbox" class="ui-check-box ui-squircle ui-focus-ring"><label for="box-for">Label for</label>
+  <fieldset>
+    <legend>Size</legend>
+    <label class="ui-toggle"><input id="radio-a" type="radio" name="size" value="a" class="ui-radio-button ui-focus-ring"> Small</label>
+    <label class="ui-toggle"><input id="radio-b" type="radio" name="size" value="b" class="ui-radio-button ui-focus-ring" checked> Large</label>
+  </fieldset>
+  <label class="ui-toggle-switch-label" id="switch-label">
+    <span class="ui-toggle-switch-header">Wi-Fi</span>
+    <input id="switch" type="checkbox" role="switch" name="wifi" class="ui-toggle-switch ui-focus-ring">
+    <span class="ui-toggle-switch-content" aria-hidden="true"><span class="ui-toggle-switch-off">Off</span><span class="ui-toggle-switch-on">On</span></span>
+  </label>
+  <label class="ui-toggle-switch-label">
+    <input id="switch-on" type="checkbox" role="switch" class="ui-toggle-switch ui-focus-ring" aria-label="On switch" checked>
+    <span class="ui-toggle-switch-content" aria-hidden="true"><span class="ui-toggle-switch-off">Off</span><span class="ui-toggle-switch-on">On</span></span>
+  </label>
+</form>
+<div dir="rtl"><input id="switch-rtl" type="checkbox" role="switch" class="ui-toggle-switch" aria-label="RTL" checked></div>
+<label class="ui-toggle" id="wrap-label" style="inline-size: 120px"><input id="wrap" type="checkbox" class="ui-check-box ui-squircle"> A label long enough to wrap onto lines</label>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity, setReduceMotion } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/toggles.js";
+
+const $ = (id) => document.getElementById(id);
+const cs = (el, pseudo) => getComputedStyle(el, pseudo);
+const probe = $("probe");
+const controls = ["box", "radio-a", "switch"];
+const checkedControls = { box: "box-on", "radio-a": "radio-b", switch: "switch-on" };
+
+function rgb(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(v * 255)).concat(m[4] === undefined ? 1 : +m[4]);
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  throw new Error(`unparsed colour ${text}`);
+}
+const hex = (text) => "#" + rgb(text).slice(0, 3).map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+// The resolved value of a token as #RRGGBB.
+function token(name) {
+  probe.style.color = `var(${name})`;
+  return hex(cs(probe).color);
+}
+const ratio = (a, b) => contrastRatio(...[a, b].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))));
+const outline = (el) => hex(cs(el).borderTopColor);
+const fill = (el) => hex(cs(el, "::after").backgroundColor);
+const mark = (el) => hex(cs(el, "::before").backgroundColor);
+const px = (v) => parseFloat(v);
+
+function withState(el, attrs, fn) {
+  const saved = Object.fromEntries(Object.keys(attrs).map((k) => [k, el.getAttribute(k)]));
+  for (const [k, v] of Object.entries(attrs)) v === true ? el.toggleAttribute(k, true) : el.setAttribute(k, v);
+  try { return fn(); } finally {
+    for (const [k, v] of Object.entries(saved)) v === null ? el.removeAttribute(k) : el.setAttribute(k, v);
+  }
+}
+const STATES = { rest: {}, hover: { "data-state": "hover" }, pressed: { "data-state": "pressed" }, disabled: { disabled: true } };
+
+$("box-mixed").indeterminate = true;
+
+test("native inputs: checkbox, radio and switch roles, no ARIA state repeated, names from their labels", () => {
+  assertEqual($("box").type, "checkbox");
+  assertEqual($("radio-a").type, "radio");
+  assertEqual($("switch").type, "checkbox");
+  assertEqual($("switch").getAttribute("role"), "switch");
+  for (const el of document.querySelectorAll("input")) {
+    assert(!el.hasAttribute("aria-checked"), `${el.id} repeats aria-checked`);
+    assert(el.labels.length > 0 || el.hasAttribute("aria-label"), `${el.id} has no name`);
+  }
+  assertEqual($("box").labels[0], $("box-label"));
+  assertEqual($("box-for").labels[0].textContent, "Label for");
+  assertEqual($("switch").labels[0].querySelector(".ui-toggle-switch-header").textContent, "Wi-Fi");
+  assertEqual($("switch").labels[0].querySelector(".ui-toggle-switch-content").getAttribute("aria-hidden"), "true", "On and Off are not part of the name");
+});
+
+test("the browser's behaviour stays: a label click toggles, Space works natively, the form submits the value", () => {
+  $("box-label").click();
+  assert($("box").checked, "label click checks");
+  assertEqual(new FormData($("form")).get("box"), "yes");
+  $("box-label").click();
+  assert(!$("box").checked);
+  $("switch-label").click();
+  assert($("switch").checked, "a click on the switch label toggles it");
+  assertEqual(new FormData($("form")).get("wifi"), "on");
+  $("switch").checked = false;
+  assertEqual(new FormData($("form")).get("size"), "b");
+});
+
+test("indeterminate through the property: the dash, and a click checks it", () => {
+  const el = $("box-mixed");
+  assert(el.matches(":indeterminate"));
+  assertEqual(cs(el, "::after").opacity, "1", "checked layer shown");
+  assertEqual(cs(el, "::before").opacity, "1", "mark shown");
+  assert(cs(el, "::before").maskImage.includes("M5 10H15"), "the dash");
+  assert(cs($("box-on"), "::before").maskImage.includes("M4 10.5217"), "the check");
+  el.click();
+  assert(el.checked && !el.indeterminate, "checked after a click");
+  el.checked = false;
+  el.indeterminate = true;
+  assert(!$("radio-a").matches(":checked") && cs($("radio-a"), "::after").opacity === "0", "a radio never shows indeterminate");
+});
+
+test("sizes by density (0030)", () => {
+  const sizes = {
+    normal: { box: 20, radius: "5px", stroke: "stroke-width='2'", dot: "8px", track: [40, 20], knob: ["12px", "14px"], row: 32 },
+    compact: { box: 16, radius: "4px", stroke: "stroke-width='1.5'", dot: "6px", track: [32, 16], knob: ["10px", "12px"], row: 24 },
+  };
+  try {
+    for (const [density, s] of Object.entries(sizes)) {
+      setDensity(density);
+      const box = $("box").getBoundingClientRect();
+      assertEqual(box.width, s.box, `${density} box`);
+      assertEqual(box.height, s.box);
+      assertEqual(cs($("box")).getPropertyValue("--ui-squircle-radius").trim(), s.radius, `${density} box radius`);
+      assert(cs($("box-on"), "::before").maskImage.includes(s.stroke), `${density} stroke`);
+      assertEqual($("radio-a").getBoundingClientRect().width, s.box, `${density} circle`);
+      assertEqual(cs($("radio-a"), "::before").width, s.dot, `${density} dot`);
+      const track = $("switch").getBoundingClientRect();
+      assertEqual(`${track.width}x${track.height}`, s.track.join("x"), `${density} track`);
+      assertEqual(cs($("switch"), "::before").width, s.knob[0], `${density} knob off`);
+      assertEqual(cs($("switch-on"), "::before").width, s.knob[1], `${density} knob on`);
+      assertEqual($("box-label").getBoundingClientRect().height, s.row, `${density} row`);
+      assertEqual($("switch-on").parentElement.getBoundingClientRect().height, s.row, `${density} switch row`);
+    }
+  } finally {
+    setDensity("normal");
+  }
+});
+
+test("label 8 after the indicator, centred in the row; no gap without a label; a wrapped label keeps the indicator on its first line", () => {
+  const box = $("box").getBoundingClientRect();
+  const row = $("box-label").getBoundingClientRect();
+  assertEqual(cs($("box-label")).columnGap, "8px");
+  assertEqual(Math.round(box.top - row.top), 6, "centred in 32");
+  assertEqual($("box-alone-label").getBoundingClientRect().width, 20, "no gap without a label");
+  const wrap = $("wrap").getBoundingClientRect();
+  const wrapRow = $("wrap-label").getBoundingClientRect();
+  assert(wrapRow.height > 40, "the label wraps");
+  assertEqual(Math.round(wrap.top - wrapRow.top), 6, "the indicator stays on the first line");
+  const sw = $("switch").getBoundingClientRect();
+  const header = $("switch-label").querySelector(".ui-toggle-switch-header").getBoundingClientRect();
+  const content = $("switch-label").querySelector(".ui-toggle-switch-content").getBoundingClientRect();
+  assertEqual(Math.round(sw.top - header.bottom), 4 + 6, "header SpacingXS above the 32 px switch row");
+  assertEqual(Math.round(content.left - sw.right), 8, "On or Off 8 after the track");
+});
+
+test("unchecked colours: Fluent's keys (BaseMedium, BaseMediumHigh, BaseHigh outline; BaseMediumLow pressed fill and disabled)", () => {
+  const want = {
+    rest: ["--ui-system-base-medium-color", null],
+    hover: ["--ui-system-base-medium-high-color", null],
+    pressed: ["--ui-system-base-high-color", "--ui-system-base-medium-low-color"],
+    disabled: ["--ui-system-base-medium-low-color", null],
+  };
+  for (const id of controls) {
+    for (const [state, [line, back]] of Object.entries(want)) {
+      withState($(id), STATES[state], () => {
+        assertEqual(outline($(id)), token(line), `${id} ${state} outline`);
+        const bg = cs($(id)).backgroundColor;
+        if (back) assertEqual(hex(bg), token(back), `${id} ${state} fill`);
+        else assertEqual(rgb(bg)[3], 0, `${id} ${state} no fill`);
+        assertEqual(cs($(id), "::after").opacity, "0", `${id} ${state} checked layer hidden`);
+      });
+    }
+  }
+  withState($("switch"), STATES.pressed, () => assertEqual(mark($("switch")), token("--ui-system-base-high-color"), "the off knob takes the outline's colour"));
+});
+
+test("checked colours: the AA accent fills with the white mark, the outline the fill's colour; disabled the disabled accent button's pair", () => {
+  const want = {
+    rest: ["--ui-accent-fill-color", "--ui-accent-button-foreground"],
+    hover: ["--ui-accent-fill-color-pointer-over", "--ui-accent-button-foreground"],
+    pressed: ["--ui-accent-fill-color-pressed", "--ui-accent-button-foreground"],
+    disabled: ["--ui-system-base-low-color", "--ui-system-base-medium-low-color"],
+  };
+  for (const id of [...Object.values(checkedControls), "box-mixed"]) {
+    for (const [state, [fillKey, markKey]] of Object.entries(want)) {
+      withState($(id), STATES[state], () => {
+        assertEqual(fill($(id)), token(fillKey), `${id} ${state} fill`);
+        assertEqual(outline($(id)), token(fillKey), `${id} ${state} outline`);
+        assertEqual(mark($(id)), token(markKey), `${id} ${state} mark`);
+        assertEqual(cs($(id), "::after").opacity, "1");
+      });
+    }
+  }
+});
+
+test("hover and press on the label reach the indicator", () => {
+  withState($("box-label"), { "data-state": "hover" }, () => assertEqual(outline($("box")), token("--ui-system-base-medium-high-color")));
+  withState($("switch-label"), { "data-state": "pressed" }, () => assertEqual(cs($("switch"), "::before").width, "16px", "the knob stretches"));
+});
+
+test("labels: BaseHigh, BaseMediumLow when disabled", () => {
+  assertEqual(hex(cs($("box-label")).color), token("--ui-system-base-high-color"));
+  withState($("box"), { disabled: true }, () => assertEqual(hex(cs($("box-label")).color), token("--ui-system-base-medium-low-color")));
+  withState($("switch"), { disabled: true }, () => assertEqual(hex(cs($("switch-label")).color), token("--ui-system-base-medium-low-color")));
+});
+
+test("contrast in light and dark: white mark 4.5:1 on every enabled fill; outline in every state and the rest fill 3:1 on page and card", () => {
+  try {
+    for (const theme of ["light", "dark"]) {
+      setTheme(theme);
+      const surfaces = ["--ui-system-region-color", "--ui-system-chrome-medium-low-color"].map(token);
+      for (const state of ["rest", "hover", "pressed"]) {
+        for (const id of Object.values(checkedControls)) {
+          withState($(id), STATES[state], () => {
+            const f = fill($(id)), m = mark($(id));
+            assert(ratio(m, f) >= 4.5, `${theme} ${id} ${state} mark ${m} on ${f}: ${ratio(m, f).toFixed(2)}`);
+            if (state === "rest") for (const s of surfaces) assert(ratio(f, s) >= 3, `${theme} ${id} fill ${f} on ${s}`);
+          });
+        }
+        for (const id of controls) {
+          withState($(id), STATES[state], () => {
+            for (const s of surfaces) assert(ratio(outline($(id)), s) >= 3, `${theme} ${id} ${state} outline on ${s}`);
+          });
+        }
+      }
+    }
+  } finally {
+    setTheme("light");
+  }
+});
+
+test("the knob: 2 px larger on, stretched 4 px wide while pressed, sliding the track's width less its height; mirrored in RTL", () => {
+  const knob = (id) => cs($(id), "::before");
+  assertEqual(knob("switch").translate, "none");
+  assertEqual(knob("switch-on").translate, "20px");
+  assertEqual(knob("switch-rtl").translate, "-20px");
+  assertEqual(knob("switch").insetInlineStart, "3px", "centred in the 20 px cell, inside the 1 px outline");
+  assertEqual(knob("switch-on").insetInlineStart, "2px");
+  withState($("switch"), STATES.pressed, () => {
+    assertEqual(knob("switch").width, "16px");
+    assertEqual(knob("switch").height, "12px");
+    assertEqual(knob("switch").insetInlineStart, "1px", "stretches on both sides");
+  });
+  withState($("switch-on"), STATES.pressed, () => assertEqual(knob("switch-on").width, "18px"));
+  withState($("switch-on"), STATES.disabled, () => assertEqual(knob("switch-on").width, "14px", "no stretch when disabled"));
+});
+
+test("On and Off: only the one for the state shows", () => {
+  const vis = (el, cls) => cs(el.parentElement.querySelector(cls)).visibility;
+  assertEqual(vis($("switch"), ".ui-toggle-switch-off"), "visible");
+  assertEqual(vis($("switch"), ".ui-toggle-switch-on"), "hidden");
+  assertEqual(vis($("switch-on"), ".ui-toggle-switch-off"), "hidden");
+  assertEqual(vis($("switch-on"), ".ui-toggle-switch-on"), "visible");
+});
+
+test("focus ring: around the indicator (2 px, 2 px gap), following its shape, not the label", () => {
+  for (const id of controls) {
+    withState($(id), { "data-state": "focus" }, () => {
+      const s = cs($(id));
+      assertEqual(s.outlineStyle, "solid", `${id} ring`);
+      assertEqual(s.outlineWidth, "2px");
+      assertEqual(s.outlineOffset, "2px");
+      assertEqual(cs($(id).labels[0]).outlineStyle, "none", `${id} label has no ring`);
+    });
+  }
+  $("box").focus();
+  assertEqual(document.activeElement, $("box"));
+  $("box").blur();
+});
+
+test("motion: colours over MotionFast, the checked layer and mark over MotionNormal, the knob slide over MotionNormal; none under reduce motion", () => {
+  try {
+    setReduceMotion(false);
+    assertEqual(cs($("box")).transitionDuration, "0.1s, 0.1s");
+    assertEqual(cs($("box"), "::after").transitionDuration, "0.1s, 0.2s");
+    assertEqual(cs($("box"), "::before").transitionDuration, "0.1s, 0.2s");
+    const knob = cs($("switch"), "::before");
+    assertEqual(knob.transitionProperty, "background-color, inline-size, block-size, inset, translate");
+    assertEqual(knob.transitionDuration, "0.1s, 0.1s, 0.1s, 0.1s, 0.2s");
+    setReduceMotion(true);
+    for (const pseudo of [null, "::after", "::before"]) {
+      assert(cs($("switch"), pseudo).transitionDuration.split(", ").every((d) => d === "0s"), `instant ${pseudo ?? ""}`);
+    }
+  } finally {
+    setReduceMotion(true);
+  }
+});
+
+// Knob drag (toggles.js), with synthetic pointer events on the track.
+const pointer = (el, type, x, options = {}) => el.dispatchEvent(new PointerEvent(type, {
+  bubbles: true, cancelable: true, composed: true, pointerId: 7, pointerType: "mouse", button: 0, buttons: 1, clientX: x, ...options,
+}));
+const tick = () => new Promise((r) => setTimeout(r));
+// Presses the knob of `el`, moves by each step (px from the press), and releases (or cancels).
+function dragKnob(el, steps, { release = "pointerup", click = true } = {}) {
+  const r = el.getBoundingClientRect();
+  const start = r.left + (el.checked !== (cs(el).direction === "rtl") ? r.width - r.height / 2 : r.height / 2);
+  pointer(el, "pointerdown", start);
+  for (const dx of steps) pointer(el, "pointermove", start + dx);
+  const during = { dragging: el.hasAttribute("data-dragging"), drag: el.style.getPropertyValue("--ui-toggle-switch-drag"), translate: cs(el, "::before").translate };
+  pointer(el, release, start + (steps.at(-1) ?? 0), { buttons: 0 });
+  if (click && release === "pointerup") el.click(); // the click a real release adds
+  return during;
+}
+function events(el) {
+  const seen = [];
+  const on = (e) => seen.push(e.type);
+  el.addEventListener("input", on);
+  el.addEventListener("change", on);
+  return { seen, stop: () => { el.removeEventListener("input", on); el.removeEventListener("change", on); } };
+}
+
+test("drag: a move of 3 px or less stays a click, which toggles natively", () => {
+  const el = $("switch");
+  el.checked = false;
+  const during = dragKnob(el, [2, 3]);
+  assert(!during.dragging, "no drag at 3 px");
+  assert(el.checked, "the click toggled it");
+  el.checked = false;
+});
+
+test("drag: past 3 px the knob follows the pointer at once, held within the track; release before the middle keeps it off, the click does not flip it", () => {
+  const el = $("switch");
+  el.checked = false;
+  const log = events(el);
+  let during = dragKnob(el, [4]);
+  assert(during.dragging, "dragging after 4 px");
+  assertEqual(during.drag, "4px");
+  assertEqual(during.translate, "4px", "the knob at the pointer");
+  during = dragKnob(el, [4, 9]);
+  assert(!el.checked, "9 of 20 stays off");
+  assert(!el.hasAttribute("data-dragging") && !el.style.getPropertyValue("--ui-toggle-switch-drag"), "drag state cleared");
+  during = dragKnob(el, [4, 40], { click: false });
+  assertEqual(during.drag, "20px", "held at the end of the track");
+  assert(el.checked, "past the middle turns it on");
+  assertEqual(log.seen.join(), "input,change", "one input and change, only for the change");
+  log.stop();
+  el.checked = false;
+});
+
+test("drag: at or past the middle turns it on, back past the middle off; Fluent's midpoint (half the travel)", () => {
+  const el = $("switch");
+  el.checked = false;
+  dragKnob(el, [4, 10]);
+  assert(el.checked, "10 of 20 is on");
+  dragKnob(el, [-4, -10]);
+  assert(el.checked, "back to 10 stays on");
+  dragKnob(el, [-4, -11]);
+  assert(!el.checked, "back to 9 is off");
+  dragKnob(el, [4, 15, 2]);
+  assert(!el.checked, "the release position counts, not the furthest");
+});
+
+test("drag: right-to-left, the knob travels leftwards", () => {
+  const el = $("switch-rtl");
+  el.checked = true;
+  const during = dragKnob(el, [4, 12]);
+  assertEqual(during.drag, "8px", "moving right takes it back towards off");
+  assertEqual(during.translate, "-8px", "drawn mirrored");
+  assert(!el.checked);
+  dragKnob(el, [-4, -15]);
+  assert(el.checked, "moving left turns it on");
+});
+
+test("drag: compact density uses its own travel (16)", () => {
+  try {
+    setDensity("compact");
+    const el = $("switch");
+    el.checked = false;
+    dragKnob(el, [4, 7]);
+    assert(!el.checked, "7 of 16 stays off");
+    dragKnob(el, [4, 8]);
+    assert(el.checked, "8 of 16 is on");
+    el.checked = false;
+  } finally {
+    setDensity("normal");
+  }
+});
+
+test("drag: disabled switches do not drag; a cancelled drag changes nothing; no click is swallowed later", async () => {
+  const el = $("switch");
+  el.checked = false;
+  el.disabled = true;
+  assert(!dragKnob(el, [4, 15], { click: false }).dragging, "no drag when disabled");
+  assert(!el.checked);
+  el.disabled = false;
+  const during = dragKnob(el, [4, 15], { release: "pointercancel" });
+  assert(during.dragging);
+  assert(!el.checked && !el.hasAttribute("data-dragging"), "cancel keeps it off");
+  dragKnob(el, [4, 15], { click: false });
+  assert(el.checked, "drag without a following click");
+  await tick();
+  el.click();
+  assert(!el.checked, "a later click toggles as normal");
+  $("box").click();
+  assert($("box").checked, "other controls are untouched");
+  $("box").checked = false;
+});
+
+test("drag: the knob does not slide while dragged, and slides to its end over MotionNormal at release", async () => {
+  try {
+    setReduceMotion(false);
+    const el = $("switch");
+    el.checked = false;
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.height / 2;
+    pointer(el, "pointerdown", x);
+    pointer(el, "pointermove", x + 14);
+    assert(!cs(el, "::before").transitionProperty.includes("translate"), "no slide while dragging");
+    pointer(el, "pointerup", x + 14, { buttons: 0 });
+    el.click();
+    assertEqual(cs(el, "::before").transitionDuration.split(", ").at(-1), "0.2s");
+    const slides = el.getAnimations({ subtree: true }).filter((a) => a.transitionProperty === "translate");
+    assertEqual(slides.length, 1, "slides from the release point to the end");
+    el.getAnimations({ subtree: true }).forEach((a) => a.finish());
+    assert(el.checked);
+    el.checked = false;
+  } finally {
+    setReduceMotion(true);
+  }
+});
+</script>
+</body>
+</html>

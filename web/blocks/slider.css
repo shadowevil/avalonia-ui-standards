@@ -1,0 +1,257 @@
+/*
+  Slider (0031): the native <input type="range">, so the browser gives it the slider role, the
+  value, the arrow, Page and Home/End keys, and form behaviour. A name comes from a <label> or
+  aria-label.
+
+    <input type="range" class="ui-slider" min="0" max="100" value="40" aria-label="Volume">
+      + ui-vertical                                     vertical, filling from the bottom
+      + ui-ticks-top-left, ui-ticks-bottom-right or ui-ticks-outside, with data-tick-frequency
+        (Fluent's TickPlacement and TickFrequency): ticks above or below (left or right when vertical)
+      + aria-invalid="true"                             Fluent's error state: the error-coloured thumb
+
+  The track is a 4 px pill: the value part in the AA accent fills, the rest in Fluent's
+  SliderTrackFill colours, split under the thumb's centre, so neither part shows an end there. The
+  thumb is a white circle (20 px, 16 at Compact) with a 1 px black 12 % edge and a soft shadow; it
+  grows 10 % on hover and 20 % while pressed. The focus ring is drawn around the thumb. Ticks are
+  4 px long and 4 px from the thumb; they keep clear of it, so ticks on both sides make the row
+  36 px tall (32 at Compact).
+
+  Chromium and Safari have no pseudo-element for the value part, so slider.js mirrors the value into
+  --ui-slider-fraction (0 to 1) and the tick count into --ui-slider-tick-count; Firefox draws the
+  value part natively (::-moz-range-progress). Without script, Chromium and Safari show the whole
+  track in the rest colour. Right to left reverses a horizontal slider, as the browser does.
+  Forced states for renders and tests: data-state="hover", "pressed" or "focus".
+*/
+
+/* Registered so the track colours cross-fade (MotionFast); a gradient cannot transition itself. */
+@property --_ui-slider-value {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --_ui-slider-rest {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+:where(.ui-slider) {
+  /* The row across the track (height, or width when vertical): the button heights. */
+  --ui-slider-row: var(--ui-control-min-height);
+  --ui-slider-thumb-size: 20px;
+  --ui-slider-track-thickness: 4px;
+  --ui-slider-tick-length: var(--ui-spacing-xs);
+  --ui-slider-tick-gap: var(--ui-spacing-xs);
+  --ui-slider-tick-width: 1px;
+  --ui-slider-value-fill: var(--ui-accent-fill-color);
+  --ui-slider-rest-fill: var(--ui-system-base-medium-low-color);
+  --ui-slider-tick-fill: var(--ui-system-base-medium-low-color);
+  /* The thumb's design (0031): white in both themes, a black 12 % edge, a soft shadow. */
+  --ui-slider-thumb-fill: #FFFFFF;
+  --ui-slider-thumb-edge: #0000001F;
+  --ui-slider-thumb-shadow: 0 1px 3px #00000040;
+  --ui-slider-thumb-scale: 1;
+  --ui-slider-hover-scale: 1.1;
+  --ui-slider-pressed-scale: 1.2;
+  /* Fluent's SliderTrackFillDisabled and SystemControlErrorTextForegroundBrush. */
+  --ui-slider-track-fill-disabled: light-dark(#CCCCCC, #333333);
+  --ui-slider-thumb-fill-error: light-dark(#C50500, #FFF000);
+}
+
+:root[data-density="compact"] :where(.ui-slider) {
+  --ui-slider-thumb-size: 16px;
+}
+
+.ui-slider {
+  /* The ticks' share of the row on each side (set by the tick classes), the value's fraction of
+     the track, and the direction the value part fills from. */
+  --_before: 0px;
+  --_after: 0px;
+  --_fraction: var(--ui-slider-fraction, 0);
+  --_fill-direction: to right;
+  --_ui-slider-value: var(--ui-slider-value-fill);
+  --_ui-slider-rest: var(--ui-slider-rest-fill);
+  /* The row, and where the thumb starts across it: centred in the space the ticks leave. */
+  --_row: max(var(--ui-slider-row), calc(var(--ui-slider-thumb-size) + var(--_before) + var(--_after)));
+  --_thumb-start: calc(var(--_before) + (var(--_row) - var(--_before) - var(--_after) - var(--ui-slider-thumb-size)) / 2);
+
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-block;
+  inline-size: 100%;
+  block-size: var(--_row);
+  margin: 0;
+  padding: 0;
+  padding-block: var(--_before) var(--_after);
+  border: 0;
+  background: transparent no-repeat;
+  vertical-align: middle;
+  cursor: default;
+  transition:
+    --_ui-slider-value var(--ui-motion-fast) var(--ui-motion-easing),
+    --_ui-slider-rest var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+/* The ring is drawn around the thumb instead (below). */
+.ui-slider:focus-visible {
+  outline: none;
+}
+
+.ui-slider:dir(rtl) {
+  --_fill-direction: to left;
+}
+
+/* Vertical: the browser's vertical range, its start (the minimum) at the bottom. */
+.ui-slider.ui-vertical {
+  --_fill-direction: to top;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+/* States. Hover and press light the whole slider, as on desktop. */
+.ui-slider:is(:hover, [data-state~="hover"]):not(:disabled) {
+  --ui-slider-value-fill: var(--ui-accent-fill-color-pointer-over);
+  --ui-slider-rest-fill: var(--ui-system-base-medium-color);
+  --ui-slider-thumb-scale: var(--ui-slider-hover-scale);
+}
+
+.ui-slider:is(:active, [data-state~="pressed"]):not(:disabled) {
+  --ui-slider-value-fill: var(--ui-accent-fill-color-pressed);
+  --ui-slider-rest-fill: var(--ui-system-base-medium-low-color);
+  --ui-slider-thumb-scale: var(--ui-slider-pressed-scale);
+}
+
+.ui-slider:disabled {
+  --ui-slider-value-fill: var(--ui-system-base-medium-low-color);
+  --ui-slider-rest-fill: var(--ui-slider-track-fill-disabled);
+  --ui-slider-thumb-fill: var(--ui-system-base-low-color);
+}
+
+.ui-slider[aria-invalid="true"] {
+  --ui-slider-thumb-fill: var(--ui-slider-thumb-fill-error);
+}
+
+/* The track: one pill, the value part up to the thumb's centre, the rest after it. The thumb's
+   centre travels from half a thumb in at each end. */
+.ui-slider::-webkit-slider-runnable-track {
+  box-sizing: border-box;
+  block-size: var(--ui-slider-track-thickness);
+  border: 0;
+  border-radius: calc(var(--ui-slider-track-thickness) / 2);
+  background: linear-gradient(var(--_fill-direction),
+    var(--_ui-slider-value) 0 calc(var(--ui-slider-thumb-size) / 2 + var(--_fraction) * (100% - var(--ui-slider-thumb-size))),
+    var(--_ui-slider-rest) 0);
+}
+
+.ui-slider::-moz-range-track {
+  box-sizing: border-box;
+  block-size: var(--ui-slider-track-thickness);
+  border: 0;
+  border-radius: calc(var(--ui-slider-track-thickness) / 2);
+  background: var(--_ui-slider-rest);
+}
+
+.ui-slider::-moz-range-progress {
+  block-size: var(--ui-slider-track-thickness);
+  border-radius: calc(var(--ui-slider-track-thickness) / 2);
+  background: var(--_ui-slider-value);
+}
+
+/* The thumb, centred on the track. */
+.ui-slider::-webkit-slider-thumb {
+  appearance: none;
+  box-sizing: border-box;
+  inline-size: var(--ui-slider-thumb-size);
+  block-size: var(--ui-slider-thumb-size);
+  margin-block-start: calc((var(--ui-slider-track-thickness) - var(--ui-slider-thumb-size)) / 2);
+  border: 1px solid var(--ui-slider-thumb-edge);
+  border-radius: 50%;
+  background: var(--ui-slider-thumb-fill);
+  box-shadow: var(--ui-slider-thumb-shadow);
+  scale: var(--ui-slider-thumb-scale);
+  transition:
+    scale var(--ui-motion-fast) var(--ui-motion-easing),
+    background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-slider::-moz-range-thumb {
+  box-sizing: border-box;
+  inline-size: var(--ui-slider-thumb-size);
+  block-size: var(--ui-slider-thumb-size);
+  border: 1px solid var(--ui-slider-thumb-edge);
+  border-radius: 50%;
+  background: var(--ui-slider-thumb-fill);
+  box-shadow: var(--ui-slider-thumb-shadow);
+  scale: var(--ui-slider-thumb-scale);
+  transition:
+    scale var(--ui-motion-fast) var(--ui-motion-easing),
+    background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+/* The focus ring (0019) around the thumb; it grows with the thumb. */
+.ui-slider:is(:focus-visible, [data-state~="focus"])::-webkit-slider-thumb {
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring-color);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
+.ui-slider:is(:focus-visible, [data-state~="focus"])::-moz-range-thumb {
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring-color);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
+/* Ticks: 1 px marks in the element's own background, one every --ui-slider-tick-count-th of the
+   thumb's travel, from the thumb's centre at one end to its centre at the other. */
+.ui-slider:is(.ui-ticks-top-left, .ui-ticks-outside) {
+  --_before: calc(var(--ui-slider-tick-length) + var(--ui-slider-tick-gap));
+}
+
+.ui-slider:is(.ui-ticks-bottom-right, .ui-ticks-outside) {
+  --_after: calc(var(--ui-slider-tick-length) + var(--ui-slider-tick-gap));
+}
+
+.ui-slider:is(.ui-ticks-top-left, .ui-ticks-bottom-right, .ui-ticks-outside) {
+  --_tick-colour: var(--ui-slider-tick-fill);
+  --_tick-before: calc(var(--_thumb-start) - var(--ui-slider-tick-gap) - var(--ui-slider-tick-length));
+  --_tick-after: calc(var(--_thumb-start) + var(--ui-slider-thumb-size) + var(--ui-slider-tick-gap));
+  --_tick-along: calc(var(--ui-slider-thumb-size) / 2 - var(--ui-slider-tick-width) / 2);
+  --_tick-span: calc(100% - var(--ui-slider-thumb-size) + var(--ui-slider-tick-width));
+  --_ticks: repeating-linear-gradient(to right,
+    var(--_tick-colour) 0 var(--ui-slider-tick-width),
+    transparent 0 calc((100% - var(--ui-slider-tick-width)) / var(--ui-slider-tick-count, 1)));
+  background-image: var(--_ticks), var(--_ticks);
+  background-size: var(--_tick-span) calc(var(--_before) - var(--ui-slider-tick-gap)), var(--_tick-span) calc(var(--_after) - var(--ui-slider-tick-gap));
+  background-position: var(--_tick-along) var(--_tick-before), var(--_tick-along) var(--_tick-after);
+}
+
+.ui-slider.ui-vertical:is(.ui-ticks-top-left, .ui-ticks-bottom-right, .ui-ticks-outside) {
+  --_ticks: repeating-linear-gradient(to top,
+    var(--_tick-colour) 0 var(--ui-slider-tick-width),
+    transparent 0 calc((100% - var(--ui-slider-tick-width)) / var(--ui-slider-tick-count, 1)));
+  background-size: calc(var(--_before) - var(--ui-slider-tick-gap)) var(--_tick-span), calc(var(--_after) - var(--ui-slider-tick-gap)) var(--_tick-span);
+  background-position: var(--_tick-before) var(--_tick-along), var(--_tick-after) var(--_tick-along);
+}
+
+/* Forced colours: system colours, kept as they are. */
+@media (forced-colors: active) {
+  .ui-slider {
+    forced-color-adjust: none;
+    --ui-slider-value-fill: Highlight;
+    --ui-slider-rest-fill: ButtonText;
+    --ui-slider-tick-fill: ButtonText;
+    --ui-slider-thumb-fill: ButtonFace;
+    --ui-slider-thumb-edge: ButtonText;
+  }
+
+  .ui-slider:is(:hover, :active):not(:disabled) {
+    --ui-slider-value-fill: Highlight;
+    --ui-slider-rest-fill: ButtonText;
+  }
+
+  .ui-slider:disabled {
+    --ui-slider-value-fill: GrayText;
+    --ui-slider-rest-fill: GrayText;
+    --ui-slider-tick-fill: GrayText;
+    --ui-slider-thumb-edge: GrayText;
+  }
+}

@@ -30,7 +30,7 @@ Without script, the page follows the browser's colour scheme and reduced motion 
 
 Glass ([decision 0015](../docs/decisions/0015-glass.md)) is the class `ui-glass`, with `ui-squircle` for its shape. From CSS alone it draws the blur, tint and rim. Loading `ui.js` (or `style/index.js`) also turns on refraction in Chromium, with nothing to call; Safari and Firefox keep blur, tint and rim. Glass inside glass is minimal (no refraction), and a third level is solid. `setGlassQuality` (attribute `data-glass-quality` on `<html>`) is the performance switch: `"minimal"` drops refraction everywhere, `"solid"` draws every glass as its solid fill, and `"full"` brings refraction back. Reduce transparency makes glass solid whatever the quality.
 
-Accessibility classes: `ui-focus-ring` (the focus ring on the element), `ui-focus-ring-within` (the ring on a wrapper while its content has keyboard focus), `ui-visually-hidden` (hidden on screen, still read by screen readers) and `ui-skip-link` (a skip link shown at the top left only while focused). In forced colours the rings use the system `Highlight` colour.
+Accessibility classes: `ui-focus-ring` (the focus ring on the element), `ui-focus-ring-within` (the ring on a wrapper while its content has keyboard focus), `ui-visually-hidden` (hidden on screen, still read by screen readers) and `ui-skip-link` (a skip link shown at the top left only while focused). The ring is `--ui-focus-ring-width`, `--ui-focus-ring-offset` and `--ui-focus-ring-color` (the accent; the system `Highlight` colour in forced colours), for Blocks that draw it on a part.
 
 ## Serve
 

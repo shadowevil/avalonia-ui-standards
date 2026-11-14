@@ -33,7 +33,7 @@
     - The window buttons (`WindowButtons`, `TrafficLightButton`, `CaptionButton`) are public Blocks, so other layouts can use them.
   - Values:
     - Title band 48 high (40 Compact), with the title in Body strong ([0012](0012-type.md)).
-    - Status bar 24 high at every density, with 16 px side padding (amended 2026-11-14 from 32, 24 Compact, by [0047](0047-status-bar.md)). The library centres any status bar content vertically in the band, not only single text. It runs across the window under the sidebar and comes last in Tab order. The `StatusBar` Module is in [0047](0047-status-bar.md).
+    - Status bar 24 high at every density, with 16 px side padding (amended 2026-11-14 from 32, 24 Compact, by [0047](0047-status-bar.md)); a `StatusBar`'s rows grow it, 24 per row. The library centres any status bar content vertically in the band, not only single text. It runs across the window under the sidebar and comes last in Tab order. The `StatusBar` Module is in [0047](0047-status-bar.md).
     - Sidebar 8 px from the left.
     - Glass panel 8 px from the sides and bottom, with 12 px padding inside.
     - Frame radius 16 with a 1 px border in Fluent's border colour.

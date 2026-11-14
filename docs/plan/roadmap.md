@@ -13,7 +13,7 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    5b. Frame rate: continuous animation at 30 fps by default ([0016](../decisions/0016-motion.md)). Done.
    5c. Glass rim: a hairline that takes a light tint of what's below ([0015](../decisions/0015-glass.md)). Done.
    5d. Overlay scrollbar: nearly invisible until scrolling or the pointer comes near, then it fades in and widens with proximity for easy grabbing; no arrow buttons; the thumb and track are always fully rounded pills; it floats over content ([0024](../decisions/0024-lists-and-scrolling.md), [0025](../decisions/0025-overlay-scrollbar.md)). Done.
-   5e. Glass performance: the nesting cap, the quality tiers (full, minimal, solid; `GlassQuality`), the edge-strip rim with the filter rim as fallback, and the GPU budget ([0015](../decisions/0015-glass.md), [0017](../decisions/0017-app-usage.md)). Done. Next step: one shared backdrop sample per frame for all glass layers.
+   5e. Glass performance: the nesting cap, the quality tiers (full, minimal, solid; `GlassQuality`), the edge-strip rim with the filter rim as fallback, and the GPU budget ([0015](../decisions/0015-glass.md), [0017](../decisions/0017-app-usage.md)). Done. Next step: M4 item 4.
    6. Native window behaviour on macOS: system shadow, native border and chrome roles ([0022](../decisions/0022-window-layout.md)). Done for macOS. Windows and Linux are a later step.
    7. TextInput (Fluent `TextBox`). Done ([0027](../decisions/0027-text-input.md)).
    8. ComboBox. Done ([0028](../decisions/0028-combobox.md)).
@@ -34,22 +34,23 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    - Then these, in this order, set by what apps built on the library need first; each one's design is researched and agreed at its step, with a catalog page:
      1. Status bar: the bottom row of `StandardsWindow`, with zones for status text, progress and small indicators. Done ([0047](../decisions/0047-status-bar.md)), with a catalog page; the catalog's own status bar uses it ([0020](../decisions/0020-catalog-app.md)).
      2. Full screen on macOS: the green window button enters and leaves the system full screen (Option-click zooms), Ctrl+Cmd+F toggles it, and the title band reveals at the top edge; Windows and Linux keep minimise and maximise. With it, window buttons follow what the window can do (a fixed-size window shows no maximise). Done ([0049](../decisions/0049-full-screen.md)), shown in the catalog by its View menu's full screen item ([0020](../decisions/0020-catalog-app.md)).
-     3. Multi-row status bar: the status bar can stack more than one row, each with its own zones and priority hiding.
-     4. Split panes and dock panels: resizable, collapsible side and bottom panels, and panel stacks with title strips, tab groups and collapse; floating and re-docking later.
-     5. Tool palette: an always-visible column of tool icons with nested tool groups in flyouts, a slot below the tools, and its own selection; with the image-editor tool icons, drawn in Phosphor Regular's style where Phosphor has none.
-     6. Dialogs and sheets: confirmation and content dialogs from one API, a sheet on macOS and a centred dialog on Windows and Linux.
-     7. Settings page: sections of rows that pair a label and caption with a control, for app preferences.
-     8. Document tabs: closable, reorderable tabs with overflow, for apps with several documents open.
-     9. Badge: a small pill in caption type with a hairline border or soft fill in a status colour (accent, success, warning, danger, neutral) and an optional leading icon, for counts and status tags in lists, data grid cells, the sidebar and notifications.
-     10. Rich list rows: dense rows with inline toggles, a thumbnail column, drag-to-reorder and nesting (for example a layers list).
-     11. Rulers: rulers along a canvas's edges with ticks, units, a pointer marker and guides dragged out of them.
-     12. Zoom control: an editable percentage with a preset menu and step buttons.
-     13. Compact colour panel: foreground and background chips with swap and default, and a compact picker sized for a side panel.
-     14. Captioned toolbar controls: a caption with a control (for example a slider) in the toolbar band, with a form that can move into its overflow menu.
-     15. Notifications: brief toasts and an inline info bar (info, success, warning, error), with optional actions.
-     16. Command palette: Cmd/Ctrl+K search over the app's commands, fed by the same menu definition as the menu bar.
-     17. Search field: a search box with suggestions and recent searches, for the toolbar band or the sidebar.
-     18. Breadcrumb bar: a path of clickable segments with overflow, for locations and hierarchies.
+     3. Multi-row status bar: the status bar can stack more than one row, each with its own zones and priority hiding. Done ([0047](../decisions/0047-status-bar.md)), with a catalog demo.
+     4. Glass performance: one shared backdrop sample per frame for all glass layers ([0015](../decisions/0015-glass.md)), and a way for content to mark opaque regions the glass fill skips.
+     5. Split panes and dock panels: resizable, collapsible side and bottom panels, and panel stacks with title strips, tab groups and collapse; floating and re-docking later.
+     6. Tool palette: an always-visible column of tool icons with nested tool groups in flyouts, a slot below the tools, and its own selection; with the image-editor tool icons, drawn in Phosphor Regular's style where Phosphor has none.
+     7. Dialogs and sheets: confirmation and content dialogs from one API, a sheet on macOS and a centred dialog on Windows and Linux.
+     8. Settings page: sections of rows that pair a label and caption with a control, for app preferences.
+     9. Document tabs: closable, reorderable tabs with overflow, for apps with several documents open.
+     10. Badge: a small pill in caption type with a hairline border or soft fill in a status colour (accent, success, warning, danger, neutral) and an optional leading icon, for counts and status tags in lists, data grid cells, the sidebar and notifications.
+     11. Rich list rows: dense rows with inline toggles, a thumbnail column, drag-to-reorder and nesting (for example a layers list).
+     12. Rulers: rulers along a canvas's edges with ticks, units, a pointer marker and guides dragged out of them.
+     13. Zoom control: an editable percentage with a preset menu and step buttons.
+     14. Compact colour panel: foreground and background chips with swap and default, and a compact picker sized for a side panel.
+     15. Captioned toolbar controls: a caption with a control (for example a slider) in the toolbar band, with a form that can move into its overflow menu.
+     16. Notifications: brief toasts and an inline info bar (info, success, warning, error), with optional actions.
+     17. Command palette: Cmd/Ctrl+K search over the app's commands, fed by the same menu definition as the menu bar.
+     18. Search field: a search box with suggestions and recent searches, for the toolbar band or the sidebar.
+     19. Breadcrumb bar: a path of clickable segments with overflow, for locations and hierarchies.
    - Small API additions: public `Thickness` and `GridLength` forms of the spacing values, and a public way for app tests to set the accessibility settings. Done ([0013](../decisions/0013-spacing-and-density.md), [0017](../decisions/0017-app-usage.md)), with the title icon and `ResolvedLayoutMode` ([0022](../decisions/0022-window-layout.md)).
 5. **M5 First Screens:** the app shell ([0022](../decisions/0022-window-layout.md)), and a file browser that fills a content area: a locations sidebar, back and forward, a breadcrumb path, grid and list views with thumbnails and details, search, a file-type filter, and Open and Cancel. It follows the window's layout mode (Finder-style in the macOS layout, Explorer-style in the Windows layout).
 

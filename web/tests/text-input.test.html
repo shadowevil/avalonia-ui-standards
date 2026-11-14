@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>TextInput tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host">
+  <input id="alone" class="ui-text-input ui-squircle ui-focus-ring" aria-label="Alone" placeholder="Search files" style="width: 200px">
+  <textarea id="multi" class="ui-text-input ui-squircle ui-focus-ring" aria-label="Multi" style="width: 200px; height: 76px">Multi-line</textarea>
+  <span id="clear-field" class="ui-field ui-squircle ui-focus-ring-within" style="width: 200px">
+    <input id="clear-input" class="ui-text-input" aria-label="With clear" value="Quarterly report">
+    <span class="ui-field-trailing"><button id="clear" type="button" class="ui-button ui-subtle ui-field-button ui-text-input-clear ui-squircle" tabindex="-1" aria-label="Clear"><svg class="ui-icon" viewBox="0 0 256 256" aria-hidden="true"></svg></button></span>
+  </span>
+  <span id="pw-field" class="ui-field ui-squircle ui-focus-ring-within" style="width: 200px">
+    <input id="pw" class="ui-text-input" type="password" aria-label="Password" value="hunter22">
+    <span class="ui-field-trailing"><button id="reveal" type="button" class="ui-button ui-subtle ui-field-button ui-text-input-reveal ui-squircle" tabindex="-1" aria-label="Show password" aria-pressed="false"><svg id="eye" class="ui-icon" viewBox="0 0 256 256" aria-hidden="true"></svg><svg id="eye-slash" class="ui-icon" viewBox="0 0 256 256" aria-hidden="true"></svg></button></span>
+  </span>
+  <button id="after" type="button">After</button>
+</div>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+import { syncField } from "../blocks/text-input.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const tick = () => new Promise((r) => setTimeout(r));
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+const over = (top, bottom) => top.slice(0, 3).map((c, i) => Math.round(c * top[3] + bottom[i] * (1 - top[3])));
+
+/** A token's colour as [r, g, b, a], resolved in the current theme. */
+function colour(cssValue) {
+  $("probe").style.color = cssValue;
+  return rgba(style($("probe")).color);
+}
+
+function reset() {
+  for (const a of ["data-theme", "data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  html.dataset.reduceMotion = "true";
+  for (const el of document.querySelectorAll("#host *, #host")) {
+    for (const a of ["data-state", "data-pointer-focus", "aria-invalid", "readonly"]) el.removeAttribute(a);
+    if ("disabled" in el) el.disabled = false;
+  }
+  $("clear-input").value = "Quarterly report";
+  $("alone").value = "";
+  $("reveal").setAttribute("aria-pressed", "false");
+  $("pw").type = "password";
+  $("pw").value = "hunter22";
+  document.activeElement?.blur();
+  syncField($("clear-field"));
+  syncField($("pw-field"));
+}
+
+// The desktop theme's resolved TextControl values per state: [background, border, text].
+const EXPECTED = {
+  rest: { light: ["#FFFFFF@40%", "#686868", "#1A1A1A"], dark: ["#000000@40%", "#9E9E9E", "#F2F2F2"] },
+  hover: { light: ["#FFFFFF@60%", "#404040", "#1A1A1A"], dark: ["#000000@60%", "#D9D9D9", "#F2F2F2"] },
+  focus: { light: ["#FFFFFF", "#007CEA", "#1A1A1A"], dark: ["#1E1E1E", "#007CEA", "#F2F2F2"] },
+  error: { light: ["#FFFFFF@40%", "#E1332A", "#1A1A1A"], dark: ["#000000@40%", "#E1332A", "#F2F2F2"] },
+  "error+focus": { light: ["#FFFFFF", "#E1332A", "#1A1A1A"], dark: ["#1E1E1E", "#E1332A", "#F2F2F2"] },
+  disabled: { light: ["#D4D4D4", "#D4D4D4", "#7A7A7A"], dark: ["#454545", "#454545", "#858585"] },
+  "disabled+error": { light: ["#D4D4D4", "#D4D4D4", "#7A7A7A"], dark: ["#454545", "#454545", "#858585"] },
+};
+
+function force(chrome, input, state) {
+  if (state === "hover") chrome.dataset.state = "hover";
+  if (state.includes("focus")) chrome.dataset.state = "focus";
+  if (state.includes("error")) input.setAttribute("aria-invalid", "true");
+  if (state.includes("disabled")) input.disabled = true;
+}
+
+test("every state takes the desktop's TextControl colours, alone and in a field, light and dark", () => {
+  for (const [chromeId, inputId] of [["alone", "alone"], ["clear-field", "clear-input"], ["multi", "multi"]]) {
+    for (const theme of ["light", "dark"]) {
+      for (const [state, looks] of Object.entries(EXPECTED)) {
+        reset();
+        html.dataset.theme = theme;
+        const chrome = $(chromeId), input = $(inputId);
+        force(chrome, input, state);
+        const [bg, border, fg] = looks[theme];
+        const s = style(chrome);
+        assertEqual(hex(s.backgroundColor), bg, `${chromeId} ${theme} ${state} background`);
+        assertEqual(hex(s.borderTopColor), border, `${chromeId} ${theme} ${state} border`);
+        assertEqual(hex(style(input).color), fg, `${chromeId} ${theme} ${state} text`);
+        assertEqual(s.borderTopWidth, "1px", `${chromeId} ${state} border width`);
+      }
+    }
+  }
+  reset();
+});
+
+test("an input inside a field draws no chrome, fill or ring of its own", () => {
+  reset();
+  const i = $("clear-input");
+  for (const state of ["", "hover", "focus"]) {
+    if (state) i.dataset.state = state;
+    assertEqual(style(i).borderTopWidth, "0px", state);
+    assertEqual(hex(style(i).backgroundColor), "transparent", state);
+  }
+  i.removeAttribute("data-state");
+  i.focus({ focusVisible: true });
+  assertEqual(style(i).outlineStyle, "none");
+  reset();
+});
+
+test("placeholder: BaseMedium at full opacity, the disabled text colour when disabled", () => {
+  reset();
+  const p = () => style($("alone"), "::placeholder");
+  assertEqual(hex(p().color), "#686868");
+  assertEqual(p().opacity, "1");
+  $("alone").dataset.state = "focus";
+  assertEqual(hex(p().color), "#686868", "focused");
+  html.dataset.theme = "dark";
+  assertEqual(hex(p().color), "#9E9E9E");
+  $("alone").disabled = true;
+  assertEqual(hex(p().color), "#858585");
+  reset();
+});
+
+test("selection: the AA accent fill with white text", () => {
+  reset();
+  const s = style($("alone"), "::selection");
+  assertEqual(hex(s.backgroundColor), "#0075DD");
+  assertEqual(hex(s.color), "#FFFFFF");
+});
+
+test("height 32, padding 12,4 at Normal; 24 and 8,2 at Compact; Fluent's 64 px minimum width; the control squircle", () => {
+  reset();
+  for (const id of ["alone", "clear-field", "pw-field"]) assertEqual($(id).getBoundingClientRect().height, 32, id);
+  assertEqual(style($("alone")).paddingInlineStart, "12px");
+  assertEqual(style($("alone")).paddingTop, "4px");
+  assertEqual(style($("clear-input")).paddingInlineStart, "12px");
+  assertEqual(style($("alone")).minWidth, "64px");
+  assertEqual(style($("clear-field")).minWidth, "64px");
+  assertEqual(style($("alone")).borderTopLeftRadius, "9.44px");
+  assertEqual(style($("clear-field")).borderTopLeftRadius, "9.44px");
+  html.dataset.density = "compact";
+  for (const id of ["alone", "clear-field", "pw-field"]) assertEqual($(id).getBoundingClientRect().height, 24, id);
+  assertEqual(style($("alone")).paddingInlineStart, "8px");
+  assertEqual(style($("alone")).paddingTop, "2px");
+  reset();
+});
+
+test("multi-line text starts at the top padding; single-line text is centred", () => {
+  reset();
+  assertEqual(style($("multi")).paddingTop, "4px");
+  assertEqual(style($("multi")).resize, "none");
+  assertEqual($("multi").getBoundingClientRect().height, 76);
+  const f = $("clear-field").getBoundingClientRect(), i = $("clear-input").getBoundingClientRect();
+  assertEqual(i.top - f.top, f.bottom - i.bottom, "input centred in the field");
+});
+
+test("field buttons: 24 px (20 Compact), inset 4 (2) from the edge, 4 after the text, concentric corners, 16 px icons", () => {
+  reset();
+  html.dataset.reduceMotion = "true";
+  for (const [density, size, inset, radius] of [["normal", 24, 4, "4.72px"], ["compact", 20, 2, "7.08px"]]) {
+    html.dataset.density = density;
+    const b = $("reveal").getBoundingClientRect(), f = $("pw-field").getBoundingClientRect();
+    const input = $("pw"), i = input.getBoundingClientRect();
+    const textEnd = i.right - parseFloat(style(input).paddingInlineEnd);
+    assertEqual(b.width, size, `${density} width`);
+    assertEqual(b.height, size, `${density} height`);
+    assertEqual(f.right - b.right, inset, `${density} inset end`);
+    assertEqual(b.top - f.top, inset, `${density} inset top`);
+    assertEqual(b.left - textEnd, 4, `${density} gap after the text`);
+    assertEqual(style($("reveal")).borderTopLeftRadius, radius, `${density} radius`);
+    assertEqual($("eye").getBoundingClientRect().width, 16, `${density} icon`);
+  }
+  reset();
+});
+
+test("right to left: the buttons sit at the start edge, mirrored", () => {
+  reset();
+  html.dir = "rtl";
+  const b = $("reveal").getBoundingClientRect(), f = $("pw-field").getBoundingClientRect();
+  assertEqual(b.left - f.left, 4);
+  reset();
+});
+
+test("field buttons: the Subtle look with TextControlButtonForeground, Standard's hover and pressed fills, no scale", () => {
+  reset();
+  const b = $("reveal");
+  assertEqual(hex(style(b).backgroundColor), "transparent");
+  assertEqual(hex(style(b).color), "#404040");
+  b.dataset.state = "hover";
+  assertEqual(hex(style(b).backgroundColor), "#1A1A1A@10%");
+  assertEqual(hex(style(b).color), "#1A1A1A");
+  b.dataset.state = "pressed";
+  assertEqual(hex(style(b).backgroundColor), "#A6A6A6");
+  assertEqual(style(b).scale, "1");
+  b.removeAttribute("data-state");
+  b.setAttribute("aria-pressed", "true");
+  assertEqual(hex(style(b).backgroundColor), "transparent", "no checked fill");
+  html.dataset.theme = "dark";
+  assertEqual(hex(style(b).color), "#D9D9D9");
+  reset();
+});
+
+test("clear shows while focused and not empty, empties the field with an input event and keeps focus", async () => {
+  reset();
+  const c = $("clear"), i = $("clear-input");
+  assertEqual(style(c).visibility, "hidden", "unfocused");
+  assertEqual(style(c).opacity, "0");
+  i.focus();
+  assertEqual(style(c).visibility, "visible", "focused");
+  assertEqual(style(c).opacity, "1");
+  let inputs = 0;
+  const count = () => inputs++;
+  i.addEventListener("input", count);
+  const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+  c.dispatchEvent(down);
+  assert(down.defaultPrevented, "a press on the button keeps focus in the input");
+  c.click();
+  i.removeEventListener("input", count);
+  assertEqual(i.value, "");
+  assertEqual(inputs, 1);
+  assertEqual(document.activeElement, i);
+  assertEqual(style(c).visibility, "hidden", "empty");
+  i.value = "typed";
+  i.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(style(c).visibility, "visible", "typed again");
+  i.readOnly = true;
+  await tick();
+  assertEqual(style(c).display, "none", "read-only");
+  reset();
+});
+
+test("reveal shows while not empty, toggles the password with aria-pressed and a fixed name", async () => {
+  reset();
+  const r = $("reveal"), p = $("pw");
+  assertEqual(style(r).visibility, "visible", "filled, unfocused");
+  assert(style($("eye")).display !== "none", "eye shown");
+  assertEqual(style($("eye-slash")).display, "none");
+  r.click();
+  assertEqual(r.getAttribute("aria-pressed"), "true");
+  assertEqual(p.type, "text");
+  assertEqual(r.getAttribute("aria-label"), "Show password");
+  assertEqual(style($("eye")).display, "none");
+  assert(style($("eye-slash")).display !== "none", "eye-slash shown");
+  assertEqual(document.activeElement, p);
+  r.click();
+  assertEqual(r.getAttribute("aria-pressed"), "false");
+  assertEqual(p.type, "password");
+  p.value = "";
+  syncField(p);
+  assertEqual(style(r).visibility, "hidden", "empty");
+  reset();
+});
+
+test("field buttons are never Tab stops and follow the input's disabled state", async () => {
+  reset();
+  assertEqual($("clear").tabIndex, -1);
+  assertEqual($("reveal").tabIndex, -1);
+  $("pw").disabled = true;
+  await tick();
+  assert($("reveal").disabled, "disabled with the input");
+  assertEqual(hex(style($("reveal")).color), "#A6A6A6");
+  $("pw").disabled = false;
+  await tick();
+  assert(!$("reveal").disabled, "enabled again");
+  reset();
+});
+
+test("a field added later is brought in step", async () => {
+  reset();
+  const f = $("clear-field").cloneNode(true);
+  f.id = "";
+  f.removeAttribute("data-filled");
+  for (const el of f.querySelectorAll("[id]")) el.removeAttribute("id");
+  document.body.append(f);
+  await tick();
+  assert(f.hasAttribute("data-filled"), "data-filled");
+  f.remove();
+});
+
+test("a press on the field outside the input focuses the input", () => {
+  reset();
+  const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+  $("pw-field").dispatchEvent(down);
+  assert(down.defaultPrevented);
+  assertEqual(document.activeElement, $("pw"));
+  reset();
+});
+
+test("pointer focus turns the border accent without the ring; keyboard focus adds the ring", () => {
+  reset();
+  for (const [chromeId, inputId] of [["alone", "alone"], ["clear-field", "clear-input"]]) {
+    const chrome = $(chromeId), input = $(inputId);
+    input.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    input.focus();
+    assert(chrome.hasAttribute("data-pointer-focus"), `${chromeId} pointer focus marked`);
+    assertEqual(hex(style(chrome).borderTopColor), "#007CEA", `${chromeId} accent border`);
+    assertEqual(style(chrome).outlineStyle, "none", `${chromeId} no ring on pointer focus`);
+    $("after").focus();
+    assert(!chrome.hasAttribute("data-pointer-focus"), `${chromeId} cleared on blur`);
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    input.focus({ focusVisible: true });
+    assert(!chrome.hasAttribute("data-pointer-focus"), `${chromeId} keyboard focus`);
+    const s = style(chrome);
+    assertEqual(s.outlineStyle, "solid", `${chromeId} ring`);
+    assertEqual(s.outlineWidth, "2px");
+    assertEqual(s.outlineOffset, "2px");
+    assertEqual(s.outlineColor, "rgb(0, 124, 234)");
+    assertEqual(hex(s.borderTopColor), "#007CEA", `${chromeId} border stays 1 px accent`);
+    assertEqual(s.borderTopWidth, "1px");
+    input.blur();
+  }
+  reset();
+});
+
+test("forced states: data-state focus rings, with data-pointer-focus it does not", () => {
+  reset();
+  const f = $("clear-field");
+  f.dataset.state = "focus";
+  assertEqual(style(f).outlineStyle, "solid");
+  assertEqual(style($("clear")).visibility, "visible", "clear shows on forced focus");
+  f.setAttribute("data-pointer-focus", "");
+  assertEqual(style(f).outlineStyle, "none");
+  reset();
+});
+
+test("fills and borders fade over MotionFast, and the buttons too; instant under reduce motion", () => {
+  reset();
+  html.dataset.reduceMotion = "false";
+  const s = style($("alone"));
+  assertEqual(s.transitionProperty, "background-color, border-color");
+  assertEqual(s.transitionDuration, "0.1s, 0.1s");
+  assert(s.transitionTimingFunction.startsWith("cubic-bezier(0.3333, 1, 0.6667, 1)"), s.transitionTimingFunction);
+  assertEqual(style($("clear")).transitionProperty, "background-color, opacity, visibility");
+  assertEqual(style($("clear")).transitionDuration, "0.1s, 0.1s, 0.1s");
+  html.dataset.reduceMotion = "true";
+  assertEqual(style($("alone")).transitionDuration, "0s, 0s");
+  assertEqual(style($("clear")).transitionDuration, "0s, 0s, 0s");
+  reset();
+});
+
+test("contrast: border and error border 3:1, placeholder and text 4.5:1 over the fill, on every surface", () => {
+  reset();
+  for (const theme of ["light", "dark"]) {
+    html.dataset.theme = theme;
+    const tint = colour("var(--ui-glass-tint-color)");
+    const opacity = parseFloat(style(html).getPropertyValue("--ui-glass-tint-opacity"));
+    const start = colour("var(--ui-backdrop-wash-start-color)"), end = colour("var(--ui-backdrop-wash-end-color)");
+    const surfaces = {
+      page: colour("var(--ui-system-region-color)"),
+      card: colour("var(--ui-system-chrome-medium-low-color)"),
+      "wash start": start,
+      "wash end": end,
+      "glass over wash start": over([...tint.slice(0, 3), opacity], start),
+      "glass over wash end": over([...tint.slice(0, 3), opacity], end),
+    };
+    const a = $("alone");
+    for (const state of ["rest", "hover", "focus"]) {
+      a.removeAttribute("data-state");
+      if (state !== "rest") a.dataset.state = state;
+      const fill = rgba(style(a).backgroundColor);
+      for (const [name, surface] of Object.entries(surfaces)) {
+        const behind = over(fill, surface.slice(0, 3));
+        const placeholder = contrastRatio(rgba(style(a, "::placeholder").color).slice(0, 3), behind);
+        const text = contrastRatio(rgba(style(a).color).slice(0, 3), behind);
+        assert(placeholder >= 4.5, `${theme} ${state} placeholder on ${name}: ${placeholder.toFixed(2)}`);
+        assert(text >= 4.5, `${theme} ${state} text on ${name}: ${text.toFixed(2)}`);
+        if (state === "rest") {
+          const border = contrastRatio(rgba(style(a).borderTopColor).slice(0, 3), surface.slice(0, 3));
+          assert(border >= 3, `${theme} border on ${name}: ${border.toFixed(2)}`);
+          const danger = contrastRatio(colour("var(--ui-danger-color)").slice(0, 3), surface.slice(0, 3));
+          assert(danger >= 3, `${theme} error border on ${name}: ${danger.toFixed(2)}`);
+        }
+      }
+    }
+    const sel = style(a, "::selection");
+    assert(contrastRatio(rgba(sel.color).slice(0, 3), rgba(sel.backgroundColor).slice(0, 3)) >= 4.5, `${theme} selection`);
+  }
+  reset();
+});
+</script>
+</body>
+</html>

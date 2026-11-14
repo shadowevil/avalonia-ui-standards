@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Flyout tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/scroll.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<style>
+  body { margin: 0; }
+  #panel { position: absolute; left: 300px; top: 200px; width: 400px; height: 300px; }
+  #edge { position: absolute; right: 0; top: 0; }
+  #bottom { position: absolute; left: 100px; bottom: 0; }
+  .wide { inline-size: 300px; block-size: 120px; }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<button id="open" type="button" class="ui-button" popovertarget="f" style="position:absolute;left:40px;top:40px">Open</button>
+<div id="f" class="ui-flyout ui-glass ui-squircle" popover role="dialog" aria-label="Confirm">
+  <div class="ui-flyout-content ui-scroll">
+    <p id="text" style="margin:0">All items will be deleted.</p>
+    <button id="first" type="button" class="ui-button">Empty bin</button>
+    <button type="button" class="ui-button">Cancel</button>
+  </div>
+</div>
+<div id="panel" class="ui-glass ui-squircle">
+  <button id="inner-opener" type="button" class="ui-button">Inner</button>
+  <div id="inner" class="ui-flyout ui-glass ui-squircle" popover>
+    <div class="ui-flyout-content"><span class="wide" style="display:block">Inside the panel</span>
+      <div id="in-overlay" class="ui-glass ui-squircle" style="width:100px;height:100px">
+        <div id="in-overlay-3" class="ui-glass ui-squircle" style="width:80px;height:80px"></div>
+      </div>
+      <div id="nested" class="ui-flyout ui-glass ui-squircle" popover><div class="ui-flyout-content"><span class="wide" style="display:block">Nested</span></div></div>
+    </div>
+  </div>
+  <dialog id="dialog" class="ui-glass ui-squircle" style="width:200px;height:100px">Dialog</dialog>
+  <div id="in-place" class="ui-flyout ui-glass ui-squircle"><div class="ui-flyout-content"><span class="wide" style="display:block">In place</span></div></div>
+  <div id="l2" class="ui-glass ui-squircle" style="width:100px;height:100px">
+    <div id="l3" class="ui-glass ui-squircle" style="width:80px;height:80px">
+      <div id="deep" class="ui-flyout ui-glass ui-squircle" popover><div class="ui-flyout-content"><span class="wide" style="display:block">Deep</span></div></div>
+    </div>
+  </div>
+</div>
+<button id="edge" type="button" class="ui-button">Edge</button>
+<button id="bottom" type="button" class="ui-button">Bottom</button>
+<div id="wide" class="ui-flyout ui-glass ui-squircle" popover><div class="ui-flyout-content"><span class="wide" style="display:block">Wide</span></div></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setReduceTransparency, setDensity } from "../style/index.js";
+import { refreshGlassRefraction } from "../style/glass.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/scroll.js";
+import { openFlyout, closeFlyout, placeFlyout, flyoutOpener, setAnchorPositioning } from "../blocks/flyout.js";
+
+const $ = (id) => document.getElementById(id);
+const html = document.documentElement;
+const rect = (el) => el.getBoundingClientRect();
+const near = (a, b, label, tolerance = 1) => assert(Math.abs(a - b) <= tolerance, `${label}: expected ${b}, got ${a}`);
+const tick = () => new Promise((r) => setTimeout(r));
+const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+const anchorCss = CSS.supports("position-area: block-end") && CSS.supports("anchor-name: --a");
+
+function rgb(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)/);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(v * 255));
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)/);
+  return [+m[1], +m[2], +m[3]];
+}
+
+function closeAll() {
+  for (const f of document.querySelectorAll(".ui-flyout")) if (f.matches(":popover-open")) f.hidePopover();
+}
+
+test("popovertarget: opens, marks the opener expanded and moves focus to the first focusable element", async () => {
+  setAnchorPositioning(true);
+  $("open").click();
+  assert($("f").matches(":popover-open"), "open");
+  assertEqual($("open").getAttribute("aria-expanded"), "true");
+  await tick();
+  assertEqual(document.activeElement, $("first"), "focus in the flyout");
+  assertEqual(flyoutOpener($("f")), $("open"));
+});
+
+test("closing with focus inside returns it to the opener and clears aria-expanded", async () => {
+  closeFlyout($("f"));
+  assert(!$("f").matches(":popover-open"), "closed");
+  assertEqual(document.activeElement, $("open"));
+  await tick();
+  assertEqual($("open").getAttribute("aria-expanded"), "false");
+});
+
+test("look: the overlay radius, content padded SpacingL inside the 1 px glass edge, Fluent's min and max sizes", () => {
+  openFlyout($("f"), { anchor: $("open"), focus: false });
+  const style = getComputedStyle($("f"));
+  assert(["16px", "18.88px"].includes(style.borderTopLeftRadius), `radius ${style.borderTopLeftRadius}`);
+  assertEqual(getComputedStyle($("f").firstElementChild).paddingTop, "17px");
+  assertEqual(style.minWidth, "96px");
+  assertEqual(style.minHeight, "40px");
+  assert(parseFloat(style.maxWidth) <= 456, `max width ${style.maxWidth}`);
+  assert(parseFloat(style.maxHeight) <= 758, `max height ${style.maxHeight}`);
+  assertEqual(style.position, "fixed");
+  closeAll();
+});
+
+test("placement by CSS where supported: anchored below the opener, centred", () => {
+  if (!anchorCss) return;
+  setAnchorPositioning(true);
+  openFlyout($("f"), { anchor: $("open"), focus: false });
+  assert($("f").hasAttribute("data-anchored"), "data-anchored");
+  assert($("open").style.anchorName.startsWith("--ui-flyout-anchor-"), "anchor named");
+  const a = rect($("open")), f = rect($("f"));
+  near(f.top, a.bottom, "top at the anchor's bottom");
+  const vw = document.documentElement.clientWidth;
+  near(f.left, Math.min(Math.max(a.left + a.width / 2 - f.width / 2, 0), vw - f.width), "centred, slid into the viewport");
+  closeAll();
+});
+
+for (const mode of ["script", "css"]) {
+  test(`placement (${mode}): below and centred, sliding inside the viewport at the edge, above when no room below`, () => {
+    if (mode === "css" && !anchorCss) return;
+    setAnchorPositioning(mode === "css");
+    openFlyout($("wide"), { anchor: $("open"), focus: false });
+    openFlyout($("f"), { anchor: $("inner-opener"), focus: false });
+    let a = rect($("inner-opener")), f = rect($("f"));
+    near(f.left + f.width / 2, a.left + a.width / 2, "centred on the anchor");
+    near(f.top, a.bottom, "flush below it (Avalonia's Bottom)");
+    closeAll();
+    openFlyout($("wide"), { anchor: $("open"), focus: false });
+    a = rect($("open"));
+    f = rect($("wide"));
+    near(f.top, a.bottom, "below");
+    near(f.left, 0, "slid to the viewport's start edge");
+    closeAll();
+    openFlyout($("wide"), { anchor: $("edge"), focus: false });
+    f = rect($("wide"));
+    near(f.right, document.documentElement.clientWidth, "slid to the viewport's end edge");
+    closeAll();
+    openFlyout($("wide"), { anchor: $("bottom"), focus: false });
+    a = rect($("bottom"));
+    f = rect($("wide"));
+    near(f.bottom, a.top, "above the anchor");
+    closeAll();
+  });
+
+  test(`placement (${mode}): inline-end next to the anchor, tops lined up less the shift; flipped right to left`, () => {
+    if (mode === "css" && !anchorCss) return;
+    setAnchorPositioning(mode === "css");
+    $("wide").style.setProperty("--ui-flyout-shift", "5px");
+    $("wide").style.setProperty("--ui-flyout-offset", "6px");
+    openFlyout($("wide"), { anchor: $("open"), placement: "inline-end", focus: false });
+    const a = rect($("open"));
+    let f = rect($("wide"));
+    near(f.left, a.right + 6, "at the end edge, the offset away from it");
+    closeAll();
+    $("wide").style.setProperty("--ui-flyout-offset", "0px");
+    openFlyout($("wide"), { anchor: $("open"), placement: "inline-end", focus: false });
+    f = rect($("wide"));
+    near(f.left, a.right, "at the end edge");
+    near(f.top, a.top - 5, "shifted up");
+    closeAll();
+    html.dir = "rtl";
+    openFlyout($("wide"), { anchor: $("edge"), placement: "inline-end", focus: false });
+    f = rect($("wide"));
+    near(f.right, rect($("edge")).left, "right to left: at the anchor's left edge");
+    closeAll();
+    html.dir = "ltr";
+    $("wide").style.removeProperty("--ui-flyout-shift");
+    $("wide").style.removeProperty("--ui-flyout-offset");
+    delete $("wide").dataset.placement;
+  });
+}
+
+test("placement at a point: at the point, flipped when it would leave the viewport", () => {
+  openFlyout($("wide"), { point: { x: 50, y: 60 }, focus: false });
+  let f = rect($("wide"));
+  near(f.left, 50, "x");
+  near(f.top, 60, "y");
+  closeAll();
+  const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+  openFlyout($("wide"), { point: { x: vw - 10, y: vh - 10 }, focus: false });
+  f = rect($("wide"));
+  near(f.right, vw - 10, "flipped to the left of the point");
+  near(f.bottom, vh - 10, "flipped above the point");
+  closeAll();
+  delete $("wide").dataset.placement;
+});
+
+test("script placement follows the anchor while open (placeFlyout)", () => {
+  setAnchorPositioning(false);
+  openFlyout($("f"), { anchor: $("open"), focus: false });
+  $("open").style.top = "80px";
+  placeFlyout($("f"));
+  near(rect($("f")).top, rect($("open")).bottom, "moved with the anchor");
+  $("open").style.top = "40px";
+  closeAll();
+  setAnchorPositioning(true);
+});
+
+test("focus option: last, an element, or none", () => {
+  $("open").focus();
+  openFlyout($("f"), { anchor: $("open"), focus: "last" });
+  assertEqual(document.activeElement.textContent, "Cancel");
+  closeFlyout($("f"));
+  openFlyout($("f"), { anchor: $("open"), focus: false });
+  assertEqual(document.activeElement, $("open"), "focus stays");
+  closeFlyout($("f"), { restoreFocus: false });
+});
+
+const chromium = navigator.userAgentData?.brands.some((b) => b.brand === "Chromium") ?? /Chrome\//.test(navigator.userAgent);
+const solid = (el) => getComputedStyle(el).getPropertyValue("--ui-glass-solid").trim();
+const backdrop = (el) => getComputedStyle(el, "::before").backdropFilter;
+
+function assertFull(el, label) {
+  assertEqual(solid(el), "0", `${label}: not solid`);
+  if (!chromium) return assertEqual(backdrop(el), "blur(6px)", `${label}: blur`);
+  assert(el.style.getPropertyValue("--ui-glass-refraction").startsWith("url(#"), `${label}: refraction filter`);
+  assert(backdrop(el).includes("url(") && backdrop(el).endsWith("blur(6px)"), `${label}: refraction in backdrop-filter, got ${backdrop(el)}`);
+}
+
+test("glass level: an open flyout is first-level (full) glass wherever it sits, as desktop overlays in the overlay layer", async () => {
+  openFlyout($("inner"), { anchor: $("inner-opener"), focus: false });
+  openFlyout($("nested"), { anchor: $("inner").querySelector(".wide"), placement: "inline-end", focus: false });
+  assert($("inner").matches(":popover-open") && $("nested").matches(":popover-open"), "a nested flyout keeps its parent open");
+  refreshGlassRefraction();
+  await tick();
+  assertFull($("inner"), "opened from the glass panel");
+  assertFull($("nested"), "a flyout in a flyout (a submenu)");
+  closeAll();
+  openFlyout($("deep"), { anchor: $("l3"), focus: false });
+  refreshGlassRefraction();
+  await tick();
+  assertFull($("deep"), "opened from third-level solid glass");
+  closeAll();
+  delete $("nested").dataset.placement;
+});
+
+test("glass level: glass inside an open flyout counts from it (second minimal, third solid); in place, the plain nesting rule", async () => {
+  openFlyout($("inner"), { anchor: $("inner-opener"), focus: false });
+  refreshGlassRefraction();
+  await tick();
+  assertEqual(backdrop($("in-overlay")), "blur(6px)", "second level in the overlay: minimal");
+  assertEqual($("in-overlay").style.getPropertyValue("--ui-glass-refraction"), "", "no refraction");
+  assertEqual(solid($("in-overlay-3")), "1", "third level in the overlay: solid");
+  assertEqual(backdrop($("in-overlay-3")), "none");
+  assertEqual(backdrop($("in-place")), "blur(6px)", "in place in the panel: second level, minimal");
+  assertEqual($("in-place").style.getPropertyValue("--ui-glass-refraction"), "", "in place: no refraction");
+  assertEqual(solid($("l3")), "1", "the plain rule still holds outside overlays");
+  closeAll();
+});
+
+test("glass level: a modal dialog starts a new count (first level); one opened with show() is not in the top layer", async () => {
+  $("dialog").show();
+  refreshGlassRefraction();
+  await tick();
+  assertEqual(backdrop($("dialog")), "blur(6px)", "non-modal in the panel: second level");
+  $("dialog").close();
+  $("dialog").showModal();
+  refreshGlassRefraction();
+  await tick();
+  assertFull($("dialog"), "modal");
+  $("dialog").close();
+});
+
+test("glass level: an open flyout is solid under reduce transparency and quality solid, minimal under quality minimal", () => {
+  openFlyout($("inner"), { anchor: $("inner-opener"), focus: false });
+  setReduceTransparency(true);
+  assertEqual(solid($("inner")), "1", "reduce transparency");
+  assertEqual(backdrop($("inner")), "none");
+  setReduceTransparency("system");
+  html.dataset.glassQuality = "solid";
+  assertEqual(solid($("inner")), "1", "quality solid");
+  html.dataset.glassQuality = "minimal";
+  assertEqual(backdrop($("inner")), "blur(6px)", "quality minimal");
+  delete html.dataset.glassQuality;
+  closeAll();
+});
+
+test("open fade: MotionFast on the glass layers and the content, never on the element (the blur stays)", () => {
+  html.dataset.reduceMotion = "false";
+  openFlyout($("f"), { anchor: $("open"), focus: false });
+  for (const [el, pseudo] of [[$("f"), "::before"], [$("f"), "::after"], [$("f").firstElementChild, null]]) {
+    const s = getComputedStyle(el, pseudo);
+    assertEqual(s.animationName, "ui-flyout-fade-in");
+    assertEqual(s.animationDuration, "0.1s");
+  }
+  assertEqual(getComputedStyle($("f")).animationName, "none", "the element itself does not fade");
+  closeAll();
+  html.dataset.reduceMotion = "true";
+  openFlyout($("f"), { anchor: $("open"), focus: false });
+  assertEqual(getComputedStyle($("f"), "::before").animationDuration, "0s", "instant under reduce motion");
+  closeAll();
+});
+
+test("contrast: primary text on the glass tint (opaque, the worst case over a backdrop of the same colour) meets AA in both themes", () => {
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    const style = getComputedStyle($("f"));
+    const fg = rgb(style.color);
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = "var(--ui-glass-tint-color)";
+    $("f").append(probe);
+    const tint = rgb(getComputedStyle(probe).backgroundColor);
+    probe.remove();
+    assert(contrastRatio(fg, tint) >= 4.5, `${theme}: ${contrastRatio(fg, tint).toFixed(2)}`);
+  }
+  setTheme("light");
+});
+
+test("density does not change the flyout's padding", () => {
+  setDensity("compact");
+  assertEqual(getComputedStyle($("f").firstElementChild).paddingTop, "17px");
+  setDensity("normal");
+});
+</script>
+</body>
+</html>

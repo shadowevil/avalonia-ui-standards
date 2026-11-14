@@ -1,0 +1,206 @@
+/*
+  TabControl and TabStrip (0033). No native element fits, so two custom elements hold native
+  buttons; tabs.js gives them the tablist, tab and tabpanel roles, the selection, the roving
+  tabindex and the keys (arrows, Home and End, stopping at the ends; selection follows focus).
+
+    TabStrip:
+    <ui-tab-strip aria-label="Sections">
+      <button type="button" class="ui-tab ui-squircle ui-focus-ring" aria-selected="true">General</button>
+      <button type="button" class="ui-tab ui-squircle ui-focus-ring">Activity</button>
+    </ui-tab-strip>
+
+    TabControl: a strip and one .ui-tab-panel per tab, in order.
+    <ui-tabs>
+      <ui-tab-strip aria-label="Settings"> …tabs… </ui-tab-strip>
+      <div class="ui-tab-panel">General settings.</div>
+      <div class="ui-tab-panel">Activity settings.</div>
+    </ui-tabs>
+
+  placement="bottom", "start" or "end" on <ui-tabs> places the strip below or beside the panels
+  (Fluent's TabStripPlacement; start and end follow the writing direction). The strip is written
+  first for top and start and last for bottom and end, so the order in the DOM is the order on
+  screen. Beside the panels the headers stack, 8 px clear of the underline.
+
+  Headers: Body text with an optional icon (<svg class="ui-icon">) 8 px before it; the button
+  height and side padding of the density; no fill; Fluent's tab text colours. The selected tab is
+  marked by one 3 px accent underline with round ends, spanning the header's content, which slides
+  and resizes between headers over MotionNormal (at once on a layout change). A 1 px hairline runs
+  along the strip on the side facing the content. Panels sit on the surface, padded by the tab's
+  side padding and 12 above and below; a panel with nothing focusable in it is itself a Tab stop,
+  and tabs.js gives every panel ui-squircle and ui-focus-ring for its ring. A disabled tab is a
+  disabled button.
+  Forced states for renders and tests: data-state="hover", "pressed" or "focus" on a tab.
+*/
+:where(ui-tab-strip, ui-tabs) {
+  --ui-tab-indicator-thickness: 3px;
+  --ui-tab-indicator-fill: var(--ui-system-accent-color);
+  --ui-tab-line-thickness: 1px;
+  --ui-tab-line-color: var(--ui-system-base-low-color);
+  /* Between the headers and the underline beside a vertical strip. */
+  --ui-tab-strip-inner-gap: var(--ui-spacing-s);
+  /* Fluent's TabItemHeaderForeground* keys, resolved by the desktop theme. */
+  --ui-tab-foreground: var(--ui-system-base-medium-color);
+  --ui-tab-foreground-pointer-over: var(--ui-system-base-medium-high-color);
+  --ui-tab-foreground-pressed: var(--ui-system-base-medium-high-color);
+  --ui-tab-foreground-selected: var(--ui-system-base-high-color);
+  --ui-tab-foreground-selected-pointer-over: var(--ui-system-base-medium-high-color);
+  --ui-tab-foreground-selected-pressed: var(--ui-system-base-medium-high-color);
+  --ui-tab-foreground-disabled: var(--ui-system-base-medium-low-color);
+  /* The panel: the tab's side padding left and right, SpacingM above and below. */
+  --ui-tab-panel-padding: var(--ui-spacing-m);
+}
+
+:root[data-density="compact"] :where(ui-tab-strip, ui-tabs) {
+  --ui-tab-panel-padding: var(--ui-spacing-m) var(--ui-spacing-s);
+}
+
+ui-tabs {
+  display: flex;
+  flex-direction: column;
+}
+
+ui-tabs:is([placement="start"], [placement="end"]) {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+/* The strip: headers in a wrapping row, the hairline under them and the underline on it. */
+ui-tab-strip {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+ui-tab-strip::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: var(--ui-tab-line-thickness);
+  background: var(--ui-tab-line-color);
+  pointer-events: none;
+}
+
+ui-tabs[placement="bottom"] > ui-tab-strip::after {
+  inset-block: 0 auto;
+}
+
+ui-tabs:is([placement="start"], [placement="end"]) > ui-tab-strip {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-self: stretch;
+}
+
+ui-tabs[placement="start"] > ui-tab-strip {
+  padding-inline-end: var(--ui-tab-strip-inner-gap);
+}
+
+ui-tabs[placement="end"] > ui-tab-strip {
+  padding-inline-start: var(--ui-tab-strip-inner-gap);
+}
+
+ui-tabs:is([placement="start"], [placement="end"]) > ui-tab-strip::after {
+  inset-block: 0;
+  inset-inline: auto 0;
+  block-size: auto;
+  inline-size: var(--ui-tab-line-thickness);
+}
+
+ui-tabs[placement="end"] > ui-tab-strip::after {
+  inset-inline: 0 auto;
+}
+
+/* The underline: placed and sized by tabs.js, above the hairline. */
+.ui-tab-indicator {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: 1;
+  inline-size: 0;
+  block-size: 0;
+  border-radius: calc(var(--ui-tab-indicator-thickness) / 2);
+  background: var(--ui-tab-indicator-fill);
+  pointer-events: none;
+  transition:
+    inset-inline-start var(--ui-motion-normal) var(--ui-motion-easing),
+    inset-block-start var(--ui-motion-normal) var(--ui-motion-easing),
+    width var(--ui-motion-normal) var(--ui-motion-easing),
+    height var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+/* A header. */
+.ui-tab {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-spacing-s);
+  min-block-size: var(--ui-control-min-height);
+  margin: 0;
+  padding: var(--ui-control-padding);
+  border: 0;
+  background: transparent;
+  color: var(--ui-tab-foreground);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  font-weight: normal;
+  line-height: normal;
+  white-space: nowrap;
+  cursor: default;
+  transition: color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-tab:is(:hover, [data-state~="hover"]):not(:disabled) {
+  color: var(--ui-tab-foreground-pointer-over);
+}
+
+.ui-tab:is(:active, [data-state~="pressed"]):not(:disabled) {
+  color: var(--ui-tab-foreground-pressed);
+}
+
+.ui-tab[aria-selected="true"] {
+  color: var(--ui-tab-foreground-selected);
+}
+
+.ui-tab[aria-selected="true"]:is(:hover, [data-state~="hover"]):not(:disabled) {
+  color: var(--ui-tab-foreground-selected-pointer-over);
+}
+
+.ui-tab[aria-selected="true"]:is(:active, [data-state~="pressed"]):not(:disabled) {
+  color: var(--ui-tab-foreground-selected-pressed);
+}
+
+.ui-tab:disabled {
+  color: var(--ui-tab-foreground-disabled);
+}
+
+/* Raised while focused, so the underline does not cover the ring. */
+.ui-tab:is(:focus-visible, [data-state~="focus"]) {
+  position: relative;
+  z-index: 2;
+}
+
+.ui-tab-panel {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  padding: var(--ui-tab-panel-padding);
+}
+
+/* Forced colours: the system draws the text; the underline and line stay visible. */
+@media (forced-colors: active) {
+  .ui-tab-indicator {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  ui-tab-strip::after {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  .ui-tab:disabled {
+    color: GrayText;
+  }
+}

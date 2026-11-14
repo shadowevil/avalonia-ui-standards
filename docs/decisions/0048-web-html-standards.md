@@ -10,7 +10,7 @@
     - Custom elements are autonomous (never `is=`), keep their content in the light DOM (a shadow root only where needed, exposed through `part`), and fields are form-associated.
     - Composite custom elements move focus with a roving `tabindex`, not `aria-activedescendant`. The tree also takes Home and End.
     - Layout uses logical CSS properties, so right-to-left pages mirror.
-    - One Block per file in `web/blocks/`; a Block's CSS and JS use the Style tier ([0004](0004-tier-names.md)), and a composite Block (one serving one purpose with several parts, as 0004 allows) may also use Blocks built before it in the web roadmap's order, never later ones, so Blocks never depend on each other in a cycle. Strings a Block shows or speaks can be overridden.
+    - One Block per file in `web/blocks/`; a Block's CSS and JS use the Style tier ([0004](0004-tier-names.md)), and a composite Block (one serving one purpose with several parts, as 0004 allows) may also use Blocks earlier in the dependency order in [composition.md](../web/composition.md), never later ones, so Blocks never depend on each other in a cycle. Strings a Block shows or speaks can be overridden.
     - Shortcuts use Cmd on macOS and Ctrl elsewhere and are declared with `aria-keyshortcuts`; `accesskey` is not used.
     - Every Block and Module has a catalog page, a render and a test page.
     - The Style tier provides `ui-focus-ring-within` (the ring on a wrapper whose descendant has keyboard focus), `ui-visually-hidden`, `ui-skip-link`, and a focus ring in the system `Highlight` colour under forced colours.

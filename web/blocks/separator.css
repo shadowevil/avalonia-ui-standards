@@ -1,0 +1,32 @@
+/*
+  Separator (0039): the native <hr>, so the browser gives it the separator role; it takes no focus.
+
+    <hr class="ui-separator">
+
+  A 1 px hairline in the border colour (BaseLow), stretched across its container, SpacingXS above
+  and below and no side margin.
+*/
+:where(.ui-separator) {
+  --ui-separator-thickness: 1px;
+  --ui-separator-color: var(--ui-system-base-low-color);
+}
+
+.ui-separator {
+  box-sizing: border-box;
+  display: block;
+  inline-size: auto;
+  block-size: var(--ui-separator-thickness);
+  margin: var(--ui-spacing-xs) 0;
+  padding: 0;
+  border: 0;
+  background: var(--ui-separator-color);
+  color: var(--ui-separator-color);
+}
+
+/* Forced colours: the line in the text colour, so it stays visible. */
+@media (forced-colors: active) {
+  .ui-separator {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+}

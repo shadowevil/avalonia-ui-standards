@@ -1,0 +1,104 @@
+/*
+  GridSplitter (0039): a handle between two tracks of a CSS grid, with role="separator" (set by
+  grid-splitter.js with its orientation, value and Tab stop). Dragging it, or the arrow keys while
+  it has focus, resizes the two tracks beside it.
+
+    <div style="display: grid; grid-template-columns: 1fr auto 1fr">
+      <div>One</div>
+      <div class="ui-grid-splitter" aria-label="Resize panes"></div>
+      <div>Two</div>
+    </div>
+      + aria-disabled="true"     disabled: no grip, no input
+
+  The handle is transparent and invisible at rest, at least SpacingS (8 px) thick. On hover a pill
+  grip, 4 x 24 px, shows centred along it (upright between columns, level between rows) in the
+  overlay scrollbar thumb's hover colour, and in its drag colour while dragging; it fades with the
+  scrollbar's MotionFast. Keyboard focus shows the grip with the focus ring around it and raises
+  the handle above the panes beside it.
+  Forced states for renders and tests: data-state="hover", "pressed" (dragging) or "focus".
+*/
+:where(.ui-grid-splitter) {
+  --ui-grid-splitter-thickness: var(--ui-spacing-s);
+  --ui-grid-splitter-grip-thickness: 4px;
+  --ui-grid-splitter-grip-length: 24px;
+  /* The overlay scrollbar thumb's hover and drag colours (0025): black or white at 52 % and 64 %. */
+  --ui-grid-splitter-grip-hover: light-dark(#00000085, #FFFFFF85);
+  --ui-grid-splitter-grip-drag: light-dark(#000000A3, #FFFFFFA3);
+}
+
+.ui-grid-splitter {
+  --_grip: var(--ui-grid-splitter-grip-hover);
+  --_grip-opacity: 0;
+  position: relative;
+  box-sizing: border-box;
+  min-inline-size: var(--ui-grid-splitter-thickness);
+  min-block-size: var(--ui-grid-splitter-thickness);
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.ui-grid-splitter[aria-orientation="horizontal"] {
+  cursor: row-resize;
+}
+
+/* The grip, centred, upright between columns and level between rows. */
+.ui-grid-splitter::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--ui-grid-splitter-grip-thickness);
+  height: var(--ui-grid-splitter-grip-length);
+  translate: -50% -50%;
+  border-radius: calc(var(--ui-grid-splitter-grip-thickness) / 2);
+  background-color: var(--_grip);
+  opacity: var(--_grip-opacity);
+  transition:
+    opacity var(--ui-motion-fast) var(--ui-motion-easing),
+    background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-grid-splitter[aria-orientation="horizontal"]::before {
+  width: var(--ui-grid-splitter-grip-length);
+  height: var(--ui-grid-splitter-grip-thickness);
+}
+
+.ui-grid-splitter:is(:hover, :focus-visible, [data-state~="hover"], [data-state~="focus"]) {
+  --_grip-opacity: 1;
+}
+
+.ui-grid-splitter:is(:active, [data-state~="pressed"]) {
+  --_grip-opacity: 1;
+  --_grip: var(--ui-grid-splitter-grip-drag);
+}
+
+/* The focus ring (0019) around the grip; the handle is raised over the panes beside it. */
+.ui-grid-splitter:is(:focus-visible, [data-state~="focus"]) {
+  z-index: 1;
+}
+
+.ui-grid-splitter:is(:focus-visible, [data-state~="focus"])::before {
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring-color);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
+.ui-grid-splitter[aria-disabled="true"] {
+  --_grip-opacity: 0;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Forced colours: the grip in the text colour (the ring's colour token is Highlight). */
+@media (forced-colors: active) {
+  .ui-grid-splitter {
+    --ui-grid-splitter-grip-hover: CanvasText;
+    --ui-grid-splitter-grip-drag: CanvasText;
+  }
+
+  .ui-grid-splitter::before {
+    forced-color-adjust: none;
+  }
+}

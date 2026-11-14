@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Expander tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/expander.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div style="inline-size: 300px">
+  <details id="closed" class="ui-expander ui-squircle">
+    <summary class="ui-expander-header">Advanced options</summary>
+    <div class="ui-expander-content"><button id="inner" type="button">Inner</button> Keep a history of changes</div>
+  </details>
+  <details id="open" class="ui-expander ui-squircle" open>
+    <summary class="ui-expander-header">Open options</summary>
+    <div class="ui-expander-content"><button id="inner-open" type="button">Inner</button></div>
+  </details>
+  <details id="off" class="ui-expander ui-squircle" aria-disabled="true">
+    <summary class="ui-expander-header">Disabled</summary>
+    <div class="ui-expander-content">Hidden</div>
+  </details>
+</div>
+<div id="probe"></div>
+<script type="module">
+import "../blocks/expander.js";
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+
+const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+const cs = (el, pseudo) => getComputedStyle(el, pseudo);
+const frame = () => new Promise((r) => setTimeout(r, 30));
+const probe = $("probe");
+function colour(value) {
+  probe.style.color = value;
+  return cs(probe).color;
+}
+const rgbOf = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+async function withAttr(name, value, fn) {
+  const before = root.getAttribute(name);
+  root.setAttribute(name, value);
+  try { await fn(); } finally {
+    if (before === null) root.removeAttribute(name); else root.setAttribute(name, before);
+  }
+}
+const header = (id) => $(id).querySelector("summary");
+
+test("native details and summary: no roles or states added", () => {
+  for (const id of ["closed", "open"]) {
+    assertEqual($(id).localName, "details");
+    assert(!header(id).hasAttribute("role"), "summary keeps its native role");
+    assert(!header(id).hasAttribute("aria-expanded"), "the browser exposes the state");
+  }
+});
+
+test("the header toggles the content", async () => {
+  await withAttr("data-reduce-motion", "true", async () => {
+    header("closed").click();
+    assert($("closed").open, "opened");
+    header("closed").click();
+    assert(!$("closed").open, "closed again");
+  });
+});
+
+test("closed content takes no focus; open content does", async () => {
+  await withAttr("data-reduce-motion", "true", async () => {
+    $("inner").focus();
+    assert(document.activeElement !== $("inner"), "closed content took focus");
+    $("inner-open").focus();
+    assertEqual(document.activeElement, $("inner-open"));
+    $("inner-open").blur();
+  });
+});
+
+test("card: control radius, card colour, 1 px line border, stretched", () => {
+  const s = cs($("closed"));
+  assertEqual(s.backgroundColor, colour("var(--ui-system-chrome-medium-low-color)"));
+  assertEqual(s.borderTopWidth, "1px");
+  assertEqual(s.borderTopColor, colour("var(--ui-system-base-low-color)"));
+  assertEqual(s.width, "300px");
+  assertEqual(s.getPropertyValue("--ui-squircle-radius").trim(), cs(root).getPropertyValue("--ui-corner-radius-control").trim());
+  assert(s.overflow.includes("clip"), "clips to its corners");
+});
+
+test("header: 32 px with 12 px sides and the caret 8 before the text; Compact 24 and 8", async () => {
+  const h = cs(header("closed"));
+  assertEqual(h.height, "32px");
+  assertEqual(h.paddingLeft, "12px");
+  assertEqual(h.columnGap, "8px");
+  const caret = cs(header("closed"), "::before");
+  assertEqual(caret.width, "20px");
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs(header("closed")).height, "24px");
+    assertEqual(cs(header("closed")).paddingLeft, "8px");
+    assertEqual(cs(header("closed"), "::before").width, "16px");
+  });
+});
+
+test("caret: points right closed, turns +90° open, over MotionNormal", async () => {
+  assertEqual(cs(header("closed"), "::before").rotate, "none");
+  assertEqual(cs(header("open"), "::before").rotate, "90deg");
+  await withAttr("data-reduce-motion", "false", () => assertEqual(cs(header("open"), "::before").transitionDuration, "0.2s"));
+  await withAttr("data-reduce-motion", "true", () => assertEqual(cs(header("open"), "::before").transitionDuration, "0s"));
+});
+
+test("right to left: the caret is mirrored and still turns to point down", async () => {
+  await withAttr("data-reduce-motion", "true", () => {
+    $("open").dir = "rtl";
+    const caret = cs(header("open"), "::before");
+    assertEqual(caret.scale, "-1 1");
+    assertEqual(caret.rotate, "-90deg");
+    $("open").removeAttribute("dir");
+  });
+});
+
+test("header fills: list-medium on hover, base-medium-low pressed, no pressed scale", async () => {
+  await withAttr("data-reduce-motion", "true", () => {
+    const h = header("closed");
+    assertEqual(cs(h).backgroundColor, "rgba(0, 0, 0, 0)");
+    h.dataset.state = "hover";
+    assertEqual(cs(h).backgroundColor, colour("var(--ui-system-list-medium-color)"));
+    h.dataset.state = "pressed";
+    assertEqual(cs(h).backgroundColor, colour("var(--ui-system-base-medium-low-color)"));
+    assertEqual(cs(h).scale, "none");
+    delete h.dataset.state;
+  });
+});
+
+test("content: padded by the side padding on every side, hairline above it", async () => {
+  const c = cs($("open").querySelector(".ui-expander-content"));
+  assertEqual(`${c.paddingTop} ${c.paddingRight} ${c.paddingBottom} ${c.paddingLeft}`, "12px 12px 12px 12px");
+  assertEqual(c.borderTopWidth, "1px");
+  assertEqual(c.borderTopColor, colour("var(--ui-system-base-low-color)"));
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs($("open").querySelector(".ui-expander-content")).paddingTop, "8px");
+  });
+});
+
+test("reveal: the content part's height transitions over MotionNormal; instant under reduce motion", async () => {
+  await withAttr("data-reduce-motion", "false", () => {
+    const part = cs($("open"), "::details-content");
+    assert(part.transitionProperty.includes("block-size") || part.transitionProperty.includes("height"), part.transitionProperty);
+    assertEqual(part.transitionDuration.split(",")[0].trim(), "0.2s");
+    assertEqual(cs($("open")).interpolateSize, "allow-keywords");
+  });
+  await withAttr("data-reduce-motion", "true", () => {
+    assertEqual(cs($("open"), "::details-content").transitionDuration.split(",")[0].trim(), "0s");
+  });
+});
+
+test("an expander that starts open shows open at once", () => {
+  const content = $("open").querySelector(".ui-expander-content");
+  assert(content.getBoundingClientRect().height > 30, "content laid out");
+  assert($("open").getBoundingClientRect().height > 60, "card holds header and content");
+});
+
+test("focus ring: around the card while the header has keyboard focus, not for focus inside", async () => {
+  await withAttr("data-reduce-motion", "true", () => {
+    header("open").focus({ focusVisible: true });
+    assertEqual(document.activeElement, header("open"));
+    assertEqual(cs($("open")).outlineStyle, "solid");
+    assertEqual(cs($("open")).outlineColor, colour("var(--ui-system-accent-color)"));
+    assertEqual(cs(header("open")).outlineStyle, "none");
+    $("inner-open").focus({ focusVisible: true });
+    assertEqual(cs($("open")).outlineStyle, "none");
+    $("inner-open").blur();
+  });
+});
+
+test("disabled: disabled text, out of the Tab order, does not toggle or fill", async () => {
+  const h = header("off");
+  assertEqual(h.tabIndex, -1);
+  assertEqual(h.getAttribute("aria-disabled"), "true");
+  assertEqual(cs(h).color, colour("var(--ui-system-base-medium-low-color)"));
+  h.click();
+  assert(!$("off").open, "toggled while disabled");
+  h.dataset.state = "hover";
+  assertEqual(cs(h).backgroundColor, "rgba(0, 0, 0, 0)");
+  delete h.dataset.state;
+  $("off").removeAttribute("aria-disabled");
+  await frame();
+  assert(!h.hasAttribute("tabindex"), "enabled again");
+  h.click();
+  assert($("off").open, "toggles once enabled");
+  $("off").open = false;
+  $("off").setAttribute("aria-disabled", "true");
+  await frame();
+  assertEqual(h.tabIndex, -1);
+});
+
+test("contrast: header text on the card, at rest and on the hover and pressed fills, light and dark", async () => {
+  for (const theme of ["light", "dark"]) {
+    await withAttr("data-theme", theme, () => {
+      const text = rgbOf(colour("var(--ui-system-base-high-color)"));
+      for (const fill of ["--ui-system-chrome-medium-low-color", "--ui-system-list-medium-color", "--ui-system-base-medium-low-color"]) {
+        const ratio = contrastRatio(text, rgbOf(colour(`var(${fill})`)));
+        assert(ratio >= 4.5, `${theme} on ${fill}: ${ratio.toFixed(2)}`);
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GridSplitter tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/grid-splitter.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="cols" style="display: grid; inline-size: 208px; block-size: 100px; grid-template-columns: 1fr auto 1fr">
+  <div>One</div>
+  <div id="v" class="ui-grid-splitter" aria-label="Resize columns"></div>
+  <div>Two</div>
+</div>
+<div id="rows" style="display: grid; inline-size: 100px; block-size: 208px; grid-template-rows: 1fr auto 1fr">
+  <div>One</div>
+  <div id="h" class="ui-grid-splitter" aria-label="Resize rows"></div>
+  <div>Two</div>
+</div>
+<div id="offgrid" style="display: grid; inline-size: 208px; block-size: 60px; grid-template-columns: 1fr auto 1fr">
+  <div>One</div>
+  <div id="off" class="ui-grid-splitter" aria-label="Off" aria-disabled="true"></div>
+  <div>Two</div>
+</div>
+<div id="probe"></div>
+<script type="module">
+import "../blocks/grid-splitter.js";
+import { test, assert, assertEqual } from "./harness.js";
+
+const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+const cs = (el, pseudo) => getComputedStyle(el, pseudo);
+const frame = () => new Promise((r) => setTimeout(r, 30));
+const probe = $("probe");
+function colour(value) {
+  probe.style.color = value;
+  return cs(probe).color;
+}
+async function withAttr(name, value, fn) {
+  const before = root.getAttribute(name);
+  root.setAttribute(name, value);
+  try { await fn(); } finally {
+    if (before === null) root.removeAttribute(name); else root.setAttribute(name, before);
+  }
+}
+const key = (el, k) => {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true });
+  el.dispatchEvent(e);
+  return e;
+};
+const tracks = (grid, axis = "Columns") => cs(grid)[`gridTemplate${axis}`];
+const reset = () => {
+  $("cols").style.gridTemplateColumns = "1fr auto 1fr";
+  $("rows").style.gridTemplateRows = "1fr auto 1fr";
+};
+
+test("role separator, orientation from its shape, value 0 to 100, a Tab stop", async () => {
+  await frame();
+  for (const [id, orientation] of [["v", "vertical"], ["h", "horizontal"]]) {
+    const s = $(id);
+    assertEqual(s.getAttribute("role"), "separator");
+    assertEqual(s.getAttribute("aria-orientation"), orientation);
+    assertEqual(s.getAttribute("aria-valuemin"), "0");
+    assertEqual(s.getAttribute("aria-valuemax"), "100");
+    assertEqual(s.getAttribute("aria-valuenow"), "50");
+    assertEqual(s.tabIndex, 0);
+  }
+});
+
+test("handle at least 8 px thick, transparent, grip hidden at rest", () => {
+  assertEqual(cs($("v")).width, "8px");
+  assertEqual(cs($("h")).height, "8px");
+  assertEqual(cs($("v")).backgroundColor, "rgba(0, 0, 0, 0)");
+  assertEqual(cs($("v"), "::before").opacity, "0");
+  assertEqual(tracks($("cols")), "100px 8px 100px");
+});
+
+test("grip: a 4 x 24 pill, upright between columns, level between rows, centred", () => {
+  const v = cs($("v"), "::before");
+  assertEqual(`${v.width} ${v.height}`, "4px 24px");
+  assertEqual(v.borderTopLeftRadius, "2px");
+  const h = cs($("h"), "::before");
+  assertEqual(`${h.width} ${h.height}`, "24px 4px");
+  assertEqual(v.translate, "-50% -50%");
+  assertEqual(cs($("v")).cursor, "col-resize");
+  assertEqual(cs($("h")).cursor, "row-resize");
+});
+
+test("hover shows the grip in the thumb's hover colour; dragging in its drag colour", async () => {
+  await withAttr("data-reduce-motion", "true", async () => {
+    await withAttr("data-theme", "light", () => {
+      $("v").dataset.state = "hover";
+      assertEqual(cs($("v"), "::before").opacity, "1");
+      assertEqual(cs($("v"), "::before").backgroundColor, "rgba(0, 0, 0, 0.52)");
+      $("v").dataset.state = "pressed";
+      assertEqual(cs($("v"), "::before").backgroundColor, "rgba(0, 0, 0, 0.64)");
+    });
+    await withAttr("data-theme", "dark", () => {
+      assertEqual(cs($("v"), "::before").backgroundColor, "rgba(255, 255, 255, 0.64)");
+    });
+    delete $("v").dataset.state;
+  });
+});
+
+test("the grip fades over MotionFast; instant under reduce motion", async () => {
+  await withAttr("data-reduce-motion", "false", () => assertEqual(cs($("v"), "::before").transitionDuration, "0.1s, 0.1s"));
+  await withAttr("data-reduce-motion", "true", () => assertEqual(cs($("v"), "::before").transitionDuration, "0s, 0s"));
+});
+
+test("focus: the grip with the ring around it, the handle raised", async () => {
+  await withAttr("data-reduce-motion", "true", () => {
+    $("v").focus({ focusVisible: true });
+    assertEqual(document.activeElement, $("v"));
+    const grip = cs($("v"), "::before");
+    assertEqual(grip.opacity, "1");
+    assertEqual(grip.outlineStyle, "solid");
+    assertEqual(grip.outlineWidth, "2px");
+    assertEqual(grip.outlineOffset, "2px");
+    assertEqual(grip.outlineColor, colour("var(--ui-system-accent-color)"));
+    assertEqual(cs($("v")).zIndex, "1");
+    assertEqual(cs($("v")).outlineStyle, "none", "no ring around the invisible handle");
+    $("v").blur();
+  });
+});
+
+test("keys: Left and Right resize columns by 10 px, keeping a proportion", () => {
+  reset();
+  assert(key($("v"), "ArrowRight").defaultPrevented, "consumed");
+  assertEqual(tracks($("cols")), "110px 8px 90px");
+  assertEqual($("v").getAttribute("aria-valuenow"), "55");
+  key($("v"), "ArrowLeft");
+  key($("v"), "ArrowLeft");
+  assertEqual(tracks($("cols")), "90px 8px 110px");
+  assertEqual($("cols").style.gridTemplateColumns, "minmax(0px, 90fr) auto minmax(0px, 110fr)");
+  assert(!key($("v"), "ArrowDown").defaultPrevented, "Down is not a column key");
+  reset();
+});
+
+test("keys: Up and Down resize rows", () => {
+  key($("h"), "ArrowDown");
+  assertEqual(tracks($("rows"), "Rows"), "110px 8px 90px");
+  key($("h"), "ArrowUp");
+  assertEqual(tracks($("rows"), "Rows"), "100px 8px 100px");
+  reset();
+});
+
+test("a track never goes below 0", () => {
+  for (let i = 0; i < 15; i++) key($("v"), "ArrowLeft");
+  assertEqual(tracks($("cols")), "0px 8px 200px");
+  assertEqual($("v").getAttribute("aria-valuenow"), "0");
+  reset();
+});
+
+test("right to left: Left and Right swap", async () => {
+  $("cols").dir = "rtl";
+  await frame();
+  key($("v"), "ArrowLeft");
+  assertEqual(tracks($("cols")), "110px 8px 90px", "Left grows the first (right-hand) track");
+  $("cols").removeAttribute("dir");
+  reset();
+});
+
+test("dragging resizes the tracks; Escape puts them back", async () => {
+  const v = $("v");
+  const box = v.getBoundingClientRect();
+  const at = (type, x) => v.dispatchEvent(new PointerEvent(type, { pointerId: 1, button: 0, buttons: 1, clientX: x, clientY: box.top + 10, bubbles: true }));
+  at("pointerdown", box.left + 4);
+  at("pointermove", box.left + 24);
+  assertEqual(tracks($("cols")), "120px 8px 80px");
+  at("pointerup", box.left + 24);
+  at("pointermove", box.left + 60);
+  assertEqual(tracks($("cols")), "120px 8px 80px", "no change after release");
+  reset();
+  at("pointerdown", box.left + 4);
+  at("pointermove", box.left - 16);
+  assertEqual(tracks($("cols")), "80px 8px 120px");
+  key(v, "Escape");
+  assertEqual(tracks($("cols")), "100px 8px 100px");
+  at("pointerup", box.left);
+  reset();
+});
+
+test("disabled: no grip in any state, no input, out of the Tab order", async () => {
+  await withAttr("data-reduce-motion", "true", () => {
+    const off = $("off");
+    assertEqual(off.tabIndex, -1);
+    off.dataset.state = "hover";
+    assertEqual(cs(off, "::before").opacity, "0");
+    assertEqual(cs(off).pointerEvents, "none");
+    key(off, "ArrowRight");
+    assertEqual(tracks($("offgrid")), "100px 8px 100px");
+    delete off.dataset.state;
+  });
+});
+
+test("density does not change the handle or grip", async () => {
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs($("v")).width, "8px");
+    assertEqual(cs($("v"), "::before").height, "24px");
+  });
+});
+</script>
+</body>
+</html>

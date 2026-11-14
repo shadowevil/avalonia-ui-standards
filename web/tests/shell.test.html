@@ -115,10 +115,13 @@ test("glass panel: overlay radius on the squircle, glass blur, 12 px padding ins
   assertEqual(main.overflowX, "hidden");
 });
 
-test("status bar 32 high, 16 px side padding, content vertically centred", () => {
+test("status bar 24 high across the whole window, under the sidebar; 16 px side padding, content centred", () => {
   const status = wide.rect(".ui-shell-status-bar");
-  near(status.height, 32, "height");
+  near(status.height, 24, "height");
   near(status.bottom, 752, "bottom");
+  near(status.left, 0, "left");
+  near(status.width, 1152, "width");
+  assert(status.top >= wide.rect(".ui-shell-sidebar").bottom, "under the sidebar");
   const s = wide.style(".ui-shell-status-bar");
   assertEqual(s.paddingInlineStart, "16px");
   assertEqual(s.paddingInlineEnd, "16px");
@@ -181,7 +184,7 @@ test("toolbar band slot: 48 high below the title band; absent (hidden) takes no 
   f.iframe.remove();
 });
 
-test("compact density: title band 40, toolbar band 40, status bar 24, rail 40", async () => {
+test("compact density: title band 40, toolbar band 40, status bar still 24, rail 40", async () => {
   const f = await frame(800, 552, "?toolbar-band", (doc) => doc.documentElement.setAttribute("data-density", "compact"));
   near(f.rect(".ui-shell-title-band").height, 40, "title band");
   near(f.rect(".ui-shell-toolbar-band").height, 40, "toolbar band");
@@ -189,6 +192,7 @@ test("compact density: title band 40, toolbar band 40, status bar 24, rail 40", 
   near(f.rect(".ui-shell-sidebar").width, 40, "rail");
   f.doc.documentElement.removeAttribute("data-density");
   near(f.rect(".ui-shell-title-band").height, 48, "back to normal");
+  near(f.rect(".ui-shell-status-bar").height, 24, "status bar at normal");
   f.iframe.remove();
 });
 

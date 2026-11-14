@@ -45,7 +45,7 @@ internal static class StatusBarTheme
     {
         Setters =
         {
-            new Setter(Layoutable.HeightProperty, StandardsWindowTheme.StatusBarHeight),
+            new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Top),
             new Setter(AutomationProperties.ControlTypeOverrideProperty, AutomationControlType.StatusBar),
             new Setter(AutomationProperties.NameProperty, new DynamicResourceExtension(TextKey)),
         },
@@ -122,7 +122,7 @@ internal static class StatusBarTheme
     // The bar's children (depth 0), their children (1) and those children's children (2).
     private static Selector Within(Selector? x, int depth)
     {
-        var selector = x.OfType<StatusBar>().Child();
+        var selector = x.Is<StatusBarRow>().Child();
         for (var i = 0; i < depth; i++)
             selector = selector.Is<Control>().Child();
         return selector;
