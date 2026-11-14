@@ -16,6 +16,9 @@ public partial class MainWindow : StandardsWindow
     public MainWindow()
     {
         InitializeComponent();
+        // The theme controls, in the toolbar band below the title band.
+        ThemeControls = new ThemeBand();
+        ToolbarBand = ThemeControls.Band;
         StatusVersion.Text = AppInfo.LibraryText;
 
         PageList.ItemsSource = CatalogPages.List.Select(p => new SidebarItem { Icon = p.Icon, Content = p.Title }).ToList();
@@ -52,6 +55,8 @@ public partial class MainWindow : StandardsWindow
     }
 
     internal FrameRateMeter FrameRateMeter => _meter;
+
+    internal ThemeBand ThemeControls { get; }
 
     /// <summary>Shows the page at <paramref name="index"/> in <see cref="CatalogPages.All"/>, by selecting its sidebar row (list or footer).</summary>
     internal void SelectPage(int index)

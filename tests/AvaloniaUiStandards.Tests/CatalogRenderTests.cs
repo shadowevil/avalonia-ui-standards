@@ -19,8 +19,8 @@ namespace AvaloniaUiStandards.Tests;
 /// <summary>
 /// Renders the whole catalog window on each page, in light and dark, at its default size and at its minimum, and each
 /// page whole at a wide and a narrow width, at 2x (screenshots/catalog-*.png), and checks the page in the window's own
-/// content scroller: it wraps to the width, nothing runs past it and no text is clipped; the toolbar stays inside the
-/// title band.
+/// content scroller: it wraps to the width, nothing runs past it and no text is clipped; the theme controls stay inside
+/// the toolbar band.
 /// </summary>
 public class CatalogRenderTests
 {
@@ -73,7 +73,7 @@ public class CatalogRenderTests
     public void Pages_RenderWholeInLightAndDark()
     {
         // Each page in a window tall enough for all of it, with the real content scroller, at a wide and a narrow content
-        // width; and the toolbar in the title band at the same widths. The window is as wide as its content plus the
+        // width; and the theme band in the toolbar band slot at the same widths. The window is as wide as its content plus the
         // shadow margin and the panel's side margins.
         var problems = new List<string>();
         foreach (var (label, variant) in ButtonRenderTests.Themes)
@@ -108,7 +108,7 @@ public class CatalogRenderTests
             var toolbarName = $"catalog-toolbar-{label.ToLowerInvariant()}{suffix}.png";
             var toolbarWindow = NewHost(variant, width + ShadowAndPanelMargins, reduceMotion: true);
             toolbarWindow.Height = 200;
-            toolbarWindow.Toolbar = new ThemeToolbar();
+            toolbarWindow.ToolbarBand = new ThemeBand().Band;
             toolbarWindow.Content = new TextBlock { Text = "Toolbar" };
             toolbarWindow.Show();
             Settle(toolbarWindow);
@@ -207,22 +207,31 @@ public class CatalogRenderTests
         return window;
     }
 
-    /// <summary>The toolbar's visible content must sit inside the title band, after the title.</summary>
-    private static IEnumerable<string> CheckToolbar(Window window)
+    /// <summary>
+    /// The theme controls are in the toolbar band, not the title band, and the band's shown items (with "…") sit inside
+    /// it, side by side without overlapping.
+    /// </summary>
+    private static IEnumerable<string> CheckToolbar(StandardsWindow window)
     {
-        var toolbar = window.GetVisualDescendants().OfType<ThemeToolbar>().Single();
-        var band = window.GetVisualDescendants().OfType<Control>().First(c => c.Name == StandardsWindowTheme.TitleBandPart);
-        var title = window.GetVisualDescendants().OfType<TextBlock>().First(c => c.Name == StandardsWindowTheme.TitlePart);
-        var content = toolbar.GetVisualDescendants().OfType<Control>().First(c => c is StackPanel { Name: "Row" } or Button { Name: "MoreButton" } && c.IsVisible);
+        if (window.Toolbar is not null)
+            yield return "the title band holds a toolbar";
+        if (window.ToolbarBand is not ToolbarBand band)
+        {
+            yield return "no toolbar band";
+            yield break;
+        }
 
-        var left = content.TranslatePoint(new Point(0, 0), window)!.Value.X;
-        var right = content.TranslatePoint(new Point(content.Bounds.Width, 0), window)!.Value.X;
-        var bandRight = band.TranslatePoint(new Point(band.Bounds.Width, 0), window)!.Value.X;
-        var titleRight = title.TranslatePoint(new Point(title.Bounds.Width, 0), window)!.Value.X;
-        if (right > bandRight + 0.5)
-            yield return $"toolbar runs past the title band ({right:0} > {bandRight:0})";
-        if (left < titleRight - 0.5)
-            yield return $"toolbar overlaps the title ({left:0} < {titleRight:0})";
+        var shown = band.Items.Append(band.MoreButton).Where(i => i.IsEffectivelyVisible && i.Bounds.Width > 0)
+            .Select(i => (Item: i, Left: i.TranslatePoint(default, band)!.Value.X))
+            .OrderBy(i => i.Left).ToList();
+        if (shown.Count == 0)
+            yield return "the toolbar band shows nothing";
+        foreach (var (item, left) in shown)
+            if (left < -0.5 || left + item.Bounds.Width > band.Bounds.Width + 0.5)
+                yield return $"{ToolbarBand.LabelOf(item)} runs past the toolbar band ({left:0} to {left + item.Bounds.Width:0} of {band.Bounds.Width:0})";
+        for (var i = 1; i < shown.Count; i++)
+            if (shown[i].Left < shown[i - 1].Left + shown[i - 1].Item.Bounds.Width - 0.5)
+                yield return $"{ToolbarBand.LabelOf(shown[i].Item)} overlaps {ToolbarBand.LabelOf(shown[i - 1].Item)}";
     }
 
     /// <summary>The window's content scroller (the glass panel's), where the page is shown.</summary>

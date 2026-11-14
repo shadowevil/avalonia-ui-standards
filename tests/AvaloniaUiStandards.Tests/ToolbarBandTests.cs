@@ -11,6 +11,8 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -350,6 +352,62 @@ public class ToolbarBandTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaFact]
+    public void Menu_CopiesTheIconsOfADropDownsEntries_WithoutMovingThem()
+    {
+        var plain = new Icon { Data = Icons.Eye };
+        var swatch = new SwatchIcon { Background = Brushes.Orange };
+        var bitmap = new WriteableBitmap(new PixelSize(4, 4), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        var image = new Image { Source = bitmap, Width = 16, Height = 16 };
+        var border = new Border();
+        var entries = new[] { plain, swatch, image, (object)"★", border }
+            .Select((icon, i) => new MenuItem { Header = $"Entry {i}", Icon = icon }).ToList();
+        var dropDown = new DropDownButton { Content = new Icon { Data = Icons.SlidersHorizontal }, Flyout = new MenuFlyout() };
+        foreach (var entry in entries)
+            ((MenuFlyout)dropDown.Flyout).Items.Add(entry);
+        dropDown.Classes.Add("subtle");
+        ToolTip.SetTip(dropDown, "View");
+        var (window, band) = Show(40, dropDown);
+        try
+        {
+            var proxies = ((MenuItem)Assert.Single(OpenMenu(window, band))).Items.Cast<MenuItem>().ToList();
+
+            // Path icons, including subclasses: a new instance of the same type, with the geometry and background.
+            var plainCopy = Assert.IsType<Icon>(proxies[0].Icon);
+            Assert.NotSame(plain, plainCopy);
+            Assert.Same(Icons.Eye, plainCopy.Data);
+            var swatchCopy = Assert.IsType<SwatchIcon>(proxies[1].Icon);
+            Assert.NotSame(swatch, swatchCopy);
+            Assert.Same(Brushes.Orange, swatchCopy.Background);
+            // An image: a new image with the source and size.
+            var imageCopy = Assert.IsType<Image>(proxies[2].Icon);
+            Assert.NotSame(image, imageCopy);
+            Assert.Same(bitmap, imageCopy.Source);
+            Assert.Equal(16, imageCopy.Width);
+            // Not a control: shared. Another control: no icon.
+            Assert.Equal("★", proxies[3].Icon);
+            Assert.Null(proxies[4].Icon);
+
+            // The originals stay in their own menu items.
+            Assert.Same(plain, entries[0].Icon);
+            Assert.Same(swatch, entries[1].Icon);
+            Assert.Same(image, entries[2].Icon);
+            Assert.Same(border, entries[4].Icon);
+            band.OverflowMenu.Hide();
+        }
+        finally
+        {
+            window.Close();
+            bitmap.Dispose();
+        }
+    }
+
+    // A path icon subclass drawn by its background, as a colour chip is.
+    private sealed class SwatchIcon : Icon
+    {
+        protected override Type StyleKeyOverride => typeof(Icon);
     }
 
     [AvaloniaFact]

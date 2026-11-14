@@ -661,8 +661,7 @@ public class ToolbarBand : Control
                     ToggleType = original.ToggleType,
                     GroupName = original.GroupName,
                 };
-                if (original.Icon is PathIcon { Data: { } data })
-                    proxy.Icon = new Icon { Data = data };
+                proxy.Icon = CopyIcon(original.Icon);
                 proxy.Bind(IsEnabledProperty, new Binding(nameof(IsEnabled)) { Source = original, Mode = BindingMode.OneWay });
                 proxy.Bind(MenuItem.IsCheckedProperty, new Binding(nameof(MenuItem.IsChecked)) { Source = original, Mode = BindingMode.OneWay });
                 foreach (var grandchild in original.Items)
@@ -679,6 +678,55 @@ public class ToolbarBand : Control
                 return null;
         }
     }
+
+    /// <summary>
+    /// A copy of a drop-down entry's icon for its proxy, since a control has one parent. A path icon (an
+    /// <see cref="Icon"/> or any subclass, such as a colour chip) is a new instance of its own type with its geometry
+    /// and background bound to the original's; an image binds its source and a text block its text, each with the
+    /// original's size if it sets one. An icon that is not a control (a string, an image source) is shared, as the menu item builds
+    /// its own control for it. Other controls have no copy and show no icon.
+    /// </summary>
+    internal static object? CopyIcon(object? icon)
+    {
+        Control? copy = icon switch
+        {
+            PathIcon path => NewOf(path) ?? new Icon(),
+            Image => new Image(),
+            TextBlock => new TextBlock(),
+            _ => null,
+        };
+        if (copy is null)
+            return icon is Control ? null : icon;
+
+        var source = (Control)icon!;
+        void Bind(AvaloniaProperty property)
+        {
+            if (source.IsSet(property))
+                copy.Bind(property, new Binding(property.Name) { Source = source, Mode = BindingMode.OneWay });
+        }
+        switch (copy)
+        {
+            case PathIcon:
+                copy.Bind(PathIcon.DataProperty, new Binding(nameof(PathIcon.Data)) { Source = source, Mode = BindingMode.OneWay });
+                Bind(TemplatedControl.BackgroundProperty);
+                break;
+            case Image:
+                copy.Bind(Image.SourceProperty, new Binding(nameof(Image.Source)) { Source = source, Mode = BindingMode.OneWay });
+                Bind(WidthProperty);
+                Bind(HeightProperty);
+                break;
+            case TextBlock:
+                copy.Bind(TextBlock.TextProperty, new Binding(nameof(TextBlock.Text)) { Source = source, Mode = BindingMode.OneWay });
+                Bind(WidthProperty);
+                Bind(HeightProperty);
+                break;
+        }
+        return copy;
+    }
+
+    // A new instance of the icon's own type, when it has a parameterless constructor.
+    private static PathIcon? NewOf(PathIcon icon) =>
+        icon.GetType().GetConstructor(Type.EmptyTypes) is not null ? (PathIcon?)Activator.CreateInstance(icon.GetType()) : null;
 
     // A menu item that is not open does not toggle itself when its click is raised, so the check
     // state is set here, as choosing it in its own menu would.

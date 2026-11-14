@@ -175,6 +175,24 @@ public class IconTests
         sheet.Save("m3-icon-set.png");
     }
 
+    /// <summary>The library's motion icons (Reduced, Follow OS, Full) at 20 and 16 px, light and dark, next to drop.</summary>
+    [AvaloniaFact]
+    public void MotionIcons_RenderAt20And16InLightAndDark()
+    {
+        using var sheet = new Sheet("Motion icons at 20 and 16 px, next to Phosphor drop");
+        (string Label, Geometry Data)[] icons =
+            [("Reduced", Icons.MotionReduced), ("Follow OS", Icons.MotionSystem), ("Full", Icons.MotionFull), ("Drop", Icons.Drop)];
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+            sheet.AddSection(label, icons.Select(i => i.Label).ToList(), new[] { 20.0, 16.0 }.Select(size =>
+                ($"{size:0} px", (IReadOnlyList<Control>)icons.Select(i =>
+                {
+                    var icon = new Icon { Data = i.Data, Width = size, Height = size };
+                    icon.Bind(TemplatedControl.ForegroundProperty, new DynamicResourceExtension("SystemControlForegroundBaseHighBrush"));
+                    return sheet.Cell(icon, variant);
+                }).ToList())));
+        sheet.Save("motion-icon-states.png");
+    }
+
     /// <summary>Every icon in <see cref="Icons"/>, by property name.</summary>
     private static IReadOnlyList<(string Name, Geometry Data)> All() =>
         typeof(Icons).GetProperties(BindingFlags.Public | BindingFlags.Static)

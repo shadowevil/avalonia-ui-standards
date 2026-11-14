@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
@@ -31,6 +32,22 @@ internal sealed class Frame : IDisposable
 
     /// <summary>Wraps an already captured frame (for example a popup's own top level).</summary>
     public static Frame Of(WriteableBitmap bitmap) => new(bitmap);
+
+    /// <summary>A copy of <paramref name="area"/> (in pixels, clipped to the capture) of a captured frame, at 96 DPI.</summary>
+    public static WriteableBitmap Crop(WriteableBitmap capture, PixelRect area)
+    {
+        using var source = capture.Lock();
+        var rect = area.Intersect(new PixelRect(source.Size));
+        var crop = new WriteableBitmap(rect.Size, new Vector(96, 96), source.Format, AlphaFormat.Premul);
+        using var target = crop.Lock();
+        var row = new byte[rect.Width * 4];
+        for (var y = 0; y < rect.Height; y++)
+        {
+            Marshal.Copy(source.Address + (rect.Y + y) * source.RowBytes + rect.X * 4, row, 0, row.Length);
+            Marshal.Copy(row, 0, target.Address + y * target.RowBytes, row.Length);
+        }
+        return crop;
+    }
 
     public static Frame Capture(Window window)
     {

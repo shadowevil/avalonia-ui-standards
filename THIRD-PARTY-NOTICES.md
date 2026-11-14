@@ -4,7 +4,7 @@ This library includes the following third-party material.
 
 ## Phosphor Icons
 
-The icon geometries in `src/AvaloniaUiStandards/Blocks/Icons.cs` are the path data of Phosphor Icons, Regular weight.
+The icon geometries in `src/AvaloniaUiStandards/Blocks/Icons.cs` are the path data of Phosphor Icons, Regular weight. The library's own `Motion` icons there are derived from Phosphor's `person-simple-run` and `wind`.
 
 Source: https://github.com/phosphor-icons/core (`assets/regular/`)
 
