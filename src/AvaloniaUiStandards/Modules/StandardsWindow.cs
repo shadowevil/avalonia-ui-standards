@@ -94,6 +94,8 @@ public class StandardsWindow : Window, IFrameTickSource
     private int _hideGeneration;
     private double _lastPointerY = double.PositiveInfinity;
     private bool _runsOnMacOS = OperatingSystem.IsMacOS();
+    // The panel and its containers up to the frame's layer panel: any of them moving moves the panel.
+    private List<Visual> _panelChain = [];
     private Rect _contentPanelBounds;
     private readonly FrameTicker _ticker;
     private EventHandler<FrameTickEventArgs>? _frameTick;
@@ -176,7 +178,7 @@ public class StandardsWindow : Window, IFrameTickSource
         set => SetValue(SidebarProperty, value);
     }
 
-    /// <summary>Optional content of the status bar at the bottom.</summary>
+    /// <summary>Optional content of the status bar at the bottom: a <see cref="Modules.StatusBar"/> Module, or any content.</summary>
     public object? StatusBar
     {
         get => GetValue(StatusBarProperty);
@@ -352,12 +354,15 @@ public class StandardsWindow : Window, IFrameTickSource
         _titleIcon = e.NameScope.Find<Image>(StandardsWindowTheme.TitleIconPart);
         UpdateTitleIcon();
 
-        // The panel moves within the frame on resize, density and maximise: each changes its bounds.
-        if (_panel is not null)
-            _panel.PropertyChanged -= OnPanelPropertyChanged;
+        // The panel moves within the frame on resize, density and maximise: each changes the bounds
+        // of the panel or of a container around it.
+        foreach (var visual in _panelChain)
+            visual.PropertyChanged -= OnPanelPropertyChanged;
         _panel = e.NameScope.Find<Control>(StandardsWindowTheme.ContentPanelPart);
-        if (_panel is not null)
-            _panel.PropertyChanged += OnPanelPropertyChanged;
+        var layers = _frame?.Child;
+        _panelChain = _panel is null ? [] : [_panel, .. _panel.GetVisualAncestors().TakeWhile(v => v != layers)];
+        foreach (var visual in _panelChain)
+            visual.PropertyChanged += OnPanelPropertyChanged;
 
         // Keyboard focus moving into the hidden rows (Tab, Alt, F10) reveals them; leaving them lets them hide.
         _top = e.NameScope.Find<WindowTop>(StandardsWindowTheme.TopPart);
@@ -421,6 +426,8 @@ public class StandardsWindow : Window, IFrameTickSource
             UpdateTitleIcon();
         if (change.Property == SidebarProperty)
             PseudoClasses.Set(":sidebar-module", change.NewValue is Sidebar);
+        if (change.Property == StatusBarProperty)
+            PseudoClasses.Set(":status-bar-module", change.NewValue is StatusBar);
         if (change.Property == IsActiveProperty || change.Property == WindowStateProperty
             || change.Property == ReduceMotionProperty || change.Property == HighRefreshRateProperty)
             UpdateTicker();

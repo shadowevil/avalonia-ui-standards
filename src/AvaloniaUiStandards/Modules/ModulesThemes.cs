@@ -22,6 +22,9 @@ internal static class ModulesThemes
         resources[MenuRow.HelpHeaderKey] = MenuRow.HelpHeader;
         resources[FullScreenMenuItem.EnterHeaderKey] = FullScreenMenuItem.EnterHeader;
         resources[FullScreenMenuItem.ExitHeaderKey] = FullScreenMenuItem.ExitHeader;
+        resources[typeof(StatusBar)] = StatusBarTheme.Create();
+        resources[StatusBarTheme.TextKey] = StatusBarTheme.Text;
+        resources[StatusBarTheme.CancelTextKey] = StatusBarTheme.CancelText;
     }
 
     /// <summary>

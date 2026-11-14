@@ -12,7 +12,8 @@ namespace AvaloniaUiStandards.Tests;
 
 /// <summary>
 /// The catalog status bar's frame readout: the rendered frames per second, the high refresh rate state and why
-/// animation is paused; that it counts frames without causing any; and that it fits the status bar at every width.
+/// animation is paused; that it counts frames without causing any; and that the status bar (page name as the message,
+/// the readout, the version) fits at every width, the readout shortening and the version hiding first when narrow.
 /// </summary>
 public class CatalogFrameStatusTests
 {
@@ -83,7 +84,7 @@ public class CatalogFrameStatusTests
             Assert.True(meter.IsAttached, "the counting visual is not laid over the window");
 
             // A changed frame is counted.
-            window.StatusPage.Text = "Changed";
+            window.Status.Message = "Changed";
             Frames(window, 2);
             meter.Read();
             Assert.True(meter.FramesPerSecond > 0, "a rendered frame was not counted");
@@ -104,7 +105,7 @@ public class CatalogFrameStatusTests
             Assert.True(meter.IsIdle, "a frame was rendered while nothing changed");
 
             // The next real frame wakes it.
-            window.StatusPage.Text = "Changed again";
+            window.Status.Message = "Changed again";
             Frames(window, 1);
             Assert.False(meter.IsIdle, "a rendered frame did not wake the readout");
         }
@@ -135,17 +136,22 @@ public class CatalogFrameStatusTests
                 Settle(window);
 
                 var label = $"{width}x{height}{(reduceMotion ? " reduced" : "")}";
-                TextBlock[] row = [window.StatusPage, window.StatusFrames, window.StatusVersion];
+                var bar = window.Status;
+                Assert.Equal(longest.Title, bar.Message);
+                var row = new[] { bar.MessageBlock, window.StatusFrames, window.StatusVersion }
+                    .Where(b => b == bar.MessageBlock || bar.IsShown(b)).ToArray();
                 foreach (var block in row)
                     if (Natural(block) > block.Bounds.Width + 1)
                         problems.Add($"{label}: \"{block.Text}\" is clipped ({block.Bounds.Width:0} wide, needs {Natural(block):0})");
                 for (var i = 1; i < row.Length; i++)
                     if (Right(row[i - 1], window) > Left(row[i], window) + 0.5)
                         problems.Add($"{label}: \"{row[i - 1].Text}\" runs into \"{row[i].Text}\"");
-                if (Right(window.StatusVersion, window) > Right(window.StatusRow, window) + 0.5)
-                    problems.Add($"{label}: the version runs past the status bar");
-                if (width == 1200 && !window.StatusFrames.Text!.Contains("High refresh rate:"))
-                    problems.Add($"{label}: the full readout does not show at the default width (\"{window.StatusFrames.Text}\")");
+                if (Right(row[^1], window) > Right(bar, window) - 16 + 0.5)
+                    problems.Add($"{label}: \"{row[^1].Text}\" runs into the bar's padding");
+                if (!bar.IsShown(window.StatusFrames))
+                    problems.Add($"{label}: the frame readout is hidden");
+                if (width == 1200 && (!window.StatusFrames.Text!.Contains("High refresh rate:") || !bar.IsShown(window.StatusVersion)))
+                    problems.Add($"{label}: the full readout and the version do not show at the default width (\"{window.StatusFrames.Text}\")");
             }
             finally
             {

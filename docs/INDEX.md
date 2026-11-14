@@ -47,6 +47,7 @@
 - [0044 — Menu bar](decisions/0044-menu-bar.md) — where NativeMenu menus show per layout, the in-window menu row's size, drag, folding into "…", the application menu merge into Help, sync and keyboard
 - [0045 — Web library in plain HTML, CSS and JavaScript](decisions/0045-web-library.md) — what the web library is, where it lives, how it shares decisions with desktop and why no framework
 - [0046 — Web browsers, markup and naming](decisions/0046-web-browsers-markup-naming.md) — which browsers the web library supports, native elements versus custom elements, and the ui- naming of properties, classes, elements and theme attributes
+- [0047 — Status bar](decisions/0047-status-bar.md) — the StatusBar Module: its window row, height, zones and gaps, the message live region, item kinds and the clickable items' inset fill, progress, shortening then hiding by priority, keyboard and automation
 - [0048 — Web HTML standards](decisions/0048-web-html-standards.md) — which documents are the web HTML standards, and the roles, landmarks, custom element, keyboard, file, shortcut and unit choices they make
 - [0049 — Full screen and window button availability](decisions/0049-full-screen.md) — macOS full screen (green light, Ctrl+Cmd+F, the menu item, the top that hides and reveals) and how the window buttons follow CanMinimize, CanMaximize and CanResize
 

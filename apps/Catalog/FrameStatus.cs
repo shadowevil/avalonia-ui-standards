@@ -18,7 +18,7 @@ internal static class FrameStatus
         : !active ? "window inactive"
         : null;
 
-    /// <summary>The readout's texts, longest first, so a narrow status bar can take the first that fits.</summary>
+    /// <summary>The readout's texts, longest first: the full text, then the shorter forms the status bar shows when narrow.</summary>
     public static string[] Texts(int framesPerSecond, bool highRefreshRate, string? pauseReason)
     {
         var fps = $"{framesPerSecond} fps";
