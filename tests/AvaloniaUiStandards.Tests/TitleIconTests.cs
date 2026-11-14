@@ -44,10 +44,12 @@ public class TitleIconTests
 
     private static void UseTestDecoder(StandardsWindow window) => window.IconDecoder = _ => MakeBitmap();
 
-    private static StandardsWindow Open(WindowLayoutMode mode, bool icon, ThemeVariant? variant = null, DensityStyle density = DensityStyle.Normal)
+    private static StandardsWindow Open(WindowLayoutMode mode, bool icon, ThemeVariant? variant = null, DensityStyle density = DensityStyle.Normal,
+        WindowButtonStyle buttons = WindowButtonStyle.Auto, bool testDecoder = true)
     {
-        var window = StandardsWindowTests.SampleWindow(variant ?? ThemeVariant.Light, slots: false, WindowButtonStyle.Auto);
-        UseTestDecoder(window);
+        var window = StandardsWindowTests.SampleWindow(variant ?? ThemeVariant.Light, slots: false, buttons);
+        if (testDecoder)
+            UseTestDecoder(window);
         window.LayoutMode = mode;
         if (icon)
             window.Icon = MakeIcon();
@@ -109,6 +111,45 @@ public class TitleIconTests
             var toggle = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == StandardsWindowTheme.SidebarTogglePart);
             Assert.True(toggle.IsVisible);
             Assert.True(IconPart(window).TranslatePoint(default, window)!.Value.X >= toggle.TranslatePoint(new Point(toggle.Bounds.Width, 0), window)!.Value.X);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Headless icons cannot save themselves as an image, so the real decode fails: it must not throw
+    // and must look like no icon, leaving no gap before the title.
+    [AvaloniaFact]
+    public void RealDecodePath_FailingDecode_LooksLikeNoIcon()
+    {
+        var plain = Open(WindowLayoutMode.Windows, icon: false);
+        var withIcon = Open(WindowLayoutMode.Windows, icon: true, testDecoder: false);
+        try
+        {
+            var icon = IconPart(withIcon);
+            Assert.Null(icon.Source);
+            Assert.False(icon.IsVisible);
+            Assert.Equal(TitlePart(plain).TranslatePoint(default, plain)!.Value.X, TitlePart(withIcon).TranslatePoint(default, withIcon)!.Value.X);
+        }
+        finally
+        {
+            plain.Close();
+            withIcon.Close();
+        }
+    }
+
+    // Beside traffic lights the icon is SpacingM from them, and the title SpacingS after the icon.
+    [AvaloniaFact]
+    public void WithTrafficLights_TheIconIsSpacingMFromThem()
+    {
+        var window = Open(WindowLayoutMode.Windows, icon: true, buttons: WindowButtonStyle.TrafficLights);
+        try
+        {
+            var icon = IconPart(window);
+            Assert.True(icon.IsVisible);
+            Assert.Equal(12, icon.Margin.Left);
+            Assert.Equal(8, TitlePart(window).Margin.Left);
         }
         finally
         {

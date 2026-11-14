@@ -78,7 +78,7 @@ public class StandardsTheme : Styles
     private readonly StyleInclude _dataGrid;
     private readonly ColorPaletteResources _light;
     private readonly ColorPaletteResources _dark;
-    private readonly OsAccessibility.Settings _os;
+    private readonly AccessibilitySettings _os;
     private Color _accent = DefaultAccent;
     private bool? _reduceMotion;
     private bool? _reduceTransparency;
@@ -97,10 +97,9 @@ public class StandardsTheme : Styles
     /// tests that need <see cref="ReduceMotion"/> and <see cref="ReduceTransparency"/> to start
     /// from a known state on any machine. Apps use the constructor.
     /// </summary>
-    public static StandardsTheme CreateForTests(AccessibilitySettings settings) =>
-        new(new OsAccessibility.Settings(settings.ReduceMotion, settings.ReduceTransparency));
+    public static StandardsTheme CreateForTests(AccessibilitySettings settings) => new(settings);
 
-    internal StandardsTheme(OsAccessibility.Settings os)
+    internal StandardsTheme(AccessibilitySettings os)
     {
         _os = os;
         _isTransparencyReduced = os.ReduceTransparency;

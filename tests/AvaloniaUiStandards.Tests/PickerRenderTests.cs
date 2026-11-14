@@ -135,7 +135,7 @@ public class PickerRenderTests
 
     // --- Cells ---------------------------------------------------------------------------
 
-    internal static StandardsTheme Compact() => new(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact };
+    internal static StandardsTheme Compact() => new(AccessibilitySettings.NotReduced) { Density = DensityStyle.Compact };
 
     private static Control FieldCell(Sheet sheet, ThemeVariant theme, Control picker, FieldState state, bool compact = false)
     {
@@ -202,7 +202,7 @@ public class PickerRenderTests
     {
         var window = new Window { Width = size.Width, Height = size.Height, RequestedThemeVariant = theme };
         // The sheets show end states: under reduce motion the overlay appears at once instead of fading in.
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced)
         {
             ReduceMotion = true,
             Density = compact ? DensityStyle.Compact : DensityStyle.Normal,

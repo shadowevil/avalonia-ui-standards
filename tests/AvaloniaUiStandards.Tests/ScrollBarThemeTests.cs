@@ -368,7 +368,7 @@ public class ScrollBarThemeTests
             Width = 300, Height = 220, RequestedThemeVariant = variant ?? ThemeVariant.Light,
             Content = new Border { Padding = new Thickness(40), Child = viewer },
         };
-        window.Styles.Add(new StandardsTheme(new OsAccessibility.Settings(reduceMotion, false)));
+        window.Styles.Add(new StandardsTheme(new AccessibilitySettings(reduceMotion, false)));
         window.Show();
         Pump(window);
         var bar = viewer.GetVisualDescendants().OfType<ScrollBar>().Single(b => b.Name == (vertical ? "PART_VerticalScrollBar" : "PART_HorizontalScrollBar"));

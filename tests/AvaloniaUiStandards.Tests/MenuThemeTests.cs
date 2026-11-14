@@ -52,7 +52,7 @@ public class MenuThemeTests
     [AvaloniaFact]
     public void Compact_ShrinksItemsAndIcons()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = Avalonia.Themes.Fluent.DensityStyle.Compact };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = Avalonia.Themes.Fluent.DensityStyle.Compact };
         var (window, menu, _) = ShowContextMenu(ThemeVariant.Light, theme);
         try
         {

@@ -9,15 +9,10 @@ namespace AvaloniaUiStandards.Style;
 /// </summary>
 internal static class OsAccessibility
 {
-    internal readonly record struct Settings(bool ReduceMotion, bool ReduceTransparency)
-    {
-        public static Settings NotReduced => default;
-    }
-
-    private static readonly Lazy<Settings> Cached = new(() => new(Safe(ReadReduceMotion), Safe(ReadReduceTransparency)));
+    private static readonly Lazy<AccessibilitySettings> Cached = new(() => new(Safe(ReadReduceMotion), Safe(ReadReduceTransparency)));
 
     /// <summary>The OS settings, read once per process.</summary>
-    public static Settings Read() => Cached.Value;
+    public static AccessibilitySettings Read() => Cached.Value;
 
     private static bool Safe(Func<bool> read)
     {

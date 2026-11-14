@@ -66,7 +66,7 @@ public class ToggleThemeTests
     public void ToggleSwitch_TrackAndKnob_FollowDensity(string density, double width, double height, double off, double on)
     {
         // Under reduce motion, so sizes and the knob position take their end values at once.
-        var (window, toggle) = Show(new ToggleSwitch(), theme: new StandardsTheme(OsAccessibility.Settings.NotReduced)
+        var (window, toggle) = Show(new ToggleSwitch(), theme: new StandardsTheme(AccessibilitySettings.NotReduced)
         {
             Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal,
             ReduceMotion = true,
@@ -235,7 +235,7 @@ public class ToggleThemeTests
     [AvaloniaFact]
     public void Transitions_FadeChecksOverMotionNormal_ColoursOverMotionFast_AndStopUnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, toggle) = Show(new ToggleSwitch(), theme: theme);
         var fill = Part<SquircleBorder>(toggle, ToggleParts.FillPart);
         var transitions = fill.Transitions!.Cast<TransitionBase>().ToList();
@@ -254,14 +254,14 @@ public class ToggleThemeTests
         Settle(window);
         Assert.Empty(fill.Transitions!);
         Assert.Empty(toggle.KnobTransitions!);
-        var (_, checkBox) = Show(new CheckBox(), theme: new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        var (_, checkBox) = Show(new CheckBox(), theme: new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         Assert.Empty(Part<Path>(checkBox, CheckBoxTheme.CheckPart).Transitions!);
     }
 
     [AvaloniaFact]
     public void Density_FollowsRuntimeChanges()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var (window, toggle) = Show(new ToggleSwitch { IsChecked = true }, theme: theme);
         theme.Density = DensityStyle.Compact;
         Settle(window);
@@ -314,7 +314,7 @@ public class ToggleThemeTests
         control.GetVisualDescendants().OfType<T>().First(c => c.Name == name);
 
     internal static StandardsTheme? Theme(string density) => density == "Compact"
-        ? new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = DensityStyle.Compact }
+        ? new StandardsTheme(AccessibilitySettings.NotReduced) { Density = DensityStyle.Compact }
         : null;
 
     internal static (Window Window, T Control) Show<T>(T control, ThemeVariant? variant = null, StandardsTheme? theme = null)

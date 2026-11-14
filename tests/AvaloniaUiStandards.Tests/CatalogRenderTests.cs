@@ -47,7 +47,7 @@ public class CatalogRenderTests
                     // Headless frames have no alpha, so a desktop-like grey stands in for what is behind the transparent window.
                     Background = new SolidColorBrush(Color.Parse(variant == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
                 };
-                window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = title != "Motion" });
+                window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = title != "Motion" });
                 window.SetRenderScaling(Sheet.Scale);
                 window.Show();
                 window.Activate();
@@ -202,7 +202,7 @@ public class CatalogRenderTests
             RequestedThemeVariant = variant,
             Background = new SolidColorBrush(Color.Parse(variant == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion });
         window.SetRenderScaling(Sheet.Scale);
         return window;
     }

@@ -602,7 +602,7 @@ public class DataGridTests
         var surface = new Border { Padding = new Thickness(16, 12), Child = ListBoxRenderTests.OnSurface(grid, ListBoxRenderTests.Surface.GlassPanel) };
         surface.Bind(Border.BackgroundProperty, new DynamicResourceExtension("SystemRegionColor"));
         var window = new Window { SizeToContent = SizeToContent.WidthAndHeight, RequestedThemeVariant = theme };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         window.Content = surface;
         window.SetRenderScaling(Sheet.Scale);
         window.Show();
@@ -620,7 +620,7 @@ public class DataGridTests
         var grid = NewGrid();
         var window = new Window { Width = 700, Height = 400, RequestedThemeVariant = variant ?? ThemeVariant.Light };
         if (!useAppTheme)
-            window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
+            window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
         window.Content = new StackPanel { Children = { grid } };
         window.Show();
         Pump(window);

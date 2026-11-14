@@ -29,7 +29,7 @@ public class TabsAndExpanderThemeTests
     [InlineData("Compact", 24, 8)]
     public void Tabs_HeadersAreBodyTextAtTheDensityHeight(string density, double height, double side)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var (window, tabs) = Show(TabsAndExpanderRenderTests.Tabs(), theme: theme);
         try
         {
@@ -128,7 +128,7 @@ public class TabsAndExpanderThemeTests
             window.Close();
         }
 
-        var reduced = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
+        var reduced = new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true };
         (window, tabs) = Show(TabsAndExpanderRenderTests.Tabs(), theme: reduced);
         try
         {
@@ -212,7 +212,7 @@ public class TabsAndExpanderThemeTests
     [InlineData(Dock.Right)]
     public void Tabs_UnderlineOnTheContentSide_ForEveryPlacement(Dock placement)
     {
-        var reduced = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
+        var reduced = new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true };
         var (window, tabs) = Show(TabsAndExpanderRenderTests.Tabs(placement: placement), theme: reduced);
         try
         {
@@ -328,7 +328,7 @@ public class TabsAndExpanderThemeTests
     [InlineData("Compact", 24)]
     public void Expander_CardAndHeaderSize(string density, double height)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var (window, expander) = Show(NewExpander(expanded: false), theme: theme);
         try
         {
@@ -348,7 +348,7 @@ public class TabsAndExpanderThemeTests
     [AvaloniaFact]
     public void Expander_RevealsUnderReduceMotion_AndTheCaretTurns()
     {
-        var reduced = new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true };
+        var reduced = new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true };
         var (window, expander) = Show(NewExpander(expanded: false), theme: reduced);
         try
         {

@@ -118,7 +118,7 @@ public class StandardsWindowContentTests
         var backdrop = new Border();
         var window = NewWindow(new TextBlock { Text = "Content" });
         window.Backdrop = backdrop;
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         window.Styles.Add(theme);
         var changes = new List<Rect>();
         window.PropertyChanged += (_, e) =>

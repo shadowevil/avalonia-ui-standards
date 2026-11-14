@@ -270,6 +270,7 @@ public class StandardsWindow : Window, IFrameTickSource
         if (_buttons is not null)
             _buttons.Clicked += OnWindowButton;
         _frame = e.NameScope.Find<SquircleBorder>(StandardsWindowTheme.FramePart);
+        ReleaseTitleIcon();
         _titleIcon = e.NameScope.Find<Image>(StandardsWindowTheme.TitleIconPart);
         UpdateTitleIcon();
 
@@ -317,7 +318,7 @@ public class StandardsWindow : Window, IFrameTickSource
             UpdateStates();
         if (change.Property == LayoutModeProperty || change.Property == NativeMenu.MenuProperty)
             UpdateMenuRow();
-        if (change.Property == LayoutModeProperty || change.Property == IconProperty)
+        if (change.Property == ResolvedLayoutModeProperty || change.Property == IconProperty)
             UpdateTitleIcon();
         if (change.Property == SidebarProperty)
             PseudoClasses.Set(":sidebar-module", change.NewValue is Sidebar);
@@ -342,6 +343,7 @@ public class StandardsWindow : Window, IFrameTickSource
         _menuRow.Source = null;
         _menuRow.AppMenu = null;
         _shortcuts.Dispose();
+        ReleaseTitleIcon();
         base.OnClosed(e);
     }
 
@@ -541,23 +543,29 @@ public class StandardsWindow : Window, IFrameTickSource
     /// </summary>
     private void UpdateTitleIcon()
     {
-        var show = Icon is not null && ResolvedLayoutMode == WindowLayoutMode.Windows;
-        PseudoClasses.Set(":title-icon", show);
+        ReleaseTitleIcon();
+        if (_titleIcon is null || Icon is null || ResolvedLayoutMode != WindowLayoutMode.Windows)
+            return;
+        // A decorative element: an icon that cannot be decoded looks like no icon (no gap).
+        try
+        {
+            _titleIcon.Source = (IconDecoder ?? DecodeIcon)(Icon);
+        }
+        catch (ArgumentException)
+        {
+        }
+        PseudoClasses.Set(":title-icon", _titleIcon.Source is not null);
+    }
+
+    // Clears the icon and disposes the bitmap decoded for it.
+    private void ReleaseTitleIcon()
+    {
+        PseudoClasses.Set(":title-icon", false);
         if (_titleIcon is null)
             return;
         var old = _titleIcon.Source as IDisposable;
         _titleIcon.Source = null;
         old?.Dispose();
-        if (!show)
-            return;
-        // A decorative element: an icon that cannot be decoded leaves the slot blank.
-        try
-        {
-            _titleIcon.Source = (IconDecoder ?? DecodeIcon)(Icon!);
-        }
-        catch (ArgumentException)
-        {
-        }
     }
 
     /// <summary>Replaces <see cref="DecodeIcon"/>, for headless tests, whose icons cannot save themselves as an image.</summary>

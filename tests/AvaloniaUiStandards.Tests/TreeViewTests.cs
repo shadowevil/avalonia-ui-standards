@@ -372,7 +372,7 @@ public class TreeViewTests
         TreeViewOptions.SetExpandOn(tree, Both);
         TreeViewOptions.SetCollapseOn(tree, Both);
         var window = new Window { Width = 400, Height = 400, Content = tree };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Show();
         Pump(window);
         try
@@ -678,7 +678,7 @@ public class TreeViewTests
         var parent = new TreeViewItem { Header = "Parent", IsExpanded = true, ItemsSource = children };
         var tree = new TreeView { Width = 260, ItemsSource = new[] { parent } };
         var window = new Window { Width = 400, Height = 400, Content = tree };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Show();
         Pump(window);
         try
@@ -711,7 +711,7 @@ public class TreeViewTests
         var parent = new TreeViewItem { Header = "Parent", IsExpanded = true, ItemsSource = children };
         var tree = new TreeView { Width = 260, ItemsSource = new[] { parent } };
         var window = new Window { Width = 400, Height = 400, Content = tree, Background = Brushes.White, RequestedThemeVariant = ThemeVariant.Light };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.Show();
         Pump(window);
         try
@@ -841,7 +841,7 @@ public class TreeViewTests
         var surface = new Border { Padding = new Thickness(16, 12), Child = ListBoxRenderTests.OnSurface(tree, ListBoxRenderTests.Surface.GlassPanel) };
         surface.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SystemRegionColor"));
         var window = new Window { SizeToContent = SizeToContent.WidthAndHeight, RequestedThemeVariant = theme };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         window.Content = surface;
         window.SetRenderScaling(Sheet.Scale);
         window.Show();
@@ -889,7 +889,7 @@ public class TreeViewTests
         var tree = NewTree();
         tree.Width = 260;
         return sheet.Cell(ListBoxRenderTests.OnSurface(tree, ListBoxRenderTests.Surface.GlassPanel), theme,
-            beforeShow: w => w.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density }),
+            beforeShow: w => w.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density }),
             afterShow: w =>
             {
                 w.UpdateLayout();
@@ -929,7 +929,7 @@ public class TreeViewTests
         tree.Width = 260;
         configure?.Invoke(tree);
         var window = new Window { Width = 400, Height = 400, Content = tree };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion, Density = density });
         window.Show();
         Pump(window);
         // The grandchildren need their parent realised: expand and collapse once.
@@ -1012,7 +1012,7 @@ public class TreeViewTests
         tree.Width = 260;
         TreeViewOptions.SetShowLines(tree, lines);
         var window = new Window { Width = 400, Height = 400, Content = tree, Background = Brushes.White, RequestedThemeVariant = ThemeVariant.Light };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true, Density = density });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true, Density = density });
         window.SetRenderScaling(scale);
         window.Show();
         Pump(window);

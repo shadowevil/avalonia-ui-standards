@@ -25,7 +25,7 @@ public class NumericThemeTests
     [InlineData("Compact", 24, 20, 2)]
     public void Field_MatchesTextInput_WithInsetSpinButtons(string density, double height, double button, double inset)
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced) { Density = density == "Compact" ? DensityStyle.Compact : DensityStyle.Normal };
         var box = new NumericUpDown { Width = 200, Value = 3 };
         var spinner = new ButtonSpinner { Width = 200, Content = "Medium" };
         var text = new TextBox { Width = 200 };
@@ -196,7 +196,7 @@ public class NumericThemeTests
     [AvaloniaFact]
     public void Transitions_UseMotionFast_AndBecomeInstantUnderReduceMotion()
     {
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var box = new NumericUpDown { Width = 200, Value = 3 };
         var window = Show(box, theme: theme);
         try

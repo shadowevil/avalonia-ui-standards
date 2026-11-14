@@ -87,7 +87,7 @@ public class ScrollBarRenderTests
         };
         var middle = vertical ? new Vector(0, 120) : new Vector(80, 0);
         return sheet.Cell(fullPanel ? FullPanel(viewer) : OnSurface(viewer, surface), theme,
-            beforeShow: w => w.Styles.Add(fluent ? new FluentTheme() : new StandardsTheme(new OsAccessibility.Settings(true, false))),
+            beforeShow: w => w.Styles.Add(fluent ? new FluentTheme() : new StandardsTheme(new AccessibilitySettings(true, false))),
             afterShow: w =>
             {
                 w.UpdateLayout();

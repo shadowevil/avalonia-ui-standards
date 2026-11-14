@@ -83,7 +83,7 @@ public class CatalogSettingsStoreTests
         // Values it cannot use keep the defaults when applied.
         var app = Application.Current!;
         var variant = app.RequestedThemeVariant;
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         try
         {
             new CatalogSettings { Theme = "Purple", Density = "Huge", Accent = "blue" }.ApplyTo(app, theme);
@@ -109,7 +109,7 @@ public class CatalogSettingsStoreTests
         new CatalogSettings { Theme = "Light", Density = "Compact", Accent = "#00899E", ReduceMotion = false, HighRefreshRate = true }.Save(path);
         var app = Application.Current!;
         var variant = app.RequestedThemeVariant;
-        var theme = new StandardsTheme(OsAccessibility.Settings.NotReduced);
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
         var store = CatalogSettingsStore.Start(app, theme, path);
         try
         {

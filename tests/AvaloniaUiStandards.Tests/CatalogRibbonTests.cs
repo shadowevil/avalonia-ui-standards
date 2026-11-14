@@ -393,7 +393,7 @@ public class CatalogRibbonTests
         var frame = new SquircleBorder { Child = ribbon, Margin = margin };
         frame.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
         var bare = new Window { Width = WindowSize.Width, Height = WindowSize.Height, RequestedThemeVariant = variant, Content = frame };
-        bare.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
+        bare.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced));
         var lowest = double.MaxValue;
         try
         {
@@ -614,7 +614,7 @@ public class CatalogRibbonTests
             Height = WindowSize.Height,
             RequestedThemeVariant = variant,
         };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = reduceMotion });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion });
         return window;
     }
 
