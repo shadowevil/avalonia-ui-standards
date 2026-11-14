@@ -62,8 +62,9 @@ internal sealed class StatusBarPage : UserControl
                     {
                         Orientation = Orientation.Horizontal,
                         Spacing = 12,
-                        Children = { Ui.Body("Width"), width, run, showStats },
+                        Children = { Ui.Body("Width"), width, run },
                     },
+                    showStats,
                     _last,
                 },
             }),

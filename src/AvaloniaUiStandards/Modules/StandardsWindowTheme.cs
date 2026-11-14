@@ -157,6 +157,9 @@ internal static class StandardsWindowTheme
             // clickable items' fills reach into it).
             Part<ContentPresenter>(StatusBarPart, null, (TemplatedControl.PaddingProperty, new Thickness(Spacing.L, 0))),
             Part<ContentPresenter>(StatusBarPart, ":status-bar-module", (TemplatedControl.PaddingProperty, new Thickness(0))),
+            // The slot is 24 high; a StatusBar grows it with its rows (24 per row).
+            Part<ContentPresenter>(StatusBarPart, null, (Layoutable.HeightProperty, StatusBarHeight)),
+            Part<ContentPresenter>(StatusBarPart, ":status-bar-module", (Layoutable.HeightProperty, double.NaN), (Layoutable.MinHeightProperty, StatusBarHeight)),
             Part<TextBlock>(TitlePart, ":sidebar-module", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
 
             // The title icon (Windows layout, with Window.Icon): after the sidebar button, or SpacingL
@@ -248,7 +251,6 @@ internal static class StandardsWindowTheme
         // the window and under the sidebar; it comes last in the tree, so its items are the last Tab stops.
         var statusBar = Named(Slot(StandardsWindow.StatusBarProperty), StatusBarPart);
         statusBar.VerticalContentAlignment = VerticalAlignment.Center;
-        statusBar.MinHeight = StatusBarHeight;
         Grid.SetRow(statusBar, 1);
 
         var sidebar = Named(Slot(StandardsWindow.SidebarProperty), SidebarPart);

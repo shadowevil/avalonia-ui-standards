@@ -630,6 +630,31 @@ public class StatusBarTests
     }
 
     [AvaloniaFact]
+    public void OtherContent_KeepsTheStatusSlotAt24_AndOnlyAStatusBarGrowsIt()
+    {
+        var window = new StandardsWindow { Width = 800, Height = 500, StatusBar = new Button { Content = "Tall", Height = 32 } };
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
+        window.Show();
+        window.Activate();
+        Pump(window);
+        try
+        {
+            var slot = Part<ContentPresenter>(window, StandardsWindowTheme.StatusBarPart);
+            Assert.Equal(24, slot.Bounds.Height);
+            window.StatusBar = new StatusBar { Message = "Ready", Rows = { Row(Text("Cursor")) } };
+            Pump(window);
+            Assert.Equal(48, slot.Bounds.Height);
+            window.StatusBar = new Button { Content = "Tall", Height = 32 };
+            Pump(window);
+            Assert.Equal(24, slot.Bounds.Height);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void EachRow_ShortensAndHidesItsOwnItems()
     {
         // The stats row is crowded and the main row is not: only the stats row loses items.
