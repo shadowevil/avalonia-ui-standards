@@ -6,8 +6,8 @@ These standards are recorded in [0048](../decisions/0048-web-html-standards.md).
 
 ## Tiers and dependencies
 
-- Tiers are the desktop's: Style, Blocks, Modules, Screens ([0004](../decisions/0004-tier-names.md)). A tier uses only the tiers below it: Blocks use Style; Modules use Blocks and Style; Screens use any lower tier.
-- The rule holds in CSS (a Block's file references only `--ui-*` Style tokens and Style classes such as `ui-squircle`, never another Block's classes) and in JavaScript (a Block's module imports only Style modules; a Module imports Blocks and Style).
+- Tiers are the desktop's: Style, Blocks, Modules, Screens ([0004](../decisions/0004-tier-names.md)). A tier uses only the tiers below it: Blocks use Style; Modules use Blocks and Style; Screens use any lower tier. A composite Block may also use Blocks built before it ([0048](../decisions/0048-web-html-standards.md)).
+- The rule holds in CSS (a Block's file references `--ui-*` Style tokens and Style classes such as `ui-squircle`, and another Block's classes only where it is a composite using an earlier Block) and in JavaScript (a Block's module imports Style modules and, for a composite, earlier Blocks' modules; a Module imports Blocks and Style). A composite sets the parts it uses through their custom properties and classes, as a Module does, and does not copy their CSS.
 - The web library depends on nothing outside itself: no framework, no runtime dependency, no build step ([0045](../decisions/0045-web-library.md)). Every file is standard CSS or an ES module that a static file server delivers.
 - Features outside the browsers' current versions ([0046](../decisions/0046-web-browsers-markup-naming.md)) are used only with a fallback that keeps the Block working (`@supports` for `corner-shape`, [0014](../decisions/0014-shape.md)).
 
