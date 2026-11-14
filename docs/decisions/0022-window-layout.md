@@ -21,7 +21,7 @@
     - Linux: the drawn shadow and margin stay. The window's input shape is set to the frame (X shape extension), so the margin is click-through, and `_GTK_FRAME_EXTENTS` tells the window manager the margin, so snapping, tiling and positions use the visible frame. The opaque fallback stays for no compositor.
     - All OSes: the title band, resize grips and window buttons are tagged with Avalonia's chrome roles (`WindowDecorationProperties.ElementRole`), so each OS can handle move, resize and buttons natively where the client area is extended.
   - Adoption:
-    - App windows subclass `StandardsWindow` and fill `Title`, `Toolbar`, `Sidebar`, `Content` (shown in the glass panel) and `StatusBar`.
+    - App windows subclass `StandardsWindow` and fill `Title`, `Toolbar`, `ToolbarBand` (the band below the title band, [0043](0043-toolbar-band.md)), `Sidebar`, `Content` (shown in the glass panel) and `StatusBar`.
     - `Backdrop` is a public content slot, drawn between the frame's wash and the window content (behind the title band, sidebar, status bar and glass panel). It is empty by default, and glass blurs and refracts it. Continuous animation in it runs at 30 fps unless `HighRefreshRate` is set ([0016](0016-motion.md)).
     - `ContentPanelBounds` is read-only: the glass panel's rectangle in the `Backdrop` slot's coordinates, updated on layout changes, so backdrops can treat the area behind the panel differently.
     - `IsContentScrollable` (default true): the glass panel scrolls its content vertically, with the 12 px padding inside the scrolled content and the scrollbar and shadows at the panel edge. Accepted consequence: content that scrolls itself (a ListBox, a data grid) gets unlimited height and stops virtualising, so apps set `IsContentScrollable="False"` for such content.
@@ -50,7 +50,7 @@
     - The `Sidebar` Module ([0034](0034-sidebar.md)) plugs into the sidebar slot; with it, the title band shows its button before the title.
     - The app shell Screen (M5) is `StandardsWindow` with the sidebar Module plugged into the slot and the standard content arrangements (sidebar + content, and + inspector), with the collapse stages. Which further Screens follow is an open question ([roadmap](../plan/roadmap.md)).
   - Title band: the title and the toolbar share one band at the top (a unified toolbar).
-  - Areas on the window background: the title band, an optional sidebar on the left (a plain list, not a panel) and an optional status bar at the bottom.
+  - Areas on the window background: the title band, an optional toolbar band below it ([0043](0043-toolbar-band.md)), an optional sidebar on the left (a plain list, not a panel) and an optional status bar at the bottom.
   - Content panel:
     - The content sits in one inset glass panel (`GlassBorder`, radius 16; [0015](0015-glass.md)), the only element with the panel look. Where cards may be glass is in [0015](0015-glass.md).
     - It fills the remaining space with `SpacingS` and `SpacingM` gaps ([0013](0013-spacing-and-density.md)), and shrinks to fit beside the sidebar.

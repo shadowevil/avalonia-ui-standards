@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -12,7 +13,7 @@ namespace AvaloniaUiStandards.Modules;
 /// The library's window: borderless and transparent, drawn as a squircle frame (radius 16, 1 px
 /// border, soft shadow) whose background is the backdrop wash. A title band holds the window
 /// buttons, the <see cref="Window.Title"/> and the <see cref="Toolbar"/>; below it are the optional
-/// <see cref="Sidebar"/> on the window background, the glass content panel holding
+/// <see cref="ToolbarBand"/> across the window, the optional <see cref="Sidebar"/> on the window background, the glass content panel holding
 /// <see cref="ContentControl.Content"/> (scrolled by the panel, see <see cref="IsContentScrollable"/>),
 /// and the optional <see cref="StatusBar"/>. An optional <see cref="Backdrop"/> sits behind them all.
 /// </summary>
@@ -28,6 +29,9 @@ public class StandardsWindow : Window, IFrameTickSource
 {
     public static readonly StyledProperty<object?> ToolbarProperty =
         AvaloniaProperty.Register<StandardsWindow, object?>(nameof(Toolbar));
+
+    public static readonly StyledProperty<object?> ToolbarBandProperty =
+        AvaloniaProperty.Register<StandardsWindow, object?>(nameof(ToolbarBand));
 
     public static readonly StyledProperty<object?> SidebarProperty =
         AvaloniaProperty.Register<StandardsWindow, object?>(nameof(Sidebar));
@@ -104,6 +108,18 @@ public class StandardsWindow : Window, IFrameTickSource
     {
         get => GetValue(ToolbarProperty);
         set => SetValue(ToolbarProperty, value);
+    }
+
+    /// <summary>
+    /// Optional content of the band directly below the title band, across the window on the window
+    /// background (normally a <see cref="Modules.ToolbarBand"/>); shown only when set, with the
+    /// sidebar and the glass panel below it. On macOS its empty area drags the window, as a
+    /// unified toolbar's does; elsewhere it does not, as a command bar's does not.
+    /// </summary>
+    public object? ToolbarBand
+    {
+        get => GetValue(ToolbarBandProperty);
+        set => SetValue(ToolbarBandProperty, value);
     }
 
     /// <summary>Optional content on the left, on the window background.</summary>
@@ -217,6 +233,8 @@ public class StandardsWindow : Window, IFrameTickSource
 
         if (e.NameScope.Find<Control>(StandardsWindowTheme.TitleBandPart) is { } band)
             band.PointerPressed += OnTitleBandPressed;
+        if (e.NameScope.Find<ContentPresenter>(StandardsWindowTheme.ToolbarBandPart) is { } toolbarBand)
+            toolbarBand.PointerPressed += (_, args) => OnToolbarBandPressed(toolbarBand, args);
         if (e.NameScope.Find<Button>(StandardsWindowTheme.SidebarTogglePart) is { } sidebarToggle)
             sidebarToggle.Click += (_, _) => (Sidebar as Sidebar)?.Toggle();
         foreach (var edge in Enum.GetValues<WindowEdge>())
@@ -342,6 +360,21 @@ public class StandardsWindow : Window, IFrameTickSource
                 ToggleMaximized();
                 break;
         }
+    }
+
+    /// <summary>
+    /// Whether the toolbar band's empty area drags the window (and double-clicking it acts as on the
+    /// title band): on macOS, where a unified toolbar's empty area is part of the title bar, and not
+    /// elsewhere, where a command bar below the title bar is not.
+    /// </summary>
+    internal bool ToolbarBandDragsWindow { get; set; } = OperatingSystem.IsMacOS();
+
+    // Only a press on the band's own empty area (not on an item, a separator or anything hosted
+    // in it) counts; items handle their own presses.
+    private void OnToolbarBandPressed(ContentPresenter slot, PointerPressedEventArgs e)
+    {
+        if (ToolbarBandDragsWindow && (e.Source == slot || e.Source == slot.Child))
+            OnTitleBandPressed(slot, e);
     }
 
     private void OnTitleBandPressed(object? sender, PointerPressedEventArgs e)

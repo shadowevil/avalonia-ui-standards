@@ -18,7 +18,7 @@ namespace AvaloniaUiStandards.Modules;
 
 /// <summary>
 /// The StandardsWindow theme and the shell's values: the frame (wash, border, shadow), the
-/// title band, the sidebar slot, the glass content panel (a scroll area), the status bar, the
+/// title band, the toolbar band slot, the sidebar slot, the glass content panel (a scroll area), the status bar, the
 /// backdrop slot and the resize grips.
 /// </summary>
 internal static class StandardsWindowTheme
@@ -28,6 +28,7 @@ internal static class StandardsWindowTheme
     public const string TitleBandPart = "PART_TitleBand";
     public const string TitlePart = "PART_Title";
     public const string ToolbarPart = "PART_Toolbar";
+    public const string ToolbarBandPart = "PART_ToolbarBand";
     public const string WindowButtonsPart = "PART_WindowButtons";
     public const string SidebarPart = "PART_Sidebar";
     public const string SidebarTogglePart = "PART_SidebarToggle";
@@ -193,6 +194,12 @@ internal static class StandardsWindowTheme
         titleBand.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(TitleBandHeightKey));
         DockPanel.SetDock(titleBand, Dock.Top);
 
+        // The toolbar band below it, on the window background; the presenter takes presses on the
+        // band's empty area (the window decides whether they drag).
+        var toolbarBand = Named(Slot(StandardsWindow.ToolbarBandProperty), ToolbarBandPart);
+        toolbarBand.Background = Brushes.Transparent;
+        DockPanel.SetDock(toolbarBand, Dock.Top);
+
         // Status bar, sidebar and the glass content panel.
         var statusBar = Named(Slot(StandardsWindow.StatusBarProperty), StatusBarPart);
         statusBar.Padding = new Thickness(Spacing.L, 0);
@@ -228,7 +235,7 @@ internal static class StandardsWindowTheme
         var backdrop = Named(Slot(StandardsWindow.BackdropProperty), BackdropPart);
         var frame = Named(new SquircleBorder
         {
-            Child = new Panel { Children = { backdrop, new DockPanel { Children = { titleBand, statusBar, sidebar, panel } } } },
+            Child = new Panel { Children = { backdrop, new DockPanel { Children = { titleBand, toolbarBand, statusBar, sidebar, panel } } } },
         }, FramePart);
         frame.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
         frame.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlForegroundBaseLowBrush"));

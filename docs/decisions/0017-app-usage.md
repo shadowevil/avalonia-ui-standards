@@ -12,5 +12,6 @@
   - `StandardsWindow.FrameTick` (with `FrameTickEventArgs`) and `StandardsWindow.HighRefreshRate` pace continuous animation ([0016](0016-motion.md)).
   - `StandardsWindow.ContentPanelBounds` (read-only) is the glass panel's rectangle in the `Backdrop` slot's coordinates ([0022](0022-window-layout.md)).
   - `StandardsWindow.IsContentScrollable` (default true) makes the glass panel scroll its content ([0022](0022-window-layout.md)).
+  - `StandardsWindow.ToolbarBand` holds a `ToolbarBand`, whose items take the attached properties `ToolbarBand.Zone`, `Priority`, `Label`, `CanOverflow` and `BeginsGroup` ([0043](0043-toolbar-band.md)).
   - `StandardsTheme` properties: `Accent`, `Density`, `ReduceMotion`, `ReduceTransparency`, `HighRefreshRate`.
 - **Why:** Adopting the library takes one line, and the keys read like Avalonia's.
