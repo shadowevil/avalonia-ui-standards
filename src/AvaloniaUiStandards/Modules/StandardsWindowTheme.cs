@@ -248,7 +248,7 @@ internal static class StandardsWindowTheme
         // the window and under the sidebar; it comes last in the tree, so its items are the last Tab stops.
         var statusBar = Named(Slot(StandardsWindow.StatusBarProperty), StatusBarPart);
         statusBar.VerticalContentAlignment = VerticalAlignment.Center;
-        statusBar.Height = StatusBarHeight;
+        statusBar.MinHeight = StatusBarHeight;
         Grid.SetRow(statusBar, 1);
 
         var sidebar = Named(Slot(StandardsWindow.SidebarProperty), SidebarPart);

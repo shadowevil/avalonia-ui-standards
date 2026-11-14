@@ -554,6 +554,245 @@ public class StatusBarTests
         }
     }
 
+    // --- Rows ------------------------------------------------------------------------------------
+
+    private static Control? OwnerOf(AutomationPeer peer) => (peer as ControlAutomationPeer)?.Owner;
+
+    private static StatusBarRow Row(params Control[] items)
+    {
+        var row = new StatusBarRow();
+        foreach (var item in items)
+            row.Items.Add(item);
+        return row;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(DensityStyle.Normal)]
+    [InlineData(DensityStyle.Compact)]
+    public void Rows_Are24High_StackedAboveTheMainRow_InOrder_WithNothingBetween(DensityStyle density)
+    {
+        var (top, middle) = (Row(Text("Top"), Clickable("Top item")), Row(Text("Middle")));
+        var main = Clickable("Main item");
+        var bar = new StatusBar { Message = "Ready", Items = { main }, Rows = { top, middle } };
+        var window = Window(bar, 800, density);
+        try
+        {
+            Assert.Equal(72, bar.Bounds.Height);
+            Assert.Equal(0, top.Bounds.Y);
+            Assert.Equal(24, top.Bounds.Height);
+            Assert.Equal(24, middle.Bounds.Y);
+            Assert.Equal(24, middle.Bounds.Height);
+            Assert.Equal(24, ((Control)top.Items[1]).Bounds.Height);
+            // The main row is the bottom 24 px.
+            Assert.Equal(48, main.TranslatePoint(default, bar)!.Value.Y);
+            Assert.InRange(bar.MessageBlock.TranslatePoint(default, bar)!.Value.Y + bar.MessageBlock.Bounds.Height / 2, 59, 61);
+
+            // Collection order is top to bottom.
+            bar.Rows.Move(1, 0);
+            Pump(window);
+            Assert.Equal(0, middle.Bounds.Y);
+            Assert.Equal(24, top.Bounds.Y);
+            // No row has a divider or space around it: the same text edge, 16 px in.
+            Assert.Equal(16, X(bar, (Control)middle.Items[0]));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheWindowsStatusSlot_GrowsWithTheBar_AndShrinksWhenARowHides()
+    {
+        var stats = Row(Text("Cursor 12, 40"));
+        var bar = new StatusBar { Message = "Ready", Rows = { stats } };
+        var window = Window(bar, 800);
+        try
+        {
+            var slot = Part<ContentPresenter>(window, StandardsWindowTheme.StatusBarPart);
+            Assert.Equal(48, slot.Bounds.Height);
+            Assert.Equal(new Thickness(0), slot.Padding);
+            stats.IsVisible = false;
+            Pump(window);
+            Assert.Equal(24, bar.Bounds.Height);
+            Assert.Equal(24, slot.Bounds.Height);
+            stats.IsVisible = true;
+            Pump(window);
+            Assert.Equal(48, slot.Bounds.Height);
+            // The glass panel gives the room back: the panel's bottom sits above the whole bar.
+            var panel = Part<Control>(window, StandardsWindowTheme.ContentPanelPart);
+            Assert.True(panel.TranslatePoint(new Point(0, panel.Bounds.Height), window)!.Value.Y <= window.Bounds.Height - 48);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void EachRow_ShortensAndHidesItsOwnItems()
+    {
+        // The stats row is crowded and the main row is not: only the stats row loses items.
+        var cursor = Text("Cursor 1280, 640 px");
+        StatusBar.SetShortTexts(cursor, ["1280, 640"]);
+        StatusBar.SetPriority(cursor, 1);
+        var memory = Text("Memory 412 MB");
+        StatusBar.SetZone(memory, StatusZone.Trailing);
+        StatusBar.SetPriority(memory, 2);
+        var selection = Text("Selection 1200 × 800 px");
+        var stats = Row(cursor, selection, memory);
+        var zoom = Clickable("100 %");
+        StatusBar.SetZone(zoom, StatusZone.Trailing);
+        var bar = new StatusBar { Message = "Ready", Items = { zoom }, Rows = { stats } };
+        var window = Host(bar, 560);
+        try
+        {
+            Assert.Equal("Cursor 1280, 640 px", cursor.Text);
+            Assert.True(stats.IsShown(memory));
+            bar.Width = 330;
+            Pump(window);
+            Assert.False(stats.IsShown(memory));
+            Assert.True(stats.IsShown(cursor));
+            // The main row is untouched: its item and message show in full.
+            Assert.True(bar.IsShown(zoom));
+            Assert.Equal("Ready", bar.MessageBlock.Text);
+            Assert.True(bar.MessageBlock.IsVisible);
+            // Widening restores the stats row without a change to the main row.
+            bar.Width = 560;
+            Pump(window);
+            Assert.Equal("Cursor 1280, 640 px", cursor.Text);
+            Assert.True(stats.IsShown(memory));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ARowsIsVisible_ShowsAndHidesIt_AndTakesItsItemsOutOfTheTabOrder()
+    {
+        var statsButton = Clickable("Units");
+        var stats = Row(Text("Cursor"), statsButton);
+        var main = Clickable("Zoom");
+        var bar = new StatusBar { Message = "Ready", Items = { main }, Rows = { stats } };
+        var content = new Button { Content = "In the panel" };
+        var window = Window(bar, 800, content: content);
+        try
+        {
+            content.Focus(NavigationMethod.Tab);
+            Press(window, Key.Tab);
+            Assert.Same(statsButton, Focused(window));
+            content.Focus(NavigationMethod.Tab);
+            stats.IsVisible = false;
+            Pump(window);
+            Assert.Equal(24, bar.Bounds.Height);
+            Press(window, Key.Tab);
+            Assert.Same(main, Focused(window));
+            Assert.Equal(0, main.TranslatePoint(default, bar)!.Value.Y);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheBar_HasOneStatusPeer_AndOneLiveRegion_OnTheMainRow()
+    {
+        var stats = Row(Text("Cursor"), Clickable("Units"));
+        var bar = new StatusBar { Message = "Ready", Items = { Clickable("Zoom") }, Rows = { stats, Row(Text("More")) } };
+        var window = Window(bar, 800);
+        try
+        {
+            var peer = ControlAutomationPeer.CreatePeerForElement(bar);
+            var all = new List<AutomationPeer>();
+            void Walk(AutomationPeer p)
+            {
+                all.Add(p);
+                foreach (var child in p.GetChildren())
+                    Walk(child);
+            }
+            Walk(peer);
+            Assert.Single(all, p => p.GetAutomationControlType() == AutomationControlType.StatusBar);
+            Assert.Single(all, p => p.GetLiveSetting() == AutomationLiveSetting.Polite);
+            Assert.Equal(bar.MessageBlock, OwnerOf(all.Single(p => p.GetLiveSetting() == AutomationLiveSetting.Polite)));
+            Assert.Equal("Status", peer.GetName());
+            // The text and clickable items of the rows are still there to read and use.
+            Assert.Contains(all, p => OwnerOf(p) == stats.Items[0]);
+            Assert.Contains(all, p => OwnerOf(p) == stats.Items[1]);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Tab_RunsThroughTheRowsInOrder_ThenTheMainRow()
+    {
+        var (a, b, c) = (Clickable("A"), Clickable("B"), Clickable("C"));
+        StatusBar.SetZone(c, StatusZone.Trailing);
+        var (d, e) = (Clickable("D"), Clickable("E"));
+        var main = Clickable("Main");
+        var bar = new StatusBar { Message = "Ready", Items = { main }, Rows = { Row(c, a), Row(b), Row(d, e) } };
+        var content = new Button { Content = "In the panel" };
+        var window = Window(bar, 900, content: content);
+        try
+        {
+            content.Focus(NavigationMethod.Tab);
+            var visited = new List<object?>();
+            for (var i = 0; i < 6; i++)
+            {
+                Press(window, Key.Tab);
+                visited.Add(Focused(window));
+            }
+            // Within a row: leading, then trailing (c is declared first but trails).
+            Assert.Equal([a, c, b, d, e, main], visited);
+
+            // A row added later takes its place at the top.
+            var extra = Clickable("Extra");
+            bar.Rows.Insert(0, Row(extra));
+            Pump(window);
+            content.Focus(NavigationMethod.Tab);
+            Press(window, Key.Tab);
+            Assert.Same(extra, Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void OnlyTheBottomRow_HasTheCornerInset()
+    {
+        // The bottom row's last fill ends 8 px from the bar's side and 2 px above the window's bottom edge, clear of the
+        // 16 px corner. The rows above keep the same side insets but never reach the bottom edge.
+        var top = Clickable("Units");
+        StatusBar.SetZone(top, StatusZone.Trailing);
+        var zoom = new DropDownButton { Content = "100 %", Flyout = new MenuFlyout() };
+        zoom.Classes.Add("subtle");
+        StatusBar.SetZone(zoom, StatusZone.Trailing);
+        var bar = new StatusBar { Message = "Ready", Items = { zoom }, Rows = { Row(top) } };
+        var window = Window(bar, 900);
+        try
+        {
+                        var bottom = Part<SquircleBorder>(zoom, ButtonParts.ChromePart);
+            var corner = bottom.TranslatePoint(new Point(bottom.Bounds.Width, bottom.Bounds.Height), bar)!.Value;
+            Assert.Equal(bar.Bounds.Width - 8, corner.X);
+            Assert.Equal(bar.Bounds.Height - 2, corner.Y);
+            var upper = Part<SquircleBorder>(top, ButtonParts.ChromePart);
+            var upperEnd = upper.TranslatePoint(new Point(upper.Bounds.Width, upper.Bounds.Height), bar)!.Value;
+            Assert.Equal(bar.Bounds.Width - 8, upperEnd.X);
+            Assert.True(upperEnd.Y <= bar.Bounds.Height - 24 - 2);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Renders -------------------------------------------------------------------------------
 
     /// <summary>
@@ -580,7 +819,47 @@ public class StatusBarTests
             Save(running, "statusbar-progress-light.png", 120);
     }
 
-    private static Frame Render(ThemeVariant variant, DensityStyle density, double width, bool progress, bool hoverEnds)
+    /// <summary>
+    /// The same window with a stats row above the main row (statusbar-rows-*.png): light and dark at both densities,
+    /// narrow, the bottom-right corner, and the catalog's status bar page with both rows.
+    /// </summary>
+    [AvaloniaFact]
+    public void RendersRows()
+    {
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+        foreach (var density in new[] { DensityStyle.Normal, DensityStyle.Compact })
+        {
+            var name = $"statusbar-rows-{label.ToLowerInvariant()}-{(density == DensityStyle.Compact ? "compact" : "normal")}";
+            using var bitmap = Render(variant, density, 1200, progress: false, hoverEnds: false, rows: true);
+            Save(bitmap, $"{name}.png", 120);
+            if (variant == ThemeVariant.Light && density == DensityStyle.Normal)
+                Save(bitmap, "statusbar-rows-corner-light.png", 64, fromRight: 200);
+        }
+        using (var narrow = Render(ThemeVariant.Light, DensityStyle.Normal, 400, progress: false, hoverEnds: false, rows: true))
+            Save(narrow, "statusbar-rows-narrow-light.png", 120);
+
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+        {
+            var window = new MainWindow
+            {
+                Width = 1200,
+                Height = 800,
+                RequestedThemeVariant = variant,
+                Background = new SolidColorBrush(Color.Parse(variant == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
+            };
+            window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
+            window.SetRenderScaling(Sheet.Scale);
+            window.Show();
+            window.Activate();
+            window.SelectPage(CatalogPages.All.ToList().FindIndex(p => p.Title == "Status bar"));
+            Pump(window);
+            using var frame = Frame.Capture(window);
+            frame.Save($"statusbar-rows-catalog-page-{label.ToLowerInvariant()}.png");
+            window.Close();
+        }
+    }
+
+    private static Frame Render(ThemeVariant variant, DensityStyle density, double width, bool progress, bool hoverEnds, bool rows = false)
     {
         var window = new MainWindow
         {
@@ -616,6 +895,24 @@ public class StatusBarTests
             var running = new StatusProgress { Value = 42, Text = "42 %", IsCancelable = true };
             StatusBar.SetZone(running, StatusZone.Center);
             bar.Items.Insert(1, running);
+        }
+        if (rows)
+        {
+            var cursor = Text("Cursor 1280, 640 px");
+            StatusBar.SetShortTexts(cursor, ["1280, 640"]);
+            StatusBar.SetPriority(cursor, 2);
+            var selection = Text("Selection 1200 × 800 px");
+            StatusBar.SetShortTexts(selection, ["1200 × 800"]);
+            StatusBar.SetPriority(selection, 3);
+            var memory = Text("Memory 412 MB");
+            StatusBar.SetShortTexts(memory, ["412 MB"]);
+            StatusBar.SetPriority(memory, 1);
+            var fps = Text("60 fps");
+            var units = new DropDownButton { Content = "px", Flyout = new MenuFlyout() };
+            units.Classes.Add("subtle");
+            foreach (var item in new Control[] { memory, fps, units })
+                StatusBar.SetZone(item, StatusZone.Trailing);
+            bar.Rows.Add(Row(cursor, selection, memory, fps, units));
         }
         window.StatusBar = bar;
         window.Show();
