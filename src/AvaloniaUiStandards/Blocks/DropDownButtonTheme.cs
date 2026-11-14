@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Media;
 using Avalonia.Styling;
 using static AvaloniaUiStandards.Blocks.ButtonParts;
 
@@ -12,7 +13,8 @@ namespace AvaloniaUiStandards.Blocks;
 /// <summary>
 /// The DropDownButton control theme: Fluent's template (content, then the chevron glyph) inside
 /// the squircle chrome, with Fluent's Button resources and glyph colours. The glyph's right
-/// margin follows density (the side padding) in place of Fluent's off-grid 10.
+/// margin follows density (the side padding) in place of Fluent's off-grid 10. The <c>subtle</c>
+/// class has no fill until hover, as Button's.
 /// </summary>
 internal static class DropDownButtonTheme
 {
@@ -42,6 +44,13 @@ internal static class DropDownButtonTheme
         theme.Children.Add(Glyph(":pressed", "ButtonForegroundPressed"));
         theme.Children.Add(State(":disabled", looks.Disabled));
         theme.Children.Add(Glyph(":disabled", "ButtonForegroundDisabled"));
+
+        // Subtle: no fill at rest; Standard's hover, pressed and disabled resources.
+        theme.Children.Add(Group(x => x.Nesting().Class("subtle"),
+            rest: new(Brushes.Transparent, Brushes.Transparent, looks.Normal.Foreground),
+            hover: looks.Hover,
+            pressed: looks.Pressed,
+            disabled: new(Brushes.Transparent, Brushes.Transparent, looks.Disabled.Foreground)));
         return theme;
     }
 

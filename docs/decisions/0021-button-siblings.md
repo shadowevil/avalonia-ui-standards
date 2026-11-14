@@ -9,6 +9,7 @@
     - Checked uses `AccentFill*` with white text, including pressed (a darker accent, not Fluent's grey).
     - Indeterminate follows Fluent.
   - DropDownButton: Standard with Fluent's chevron. The glyph margin is on the grid (the side padding: 12 Normal, 8 Compact).
+  - ToggleButton and DropDownButton also take Button's `subtle` class: no fill until hover (a checked subtle ToggleButton keeps the accent fill), for the toolbar band ([0043](0043-toolbar-band.md)).
   - SplitButton:
     - Fluent's structure: primary half, 1 px separator, chevron half.
     - Each half keeps only its outer squircle corners, so together they form one outline.

@@ -116,6 +116,14 @@ public class SiblingThemeTests
             data.Add(nameof(DropDownButton), theme, "rest", "ButtonBackground", "ButtonForeground");
             data.Add(nameof(DropDownButton), theme, ":pointerover", "ButtonBackgroundPointerOver", "ButtonForegroundPointerOver");
             data.Add(nameof(DropDownButton), theme, ":pressed", "ButtonBackgroundPressed", "ButtonForegroundPressed");
+            data.Add("ToggleButton.subtle", theme, "rest", null, "ToggleButtonForeground");
+            data.Add("ToggleButton.subtle", theme, ":pointerover", "ToggleButtonBackgroundPointerOver", "ToggleButtonForegroundPointerOver");
+            data.Add("ToggleButton.subtle", theme, ":pressed", "ToggleButtonBackgroundPressed", "ToggleButtonForegroundPressed");
+            data.Add("ToggleButton.subtle:checked", theme, "rest", "AccentFillColor", "ToggleButtonForegroundChecked");
+            data.Add("ToggleButton.subtle:checked", theme, ":pointerover", "AccentFillColorPointerOver", "ToggleButtonForegroundCheckedPointerOver");
+            data.Add("DropDownButton.subtle", theme, "rest", null, "ButtonForeground");
+            data.Add("DropDownButton.subtle", theme, ":pointerover", "ButtonBackgroundPointerOver", "ButtonForegroundPointerOver");
+            data.Add("DropDownButton.subtle", theme, ":pressed", "ButtonBackgroundPressed", "ButtonForegroundPressed");
             data.Add(nameof(SplitButton), theme, "rest", "SplitButtonBackground", "SplitButtonForeground");
             data.Add(nameof(SplitButton), theme, ":pointerover", "SplitButtonBackgroundPointerOver", "SplitButtonForegroundPointerOver");
             data.Add(nameof(SplitButton), theme, ":pressed", "SplitButtonBackgroundPressed", "SplitButtonForegroundPressed");
@@ -233,6 +241,9 @@ public class SiblingThemeTests
         "HyperlinkButton:visited" => new HyperlinkButton { Content = "Link", IsVisited = true },
         nameof(DropDownButton) => new DropDownButton { Content = "Drop" },
         nameof(SplitButton) => new SplitButton { Content = "Split" },
+        "ToggleButton.subtle" => new ToggleButton { Content = "Toggle", Classes = { "subtle" } },
+        "ToggleButton.subtle:checked" => new ToggleButton { Content = "Toggle", IsChecked = true, Classes = { "subtle" } },
+        "DropDownButton.subtle" => new DropDownButton { Content = "Drop", Classes = { "subtle" } },
         "ToggleSplitButton:checked" => new ToggleSplitButton { Content = "Split", IsChecked = true },
         _ => throw new ArgumentException(setup),
     };
