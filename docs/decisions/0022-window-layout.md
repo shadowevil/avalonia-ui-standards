@@ -52,6 +52,7 @@
     - The `Sidebar` Module ([0034](0034-sidebar.md)) plugs into the sidebar slot; with it, the title band shows its button before the title.
     - The app shell Screen (M5) is `StandardsWindow` with the sidebar Module plugged into the slot and the standard content arrangements (sidebar + content, and + inspector), with the collapse stages. Which further Screens follow is an open question ([roadmap](../plan/roadmap.md)).
   - Title band: the title and the toolbar share one band at the top (a unified toolbar).
+    - Title icon: in the `Windows` layout, `Window.Icon`, when set, shows at 16 px left of the title text, after the sidebar button if there is one, vertically centred with the title (`SpacingL` from the left edge without a sidebar button, `SpacingS` before the title). Nothing in the `MacOS` layout or without an icon. It follows a live `LayoutMode` or `Icon` change. It is decorative: not hit-testable (a press on it is a press on the title band, so it drags), not a Tab stop, no chrome role, and hidden from assistive technology.
   - Areas on the window background: the title band, the menu row below it in the Windows layout of a window with a menu ([0044](0044-menu-bar.md)), an optional toolbar band below that ([0043](0043-toolbar-band.md)), an optional sidebar on the left (a plain list, not a panel) and an optional status bar at the bottom.
   - Content panel:
     - The content sits in one inset glass panel (`GlassBorder`, radius 16; [0015](0015-glass.md)), the only element with the panel look. Where cards may be glass is in [0015](0015-glass.md).

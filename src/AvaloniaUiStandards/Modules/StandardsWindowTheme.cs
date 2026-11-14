@@ -27,6 +27,10 @@ internal static class StandardsWindowTheme
     public const string ShadowPart = "PART_Shadow";
     public const string TitleBandPart = "PART_TitleBand";
     public const string TitlePart = "PART_Title";
+    public const string TitleIconPart = "PART_TitleIcon";
+
+    /// <summary>The title icon's side, in px (the Windows title bar icon size).</summary>
+    public const double TitleIconSize = 16;
     public const string ToolbarPart = "PART_Toolbar";
     public const string ToolbarBandPart = "PART_ToolbarBand";
     public const string MenuRowPart = "PART_MenuRow";
@@ -149,6 +153,14 @@ internal static class StandardsWindowTheme
             Part<Button>(SidebarTogglePart, ":sidebar-module", (Visual.IsVisibleProperty, true)),
             Part<Button>(SidebarTogglePart, ":traffic-lights", (Layoutable.MarginProperty, new Thickness(Spacing.M, 0, 0, 0))),
             Part<TextBlock>(TitlePart, ":sidebar-module", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
+
+            // The title icon (Windows layout, with Window.Icon): after the sidebar button, or SpacingL
+            // in without one (SpacingM beside traffic lights); the title follows it by SpacingS.
+            Part<Image>(TitleIconPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.L, 0, 0, 0)), (Visual.IsVisibleProperty, false)),
+            Part<Image>(TitleIconPart, ":traffic-lights", (Layoutable.MarginProperty, new Thickness(Spacing.M, 0, 0, 0))),
+            Part<Image>(TitleIconPart, ":sidebar-module", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
+            Part<Image>(TitleIconPart, ":title-icon", (Visual.IsVisibleProperty, true)),
+            Part<TextBlock>(TitlePart, ":title-icon", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
             Part<ContentPresenter>(SidebarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, Spacing.S))),
             Part<ContentPresenter>(SidebarPart, ":sidebar-module",
                 (Layoutable.MarginProperty, new Thickness(0, 0, 0, Spacing.S)),
@@ -186,7 +198,19 @@ internal static class StandardsWindowTheme
         title.Bind(TextBlock.FontWeightProperty, new DynamicResourceExtension("FontWeightBodyStrong"));
         title.Bind(TextBlock.FontSizeProperty, new DynamicResourceExtension("FontSizeBody"));
         var sidebarToggle = Named(SidebarToggle(), SidebarTogglePart);
-        var heading = new StackPanel { Orientation = Orientation.Horizontal, Children = { sidebarToggle, title } };
+        // Decorative: not focusable, not hit-testable (a press falls through to the title band, which
+        // drags), and hidden from assistive technology.
+        var titleIcon = Named(new Image
+        {
+            Width = TitleIconSize,
+            Height = TitleIconSize,
+            Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center,
+            Focusable = false,
+            IsHitTestVisible = false,
+        }, TitleIconPart);
+        Avalonia.Automation.AutomationProperties.SetAccessibilityView(titleIcon, Avalonia.Automation.AccessibilityView.Raw);
+        var heading = new StackPanel { Orientation = Orientation.Horizontal, Children = { sidebarToggle, titleIcon, title } };
         Grid.SetColumn(heading, 1);
         var toolbar = Named(Slot(StandardsWindow.ToolbarProperty), ToolbarPart);
         toolbar.VerticalAlignment = VerticalAlignment.Center;
