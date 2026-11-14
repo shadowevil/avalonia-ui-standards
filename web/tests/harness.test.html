@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harness tests</title>
+</head>
+<body>
+<pre id="results">running</pre>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+
+test("assert and assertEqual pass on true values", () => {
+  assert(true);
+  assertEqual(1 + 1, 2);
+});
+
+test("async tests are awaited", async () => {
+  await new Promise((r) => setTimeout(r, 10));
+  assertEqual(await Promise.resolve("a"), "a");
+});
+</script>
+</body>
+</html>
