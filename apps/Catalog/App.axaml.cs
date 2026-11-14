@@ -20,7 +20,12 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            // The catalog reopens as it was left: the saved choices apply before the window and its toolbar exist.
+            var settings = CatalogSettingsStore.Start(this, Styles.OfType<AvaloniaUiStandards.StandardsTheme>().First(), CatalogSettings.DefaultPath);
+            desktop.Exit += (_, _) => settings.Dispose();
             desktop.MainWindow = new MainWindow();
+        }
         base.OnFrameworkInitializationCompleted();
     }
 

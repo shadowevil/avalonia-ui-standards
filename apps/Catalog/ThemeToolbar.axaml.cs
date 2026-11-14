@@ -37,8 +37,16 @@ public partial class ThemeToolbar : UserControl
             caption.Bind(TextBlock.FontSizeProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("FontSizeCaption"));
         }
         AccentBox.ItemsSource = Accents.Select(a => a.Name).ToList();
-        AccentBox.SelectedIndex = 0;
-        AccentHex.Text = Accents[0].Hex;
+
+        // The controls start at the theme's current values (the catalog's saved settings), before they set them.
+        var accent = Hex(_theme?.Accent ?? StandardsTheme.DefaultAccent);
+        AccentBox.SelectedIndex = Array.FindIndex(Accents, a => a.Hex == accent);
+        AccentHex.Text = accent;
+        var variant = Application.Current?.RequestedThemeVariant;
+        ThemeBox.SelectedIndex = variant == ThemeVariant.Light ? 1 : variant == ThemeVariant.Dark ? 2 : 0;
+        DensityBox.SelectedIndex = _theme?.Density == DensityStyle.Compact ? 1 : 0;
+        MotionBox.SelectedIndex = Index(_theme?.ReduceMotion);
+        TransparencyBox.SelectedIndex = Index(_theme?.ReduceTransparency);
 
         ThemeBox.SelectionChanged += (_, _) => Application.Current!.RequestedThemeVariant =
             ThemeBox.SelectedIndex switch { 1 => ThemeVariant.Light, 2 => ThemeVariant.Dark, _ => ThemeVariant.Default };
@@ -128,6 +136,8 @@ public partial class ThemeToolbar : UserControl
 
     // Follow OS (null), Reduced (true), Full (false).
     private static bool? Tri(int index) => index switch { 1 => true, 2 => false, _ => null };
+
+    private static int Index(bool? value) => value switch { true => 1, false => 2, null => 0 };
 
     private void ApplyHex()
     {

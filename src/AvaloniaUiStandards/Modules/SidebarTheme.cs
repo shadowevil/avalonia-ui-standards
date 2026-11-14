@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -10,13 +11,14 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
 
 namespace AvaloniaUiStandards.Modules;
 
 /// <summary>
-/// The Sidebar, SidebarItem and SidebarHeader themes and the sidebar's values. Rows are the list
+/// The Sidebar, SidebarItem, SidebarHeader and footer themes and the sidebar's values. Rows are the list
 /// item design (squircle, accent selection, density heights) with the icon at a fixed place: centred
 /// in the icon rail, and where it stays when the labels show, so nothing moves as the sidebar
 /// collapses. The overlay is drawn on glass.
@@ -25,6 +27,14 @@ internal static class SidebarTheme
 {
     public const string OverlaySurfacePart = "PART_OverlaySurface";
     public const string IconPart = "PART_Icon";
+    public const string FooterPart = "PART_Footer";
+
+    /// <summary>The string resource naming the footer list for assistive technology, and its English default.</summary>
+    public const string FooterTextKey = "SidebarFooterText";
+    public const string FooterText = "Sidebar footer";
+
+    /// <summary>The gap between the list and the footer (<c>SpacingS</c>).</summary>
+    public const double FooterGap = Spacing.S;
 
     /// <summary>The gap from the window's left edge to the sidebar (<c>SpacingS</c>, 0022).</summary>
     public const double EdgeGap = Spacing.S;
@@ -124,15 +134,49 @@ internal static class SidebarTheme
         },
     };
 
-    // The list template shared with ListBox, EdgeGap in from the window's edge; the glass behind it
-    // shows only for the overlay.
+    /// <summary>The footer: the sidebar's rows in a plain stack, with the sidebar's padding and no scrolling.</summary>
+    public static ControlTheme Footer() => new(typeof(SidebarFooter))
+    {
+        Setters =
+        {
+            new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent),
+            new Setter(Control.FocusAdornerProperty, null),
+            new Setter(ItemsControl.ItemsPanelProperty, new FuncTemplate<Panel?>(() => new StackPanel())),
+            new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<SidebarFooter>(BuildFooter)),
+        },
+    };
+
+    // The list template shared with ListBox, EdgeGap in from the window's edge, with the footer
+    // pinned below it; the glass behind them shows only for the overlay.
     private static Control BuildSidebar(Sidebar sidebar, INameScope scope)
     {
         var list = ListItemTheme.BuildList(sidebar, scope);
-        list.Margin = new Thickness(EdgeGap, 0, 0, 0);
+        var footer = sidebar.Footer;
+        // A re-applied template (a new theme, or the sidebar moved to another window) takes the
+        // sidebar's one footer from the previous template, which may keep it as a visual child
+        // after its logical link is gone.
+        if ((footer.Parent ?? footer.GetVisualParent()) is Panel previous)
+            previous.Children.Remove(footer);
+        footer.Name = FooterPart;
+        footer.Bind(TemplatedControl.PaddingProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
+        footer.Bind(AutomationProperties.NameProperty, new DynamicResourceExtension(FooterTextKey));
+        // A gap above the footer, so the list's scroll-edge shadow fades out before the footer starts.
+        footer.Margin = new Thickness(0, FooterGap, 0, 0);
+        // The footer after the list, in the list's one Tab stop: the arrows run on into it.
+        Grid.SetRow(footer, 1);
+        var column = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Margin = new Thickness(EdgeGap, 0, 0, 0), Children = { list, footer } };
         var surface = new GlassBorder { Name = OverlaySurfacePart, Margin = new Thickness(EdgeGap, 0, 0, 0), IsVisible = false };
         surface.RegisterInNameScope(scope);
-        return new Panel { Children = { surface, list } };
+        return new Panel { Children = { surface, column } };
+    }
+
+    private static Control BuildFooter(SidebarFooter footer, INameScope scope)
+    {
+        var items = new ItemsPresenter { Name = "PART_ItemsPresenter" };
+        items.Bind(ItemsPresenter.ItemsPanelProperty, new TemplateBinding(ItemsControl.ItemsPanelProperty));
+        items.Bind(Layoutable.MarginProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
+        items.RegisterInNameScope(scope);
+        return items;
     }
 
     // The icon takes the label's colour, so it follows every row state (selected: white).

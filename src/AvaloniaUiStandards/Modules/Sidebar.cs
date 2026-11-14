@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -27,6 +28,8 @@ public enum SidebarStage
 /// The navigation sidebar: a list of <see cref="SidebarItem"/> rows (icon and label) with
 /// optional <see cref="SidebarHeader"/> section headers, for <c>StandardsWindow.Sidebar</c>.
 /// It is a <see cref="ListBox"/>, so selection and keyboard navigation are the ListBox's.
+/// Optional <see cref="FooterItems"/> are pinned below the list, out of its scrolling, with the
+/// same rows and stages; one selection spans the list and the footer.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -64,6 +67,10 @@ public class Sidebar : ListBox
     public static readonly DirectProperty<Sidebar, SidebarStage> StageProperty =
         AvaloniaProperty.RegisterDirect<Sidebar, SidebarStage>(nameof(Stage), s => s.Stage);
 
+    public static readonly DirectProperty<Sidebar, int> SelectedFooterIndexProperty =
+        AvaloniaProperty.RegisterDirect<Sidebar, int>(nameof(SelectedFooterIndex), s => s.SelectedFooterIndex,
+            (s, v) => s.SelectedFooterIndex = v, unsetValue: -1);
+
     public static readonly DirectProperty<Sidebar, bool> IsOverlayOpenProperty =
         AvaloniaProperty.RegisterDirect<Sidebar, bool>(nameof(IsOverlayOpen), s => s.IsOverlayOpen);
 
@@ -96,6 +103,10 @@ public class Sidebar : ListBox
     private Control? _scroller;
     private double _paneTarget = SidebarTheme.EdgeGap + SidebarTheme.ExpandedWidth;
     private Control? _focusBeforeOpen;
+    private readonly SidebarFooter _footer = new();
+    private int _selectedFooterIndex = -1;
+    private bool _syncingSelection;
+    private bool _raisingCombined;
 
     static Sidebar()
     {
@@ -106,8 +117,32 @@ public class Sidebar : ListBox
     {
         AddHandler(PointerReleasedEvent, OnRowReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnRowKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(SelectionChangedEvent, OnListSelectionChanged, RoutingStrategies.Bubble);
+        _footer.ItemsSource = FooterItems;
+        _footer.SelectionChanged += OnFooterSelectionChanged;
+        FooterItems.CollectionChanged += (_, _) => UpdateParts();
         UpdateStates();
     }
+
+    /// <summary>
+    /// Rows pinned at the bottom of the sidebar, below the list and out of its scrolling (for
+    /// example Settings): <see cref="SidebarItem"/>s or items wrapped in them, as the list's are.
+    /// They have the list's row design and stages and share its selection: selecting a footer row
+    /// clears <see cref="SelectingItemsControl.SelectedIndex"/>, and selecting a list row clears
+    /// <see cref="SelectedFooterIndex"/>. <see cref="SelectingItemsControl.SelectionChanged"/> is
+    /// raised once for a change in either.
+    /// </summary>
+    public AvaloniaList<object> FooterItems { get; } = [];
+
+    /// <summary>The selected footer row's index in <see cref="FooterItems"/>, or -1.</summary>
+    public int SelectedFooterIndex
+    {
+        get => _selectedFooterIndex;
+        set => _footer.SelectedIndex = value;
+    }
+
+    // The footer list, placed by the template.
+    internal SidebarFooter Footer => _footer;
 
     /// <summary>The window width at and above which the sidebar is expanded (default 1008).</summary>
     public double ExpandedThreshold
@@ -218,6 +253,32 @@ public class Sidebar : ListBox
             UpdateParts();
     }
 
+    // The arrows run on from the list's last row into the footer and back up from its first row;
+    // keys from the footer are the footer's own, not moved through the list.
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        var inFooter = e.Source is Visual source && (source == _footer || _footer.IsVisualAncestorOf(source));
+        if (!inFooter)
+            base.OnKeyDown(e);
+        if (e.Handled || e.KeyModifiers != KeyModifiers.None || !_footer.IsEffectivelyVisible)
+            return;
+
+        var rows = Items.OfType<object>().Where(i => i is not SidebarHeader).ToList();
+        var focused = (e.Source as Visual)?.FindAncestorOfType<SidebarItem>(includeSelf: true);
+        if (!inFooter && e.Key == Key.Down && rows.Count > 0 && focused is not null && ContainerFromItem(rows[^1]) == focused)
+        {
+            _footer.SelectedIndex = 0;
+            (_footer.ContainerFromIndex(0) as SidebarItem)?.Focus(NavigationMethod.Directional);
+            e.Handled = true;
+        }
+        else if (inFooter && e.Key == Key.Up && rows.Count > 0 && focused is not null && _footer.IndexFromContainer(focused) == 0)
+        {
+            SelectedItem = rows[^1];
+            (ContainerFromItem(rows[^1]) as SidebarItem)?.Focus(NavigationMethod.Directional);
+            e.Handled = true;
+        }
+    }
+
     // Choosing a row with the keyboard closes the overlay, as a click does (the row may have handled the key).
     private void OnRowKeyDown(object? sender, KeyEventArgs e)
     {
@@ -319,6 +380,18 @@ public class Sidebar : ListBox
     // may never have been, while the sidebar was hidden).
     private void FocusFirstRow()
     {
+        if (_selectedFooterIndex >= 0)
+        {
+            if (_footer.ContainerFromIndex(_selectedFooterIndex) is SidebarItem footerRow)
+                footerRow.Focus();
+            else
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (IsOverlayOpen && _footer.ContainerFromIndex(_selectedFooterIndex) is SidebarItem late)
+                        late.Focus();
+                }, DispatcherPriority.Loaded);
+            return;
+        }
         var index = SelectedIndex >= 0 ? SelectedIndex : Items.IndexOf(Items.FirstOrDefault(i => i is not SidebarHeader));
         if (index < 0)
             return;
@@ -376,8 +449,62 @@ public class Sidebar : ListBox
         var pane = GetValue(PaneWidthProperty);
         if (_surface is not null)
             _surface.IsVisible = pane > GetValue(LayoutWidthProperty) + 0.5;
+        var rows = Math.Max(pane, _paneTarget) > SidebarTheme.EdgeGap + 0.5;
         if (_scroller is not null)
-            _scroller.IsVisible = Math.Max(pane, _paneTarget) > SidebarTheme.EdgeGap + 0.5;
+            _scroller.IsVisible = rows;
+        _footer.IsVisible = rows && FooterItems.Count > 0;
+    }
+
+    // A footer selection clears the list's, and is raised as the sidebar's one SelectionChanged,
+    // with the list's cleared row among the removed items. The selected footer row becomes the
+    // sidebar's Tab target, as a selected list row is.
+    private void OnFooterSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        e.Handled = true;
+        if (_syncingSelection)
+            return;
+        SetAndRaise(SelectedFooterIndexProperty, ref _selectedFooterIndex, _footer.SelectedIndex);
+        var removed = e.RemovedItems.Cast<object>().ToList();
+        if (_selectedFooterIndex >= 0 && SelectedIndex >= 0)
+        {
+            removed.AddRange(SelectedItems?.Cast<object>() ?? []);
+            _syncingSelection = true;
+            SelectedIndex = -1;
+            _syncingSelection = false;
+        }
+        if (_footer.ContainerFromIndex(_selectedFooterIndex) is { } row)
+            KeyboardNavigation.SetTabOnceActiveElement(this, row);
+        RaiseEvent(new SelectionChangedEventArgs(SelectionChangedEvent, removed, e.AddedItems) { Source = _footer });
+    }
+
+    // A list selection clears the footer's, raised as one SelectionChanged with the footer's
+    // cleared row among the removed items. The list's own change while a footer row is being
+    // selected is not raised, so each change raises SelectionChanged once.
+    private void OnListSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.Source != this || _raisingCombined)
+            return;
+        if (_syncingSelection)
+        {
+            e.Handled = true;
+            return;
+        }
+        if (SelectedIndex >= 0 && _selectedFooterIndex >= 0)
+        {
+            var footerRow = _footer.SelectedItem;
+            _syncingSelection = true;
+            _footer.SelectedIndex = -1;
+            _syncingSelection = false;
+            SetAndRaise(SelectedFooterIndexProperty, ref _selectedFooterIndex, -1);
+
+            e.Handled = true;
+            var removed = e.RemovedItems.Cast<object>().ToList();
+            if (footerRow is not null)
+                removed.Add(footerRow);
+            _raisingCombined = true;
+            RaiseEvent(new SelectionChangedEventArgs(SelectionChangedEvent, removed, e.AddedItems));
+            _raisingCombined = false;
+        }
     }
 
     private void OnRowReleased(object? sender, PointerReleasedEventArgs e)
@@ -405,6 +532,21 @@ public class Sidebar : ListBox
         SetOverlay(false, restoreFocus: true, focusMethod: NavigationMethod.Tab);
         e.Handled = true;
     }
+}
+
+/// <summary>
+/// The rows pinned below a <see cref="Sidebar"/>'s list (<see cref="Sidebar.FooterItems"/>): a
+/// list of the same <see cref="SidebarItem"/> rows, not scrolled. The sidebar owns it and keeps
+/// one selection across both.
+/// </summary>
+internal sealed class SidebarFooter : ListBox
+{
+    protected override Type StyleKeyOverride => typeof(SidebarFooter);
+
+    protected override bool NeedsContainerOverride(object? item, int index, out object? recycleKey) =>
+        NeedsContainer<SidebarItem>(item, out recycleKey);
+
+    protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) => new SidebarItem();
 }
 
 /// <summary>

@@ -51,7 +51,7 @@ public class CatalogRenderTests
                 window.SetRenderScaling(Sheet.Scale);
                 window.Show();
                 window.Activate();
-                window.PageList.SelectedIndex = i;
+                window.SelectPage(i);
                 Settle(window);
 
                 problems.AddRange(Check(ContentScroller(window)).Concat(CheckToolbar(window)).Select(p => $"{name}: {p}"));

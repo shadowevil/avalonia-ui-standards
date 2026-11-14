@@ -16,6 +16,8 @@ internal static class ModulesThemes
         resources[typeof(Sidebar)] = SidebarTheme.Create();
         resources[typeof(SidebarItem)] = SidebarTheme.Item();
         resources[typeof(SidebarHeader)] = SidebarTheme.Header();
+        resources[typeof(SidebarFooter)] = SidebarTheme.Footer();
+        resources[SidebarTheme.FooterTextKey] = SidebarTheme.FooterText;
         resources[typeof(ToolbarBand)] = ToolbarBandTheme.Create();
     }
 

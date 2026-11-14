@@ -8,10 +8,13 @@ namespace Catalog;
 /// <summary>A page in the sidebar: its title, its sidebar icon (from <see cref="Icons"/>) and how to create it.</summary>
 internal sealed record PageInfo(string Title, Geometry Icon, Func<Control> Create);
 
-/// <summary>The sidebar pages, in order. Adding a page is one line here and one class in Pages/.</summary>
+/// <summary>
+/// The sidebar pages, in order: <see cref="List"/> in the sidebar's list and <see cref="Footer"/> pinned below it. Adding a
+/// page is one line here and one class in Pages/.
+/// </summary>
 internal static class CatalogPages
 {
-    public static readonly IReadOnlyList<PageInfo> All =
+    public static readonly IReadOnlyList<PageInfo> List =
     [
         new("Colours", Icons.Palette, () => new ColoursPage()),
         new("Type", Icons.TextAa, () => new TypePage()),
@@ -41,4 +44,12 @@ internal static class CatalogPages
         new("ColorPicker", Icons.Eyedropper, () => new ColorPickerPage()),
         new("Toolbar band", Icons.AppWindow, () => new ToolbarBandPage()),
     ];
+
+    public static readonly IReadOnlyList<PageInfo> Footer =
+    [
+        new("Settings", Icons.Gear, () => new SettingsPage()),
+    ];
+
+    /// <summary>Every page: the list's, then the footer's.</summary>
+    public static readonly IReadOnlyList<PageInfo> All = [.. List, .. Footer];
 }
