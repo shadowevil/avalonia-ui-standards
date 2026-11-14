@@ -705,7 +705,7 @@ public class ToolbarBandTests
             Width = 700, Height = 400, ToolbarBand = band, Content = new TextBlock { Text = "Content" },
             WindowButtonStyle = WindowButtonStyle.CaptionButtons,
         };
-        window.ToolbarBandDragsWindow = macOS;
+        window.LayoutMode = macOS ? WindowLayoutMode.MacOS : WindowLayoutMode.Windows;
         window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced));
         try
         {

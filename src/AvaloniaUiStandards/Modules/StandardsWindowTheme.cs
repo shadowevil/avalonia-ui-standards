@@ -18,7 +18,7 @@ namespace AvaloniaUiStandards.Modules;
 
 /// <summary>
 /// The StandardsWindow theme and the shell's values: the frame (wash, border, shadow), the
-/// title band, the toolbar band slot, the sidebar slot, the glass content panel (a scroll area), the status bar, the
+/// title band, the menu row, the toolbar band slot, the sidebar slot, the glass content panel (a scroll area), the status bar, the
 /// backdrop slot and the resize grips.
 /// </summary>
 internal static class StandardsWindowTheme
@@ -29,6 +29,7 @@ internal static class StandardsWindowTheme
     public const string TitlePart = "PART_Title";
     public const string ToolbarPart = "PART_Toolbar";
     public const string ToolbarBandPart = "PART_ToolbarBand";
+    public const string MenuRowPart = "PART_MenuRow";
     public const string WindowButtonsPart = "PART_WindowButtons";
     public const string SidebarPart = "PART_Sidebar";
     public const string SidebarTogglePart = "PART_SidebarToggle";
@@ -54,10 +55,15 @@ internal static class StandardsWindowTheme
     public static readonly (double TitleBand, double StatusBar) Normal = (48, 32);
     public static readonly (double TitleBand, double StatusBar) Compact = (40, 24);
 
+    /// <summary>Menu row height: the menu titles' (Button's) height, 32 (Normal) and 24 (Compact).</summary>
+    public const double MenuRowNormal = 32;
+    public const double MenuRowCompact = 24;
+
     // Shadow colour per theme, and the density heights, under non-public keys.
     internal static readonly object ShadowColorKey = new();
     internal static readonly object TitleBandHeightKey = new();
     internal static readonly object StatusBarHeightKey = new();
+    internal static readonly object MenuRowHeightKey = new();
 
     internal static readonly Color ShadowLight = Color.Parse("#40000000");
     internal static readonly Color ShadowDark = Color.Parse("#80000000");
@@ -73,6 +79,7 @@ internal static class StandardsWindowTheme
         var sizes = compact ? Compact : Normal;
         resources[TitleBandHeightKey] = sizes.TitleBand;
         resources[StatusBarHeightKey] = sizes.StatusBar;
+        resources[MenuRowHeightKey] = compact ? MenuRowCompact : MenuRowNormal;
     }
 
     public static ControlTheme Create(ControlTheme? windowBase) => new(typeof(StandardsWindow))
@@ -172,8 +179,8 @@ internal static class StandardsWindowTheme
         }
 
         // Title band.
+        // The window sets the buttons' style: its WindowButtonStyle, or by layout mode when Auto.
         var buttons = Named(new WindowButtons(), WindowButtonsPart);
-        buttons.Bind(WindowButtons.ButtonStyleProperty, new TemplateBinding(StandardsWindow.WindowButtonStyleProperty));
         var title = Named(new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis }, TitlePart);
         title.Bind(TextBlock.TextProperty, new TemplateBinding(Window.TitleProperty));
         title.Bind(TextBlock.FontWeightProperty, new DynamicResourceExtension("FontWeightBodyStrong"));
@@ -193,6 +200,14 @@ internal static class StandardsWindowTheme
         WindowDecorationProperties.SetElementRole(titleBand, WindowDecorationsElementRole.TitleBar);
         titleBand.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(TitleBandHeightKey));
         DockPanel.SetDock(titleBand, Dock.Top);
+
+        // The menu row below it, in the Windows layout of a window with a menu (the window places its
+        // menu bar in it): on the window background, part of the title bar (its empty area drags the
+        // window), with the menu titles as interactive elements.
+        var menuRow = Named(new Panel { Background = Brushes.Transparent, IsVisible = false }, MenuRowPart);
+        WindowDecorationProperties.SetElementRole(menuRow, WindowDecorationsElementRole.TitleBar);
+        menuRow.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(MenuRowHeightKey));
+        DockPanel.SetDock(menuRow, Dock.Top);
 
         // The toolbar band below it, on the window background; the presenter takes presses on the
         // band's empty area (the window decides whether they drag).
@@ -235,7 +250,7 @@ internal static class StandardsWindowTheme
         var backdrop = Named(Slot(StandardsWindow.BackdropProperty), BackdropPart);
         var frame = Named(new SquircleBorder
         {
-            Child = new Panel { Children = { backdrop, new DockPanel { Children = { titleBand, toolbarBand, statusBar, sidebar, panel } } } },
+            Child = new Panel { Children = { backdrop, new DockPanel { Children = { titleBand, menuRow, toolbarBand, statusBar, sidebar, panel } } } },
         }, FramePart);
         frame.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
         frame.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlForegroundBaseLowBrush"));
