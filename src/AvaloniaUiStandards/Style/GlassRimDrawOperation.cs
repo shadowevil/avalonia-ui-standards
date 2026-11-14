@@ -85,8 +85,11 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     /// <summary>How far outward, in px, the rim samples the backdrop.</summary>
     internal const double SampleOffset = 1.5;
 
-    /// <summary>The widest strip row, in texels; longer edges wrap onto further rows.</summary>
-    internal const int MaxStripRow = 16384;
+    /// <summary>
+    /// The widest strip row, in texels (within the 4096 texture size every GPU supports); longer
+    /// edges wrap onto further rows.
+    /// </summary>
+    internal const int MaxStripRow = 4096;
 
     // The rim's colour from the spread colour c, e = 1 - ExcessScale · excess, the depth d in px
     // and the light bias (times the edge's coverage): premultiplied. Shared by both methods.
@@ -138,8 +141,8 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         }
         """;
 
-    /// <summary>The compiled effects, or null when Skia runtime effects are not available.</summary>
-    internal static SKRuntimeEffect? Effect => GlassRimFilter.Available && GlassRimStrip.Available ? GlassRimFilter.Blender : null;
+    /// <summary>Whether the rim can be drawn: false when Skia runtime effects are not available.</summary>
+    internal static bool Available => GlassRimFilter.Available;
 
     internal readonly record struct Parameters(
         Rect Rect, CornerRadius CornerRadius, double Smoothing, double Absorption, double Lighten, double Boost,
@@ -158,6 +161,9 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     private GlassRimFilter? _filter;
     private double _deviceScale;
 
+    // Set once the strip could not be drawn (its surfaces not allocated): later frames take the filter rim.
+    private bool _stripFailed;
+
     public GlassRimDrawOperation(Parameters parameters) => _p = parameters;
 
     public Rect Bounds => _p.Rect;
@@ -169,9 +175,6 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
     public override bool Equals(object? obj) => obj is ICustomDrawOperation o && Equals(o);
 
     public override int GetHashCode() => _p.GetHashCode();
-
-    /// <summary>Which method drew the last frame (for tests).</summary>
-    internal RimMethod LastMethod { get; private set; }
 
     public void Render(ImmediateDrawingContext context)
     {
@@ -193,20 +196,19 @@ internal sealed class GlassRimDrawOperation : ICustomDrawOperation
         }
         var opacity = Math.Clamp(lease.CurrentOpacity, 0, 1);
 
-        if (_p.Method != RimMethod.Filter && lease.SkSurface is { } surface)
+        if (_p.Method != RimMethod.Filter && !_stripFailed && lease.SkSurface is { } surface)
         {
             _strip ??= GlassRimStrip.Create(_p, deviceScale);
             if (_strip is not null && _strip.Draw(canvas, surface, lease.GrContext, opacity))
-            {
-                LastMethod = RimMethod.Strip;
                 return;
-            }
+            _stripFailed = true;
+            _strip?.Dispose();
+            _strip = null;
         }
         if (_p.Method == RimMethod.Strip)
             return;
         _filter ??= GlassRimFilter.Create(_p, deviceScale);
         _filter?.Draw(canvas, opacity);
-        LastMethod = RimMethod.Filter;
     }
 
     public void Dispose() => DisposeMethods();

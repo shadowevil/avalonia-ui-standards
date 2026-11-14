@@ -15,7 +15,9 @@ public static class AppBuilderExtensions
     /// <summary>
     /// Registers what <see cref="StandardsTheme"/> needs: the bundled Inter font, and Skia's GPU
     /// resource budget of <see cref="GpuResourceBudget"/>. An app sets its own budget, or other
-    /// Skia options, with <c>.With(new SkiaOptions { ... })</c> after this call.
+    /// Skia options, with <c>.With(new SkiaOptions { ... })</c> after this call. That replaces the
+    /// whole <see cref="SkiaOptions"/>, so to keep the budget it includes
+    /// <c>MaxGpuResourceSizeBytes = AppBuilderExtensions.GpuResourceBudget</c>.
     /// </summary>
     public static AppBuilder UseUiStandards(this AppBuilder builder) =>
         builder.WithInterFont().With(new SkiaOptions { MaxGpuResourceSizeBytes = GpuResourceBudget });

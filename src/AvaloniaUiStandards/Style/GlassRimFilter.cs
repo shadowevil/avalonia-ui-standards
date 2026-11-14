@@ -64,8 +64,6 @@ internal sealed class GlassRimFilter : IDisposable
 
     internal static bool Available => LazyGeometry.Value is not null && LazyBlender.Value is not null;
 
-    internal static SKRuntimeEffect? Blender => LazyBlender.Value;
-
     private readonly GlassRimDrawOperation.Parameters _p;
     private readonly double _scale;
     private readonly SKPath _ring;

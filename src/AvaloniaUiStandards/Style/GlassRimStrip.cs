@@ -15,9 +15,11 @@ namespace AvaloniaUiStandards.Style;
 /// </list>
 /// The strip follows the rounded-rectangle perimeter (each corner's radius) from the top-left
 /// corner's arc, clockwise; strips longer than a row wrap onto further rows. It needs the surface
-/// as drawn so far (<c>SkSurface</c>), so it is not used inside effect or opacity-mask layers.
-/// When the clip (the region Avalonia redraws) holds no band pixel, nothing is drawn; when it holds
-/// no point the strip samples, the strip from the last frame is reused.
+/// as drawn so far (<c>SkSurface</c>), so it is not used inside effect, opacity-mask or opacity layers.
+/// When the clip (the region Avalonia redraws) holds no point the strip samples, the strip from the
+/// last frame is reused; when it holds some, only those are read again (outside the clip the
+/// surface holds the last frame, with whatever was drawn above the glass), except on the first
+/// build. When it holds no band pixel, nothing is drawn.
 /// </summary>
 internal sealed class GlassRimStrip : IDisposable
 {
@@ -58,15 +60,19 @@ internal sealed class GlassRimStrip : IDisposable
         """;
 
     // 1: the backdrop outside the edge, from the side's copy: top (with its arcs), right, bottom
-    // (with its arcs), left.
+    // (with its arcs), left. With partial set, only the points inside clipRect (the shape's
+    // coordinates) are read; the others keep their texel from the previous samples.
     private const string SampleMain = """
         uniform float2 shapeSize;
         uniform shader top;
         uniform shader right;
         uniform shader bottom;
         uniform shader left;
+        uniform shader previous;
         uniform float texelLength;
         uniform float sampleOffset;
+        uniform float partial;
+        uniform float4 clipRect;
 
         half4 main(float2 coord) {
             float i = indexAt(coord);
@@ -74,6 +80,10 @@ internal sealed class GlassRimStrip : IDisposable
             float s = (i + 0.5) * texelLength;
             float4 e = edgeAt(s, shapeSize);
             float2 p = e.xy + e.zw * sampleOffset;
+            // A partial redraw: outside the clip the surface holds the last frame (with whatever was
+            // drawn above the glass), so the point keeps its earlier sample.
+            if (partial > 0.5 && (p.x < clipRect.x || p.y < clipRect.y || p.x >= clipRect.z || p.y >= clipRect.w))
+                return previous.eval(coord);
             half3 c = s < offA.z ? top.eval(p).rgb : s < offA.w ? right.eval(p).rgb : s < offB.z ? bottom.eval(p).rgb : left.eval(p).rgb;
             return half4(c, 1.0);
         }
@@ -265,18 +275,25 @@ internal sealed class GlassRimStrip : IDisposable
             return true;
         var rect = _p.Rect;
         var clip = canvas.LocalClipBounds;
-        if (!_band.Any(b => b.IntersectsWith(clip)))
-            return true;
         var maxRadius = _radii.Max();
         var outer = SKRect.Inflate(GlassRimDrawOperation.ToSkRect(rect), 3, 3);
         var inner = SKRect.Inflate(GlassRimDrawOperation.ToSkRect(rect), -(maxRadius + 3), -(maxRadius + 3));
         var samplesInClip = outer.IntersectsWith(clip) && !inner.Contains(clip);
-        if (!_valid || samplesInClip)
+        var bandInClip = _band.Any(b => b.IntersectsWith(clip));
+        // A redraw holding sample points but no band pixel still updates the strip, so a later
+        // redraw that reuses it reads them as they are now.
+        if (bandInClip ? !_valid || samplesInClip : _valid && samplesInClip)
         {
-            if (!BuildStrip(surface, gr, m, inverse))
+            // The clip in the shape's coordinates, from the device pixels it covers.
+            var deviceClip = canvas.DeviceClipBounds;
+            var clipRect = inverse.MapRect(new SKRect(deviceClip.Left, deviceClip.Top, deviceClip.Right, deviceClip.Bottom));
+            clipRect.Offset(-(float)rect.X, -(float)rect.Y);
+            if (!BuildStrip(surface, gr, m, inverse, _valid, clipRect))
                 return false;
             _valid = true;
         }
+        if (!bandInClip)
+            return true;
 
         using var stripImage = _strip!.Snapshot();
         using var stripShader = stripImage.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Nearest);
@@ -290,8 +307,15 @@ internal sealed class GlassRimStrip : IDisposable
 
     private static readonly SKSamplingOptions Nearest = new(SKFilterMode.Nearest);
 
-    private bool BuildStrip(SKSurface surface, GRContext? gr, SKMatrix m, SKMatrix inverse)
+    // Reads the samples (with partial, only the points inside clipRect) and runs the passes.
+    private bool BuildStrip(SKSurface surface, GRContext? gr, SKMatrix m, SKMatrix inverse, bool partial, SKRect clipRect)
     {
+        _samples ??= NewSurface(surface, gr, _rows);
+        _extremesSurface ??= NewSurface(surface, gr, 2 * _rows);
+        _strip ??= NewSurface(surface, gr, _rows);
+        if (_samples is null || _extremesSurface is null || _strip is null)
+            return false;
+
         float w = (float)_p.Rect.Width, h = (float)_p.Rect.Height;
         float r0 = _radii[0], r1 = _radii[1], r2 = _radii[2], r3 = _radii[3];
         // Thin copies along the sides, covering the points 1.5 px outside the edge.
@@ -329,11 +353,15 @@ internal sealed class GlassRimStrip : IDisposable
                 children[names[i]] = shader;
             }
 
-            _samples ??= NewSurface(surface, gr, _rows);
-            _extremesSurface ??= NewSurface(surface, gr, 2 * _rows);
-            _strip ??= NewSurface(surface, gr, _rows);
-            if (_samples is null || _extremesSurface is null || _strip is null)
-                return false;
+            // The samples drawn so far, kept outside the clip (read from a copy of their surface).
+            var previous = partial ? _samples.Snapshot() : null;
+            var previousShader = previous?.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Nearest) ?? SKShader.CreateColor(SKColors.Black);
+            if (previous is not null)
+                owned.Add(previous);
+            owned.Add(previousShader);
+            children["previous"] = previousShader;
+            _uSample["partial"] = partial ? 1f : 0f;
+            _uSample["clipRect"] = new[] { clipRect.Left, clipRect.Top, clipRect.Right, clipRect.Bottom };
 
             Pass(_samples, _sample, _uSample, children, _rows);
             using (var samples = _samples.Snapshot())

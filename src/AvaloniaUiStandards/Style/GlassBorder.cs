@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
+using System.Reflection;
 
 namespace AvaloniaUiStandards.Style;
 
@@ -144,10 +145,19 @@ public class GlassBorder : Decorator
             RimAbsorptionProperty, RimLightenProperty, RimBoostProperty, RimSpreadProperty, RimSpreadWhiteProperty, RimGlowProperty, RimMethodProperty, RimStripRowProperty, BackdropScaleProperty, SmoothingProperty, ReduceTransparencyProperty, QualityProperty);
         AffectsArrange<GlassBorder>(CornerRadiusProperty, SmoothingProperty);
         ChildProperty.Changed.AddClassHandler<GlassBorder>((b, _) => b._borderOverlay.MoveToTop(b.VisualChildren));
-        // An effect or opacity mask draws its visual into a layer, where the rim strip cannot read
-        // the surface: the glass inside redraws its rim, choosing again.
-        EffectProperty.Changed.AddClassHandler<Visual>((v, _) => InvalidateRims(v));
-        OpacityMaskProperty.Changed.AddClassHandler<Visual>((v, _) => InvalidateRims(v));
+        // An effect or opacity mask (and, with SkiaOptions.UseOpacitySaveLayer, an opacity below 1)
+        // draws its visual into a layer, where the rim strip cannot read the surface: the glass
+        // inside redraws its rim, choosing again.
+        EffectProperty.Changed.AddClassHandler<Visual>((v, e) => InvalidateRimsIf(v, (e.OldValue is null) != (e.NewValue is null)));
+        OpacityMaskProperty.Changed.AddClassHandler<Visual>((v, e) => InvalidateRimsIf(v, (e.OldValue is null) != (e.NewValue is null)));
+        OpacityProperty.Changed.AddClassHandler<Visual>((v, e) => InvalidateRimsIf(v,
+            OpacityLayers && (e.OldValue is double o && o < 1) != (e.NewValue is double n && n < 1)));
+    }
+
+    private static void InvalidateRimsIf(Visual v, bool changed)
+    {
+        if (changed)
+            InvalidateRims(v);
     }
 
     private static void InvalidateRims(Visual v)
@@ -158,9 +168,31 @@ public class GlassBorder : Decorator
 
     /// <summary>
     /// Whether the rim reads the surface as drawn so far (the edge strip): not when the glass or an
-    /// ancestor has an effect or an opacity mask, which draw into a layer the surface does not hold.
+    /// ancestor has an effect or an opacity mask, or, when <see cref="OpacityLayers"/>, an opacity
+    /// below 1. Those draw into a layer the surface does not hold.
     /// </summary>
-    internal bool RimReadsSurface => !this.GetSelfAndVisualAncestors().Any(v => v.Effect is not null || v.OpacityMask is not null);
+    internal bool RimReadsSurface => !this.GetSelfAndVisualAncestors().Any(v =>
+        v.Effect is not null || v.OpacityMask is not null || (OpacityLayers && v.Opacity < 1));
+
+    private static bool? _opacityLayers;
+
+    /// <summary>
+    /// Whether an opacity below 1 draws into a layer (<c>SkiaOptions.UseOpacitySaveLayer</c>), read
+    /// once from the app's Skia options; settable so tests can draw that case.
+    /// </summary>
+    internal static bool OpacityLayers
+    {
+        get => _opacityLayers ??= ReadSkiaOptions()?.UseOpacitySaveLayer ?? false;
+        set => _opacityLayers = value;
+    }
+
+    // Avalonia's service locator, where AppBuilder.With puts the SkiaOptions, is left out of its
+    // reference assemblies, so it is read by reflection.
+    private static SkiaOptions? ReadSkiaOptions()
+    {
+        var locator = typeof(AvaloniaLocator).GetProperty("Current", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(null);
+        return locator?.GetType().GetMethod("GetService", [typeof(Type)])?.Invoke(locator, [typeof(SkiaOptions)]) as SkiaOptions;
+    }
 
     public GlassBorder()
     {
@@ -262,7 +294,6 @@ public class GlassBorder : Decorator
         if (change.Property == ReduceTransparencyProperty || change.Property == QualityProperty)
         {
             UpdateNestedGlass();
-            UpdateInnerGlass();
         }
     }
 
@@ -374,7 +405,7 @@ public class GlassBorder : Decorator
     {
         var size = Bounds.Size;
         UpdateShape(size);
-        if (!IsSolid && GlassRimDrawOperation.Effect is not null)
+        if (!IsSolid && GlassRimDrawOperation.Available)
         {
             if (RimAbsorption > 0)
                 context.Custom(new GlassRimDrawOperation(new GlassRimDrawOperation.Parameters(
