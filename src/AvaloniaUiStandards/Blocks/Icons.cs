@@ -7,7 +7,8 @@ namespace AvaloniaUiStandards.Blocks;
 /// that the library's Blocks and its catalog need, one geometry per icon, for <see cref="Icon"/>'s
 /// <c>Data</c>. Each is the icon's SVG path data, verbatim, in its 256 x 256 design box, prefixed
 /// with <c>F1</c> for SVG's nonzero fill rule. The library's own icons (the <c>Motion</c> ones) are
-/// stored the same way, as the fill outlines of their 16-wide strokes. Each geometry is parsed on first use and shared; icons are read on the UI thread.
+/// stored the same way, as the fill outlines of their 16-wide strokes. Each geometry is parsed on
+/// first use and shared; icons are read on the UI thread.
 /// </summary>
 public static class Icons
 {
