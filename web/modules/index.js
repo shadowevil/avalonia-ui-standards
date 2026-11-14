@@ -1,1 +1,2 @@
 // Modules tier: Blocks composed into working units.
+import "./shell.js";

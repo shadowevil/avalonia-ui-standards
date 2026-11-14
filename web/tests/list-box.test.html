@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>ListBox tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/list-box.css">
+<style>ui-list-box { width: 200px; }</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<form id="form">
+  <ui-list-box id="single" class="ui-squircle" name="tree" aria-label="Trees">
+    <div class="ui-list-item ui-squircle ui-focus-ring" data-value="a">Aurora</div>
+    <div class="ui-list-item ui-squircle ui-focus-ring" data-value="b" aria-selected="true">Basalt</div>
+    <div class="ui-list-item ui-squircle ui-focus-ring" data-value="c" aria-disabled="true">Cedar</div>
+    <div class="ui-list-item ui-squircle ui-focus-ring" data-value="d">Dune</div>
+    <div class="ui-list-item ui-squircle ui-focus-ring" data-value="e">Ember</div>
+  </ui-list-box>
+  <ui-list-box id="multiple" class="ui-squircle" multiple name="many" aria-label="Many">
+    <div class="ui-list-item ui-squircle ui-focus-ring">Aurora</div>
+    <div class="ui-list-item ui-squircle ui-focus-ring">Basalt</div>
+    <div class="ui-list-item ui-squircle ui-focus-ring">Cedar</div>
+    <div class="ui-list-item ui-squircle ui-focus-ring">Dune</div>
+  </ui-list-box>
+</form>
+<nav aria-label="Milestones">
+  <ui-list-box id="nav" class="ui-squircle" navigation>
+    <ul>
+      <li><a class="ui-list-item ui-squircle ui-focus-ring" href="#m1">M1</a></li>
+      <li><a class="ui-list-item ui-squircle ui-focus-ring" href="#m2" aria-current="page">M2</a></li>
+      <li><button type="button" class="ui-list-item ui-squircle ui-focus-ring">M3</button></li>
+      <li><button type="button" class="ui-list-item ui-squircle ui-focus-ring" disabled>M4</button></li>
+    </ul>
+  </ui-list-box>
+</nav>
+<ui-list-box id="flagged" class="ui-squircle" accent-flag aria-label="Flagged">
+  <div class="ui-list-item ui-squircle ui-focus-ring" aria-selected="true">One</div>
+  <div class="ui-list-item ui-squircle ui-focus-ring" aria-selected="true" data-accent-flag="false">Two</div>
+  <div class="ui-list-item ui-squircle ui-focus-ring" aria-selected="true" aria-disabled="true">Three</div>
+  <div class="ui-list-item ui-squircle ui-focus-ring">Four</div>
+</ui-list-box>
+<ui-list-box id="states" class="ui-squircle" aria-label="States">
+  <div class="ui-list-item ui-squircle ui-focus-ring">Rest</div>
+  <div class="ui-list-item ui-squircle ui-focus-ring" data-flag-on-item aria-selected="true" data-accent-flag="true">Flag on the item</div>
+</ui-list-box>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity, setAccent } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/list-box.js";
+
+const $ = (id) => document.getElementById(id);
+const items = (id) => [...$(id).querySelectorAll(".ui-list-item")];
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+
+function rgba(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [...[m[1], m[2], m[3]].map((v) => Math.round(v * 255)), m[4] === undefined ? 1 : +(+m[4]).toFixed(3)];
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +(+m[4]).toFixed(3)];
+  throw new Error(`unparsed colour ${text}`);
+}
+const hex = (text) => "#" + rgba(text).slice(0, 3).map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+const bg = (el, pseudo) => hex(getComputedStyle(el, pseudo).backgroundColor);
+const fg = (el) => hex(getComputedStyle(el).color);
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const ratio = (a, b) => contrastRatio(rgb(a), rgb(b));
+
+function key(el, k, options = {}) {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+const click = (el, options = {}) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...options }));
+const selected = (id) => items(id).filter((i) => i.getAttribute("aria-selected") === "true").map((i) => i.textContent.trim()).join(",");
+
+// Each state forced on a fresh item, then cleared.
+function withState(el, attrs, fn) {
+  const saved = Object.fromEntries(Object.keys(attrs).map((k) => [k, el.getAttribute(k)]));
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  try { return fn(); } finally {
+    for (const [k, v] of Object.entries(saved)) v === null ? el.removeAttribute(k) : el.setAttribute(k, v);
+  }
+}
+
+test("selection flavour: listbox of options, aria-selected on every option, one Tab stop on the selected item", () => {
+  assertEqual($("single").getAttribute("role"), "listbox");
+  assert(!$("single").hasAttribute("aria-multiselectable"), "single is not multiselectable");
+  assertEqual($("multiple").getAttribute("aria-multiselectable"), "true");
+  for (const item of items("single")) {
+    assertEqual(item.getAttribute("role"), "option");
+    assert(["true", "false"].includes(item.getAttribute("aria-selected")), "aria-selected set");
+  }
+  assertEqual(items("single").map((i) => i.tabIndex).join(","), "-1,0,-1,-1,-1");
+  assertEqual(items("multiple").map((i) => i.tabIndex).join(","), "0,-1,-1,-1", "first item when none is selected");
+});
+
+test("navigation flavour: no role on the element, native list and links, aria-current, one Tab stop on the current item", () => {
+  assert(!$("nav").hasAttribute("role"), "no role");
+  assert(items("nav").every((i) => !i.hasAttribute("role") && !i.hasAttribute("aria-selected")), "links keep their role");
+  assertEqual(items("nav").map((i) => i.tabIndex).join(","), "-1,0,-1,-1");
+});
+
+test("single: Down and Up move focus and selection, skipping disabled items; Home and End; keys are prevented", () => {
+  const [a, b, c, d, e] = items("single");
+  b.focus();
+  assert(key(b, "ArrowDown"), "Down prevented");
+  assertEqual(document.activeElement, d, "skips the disabled Cedar");
+  assertEqual(selected("single"), "Dune");
+  assertEqual(d.tabIndex, 0);
+  key(d, "ArrowUp");
+  assertEqual(document.activeElement, b);
+  key(b, "End");
+  assertEqual(document.activeElement, e);
+  key(e, "ArrowDown");
+  assertEqual(document.activeElement, e, "stays on the last");
+  key(e, "Home");
+  assertEqual(document.activeElement, a);
+  assertEqual(selected("single"), "Aurora");
+  assertEqual(items("single").filter((i) => i.tabIndex === 0).length, 1, "one Tab stop");
+});
+
+test("single: click selects and fires change; a disabled item does nothing", () => {
+  const [, b, c] = items("single");
+  let changes = 0;
+  $("single").addEventListener("change", () => changes++);
+  click(b);
+  assertEqual(selected("single"), "Basalt");
+  assertEqual(changes, 1);
+  click(c);
+  assertEqual(selected("single"), "Basalt");
+  assertEqual(changes, 1);
+  click(b);
+  assertEqual(changes, 1, "no change event without a change");
+});
+
+test("single: typing jumps to the next item starting with the text", () => {
+  const b = items("single")[1];
+  b.focus();
+  assert(key(b, "e"), "printable key handled");
+  assertEqual(document.activeElement.textContent.trim(), "Ember");
+  assertEqual(selected("single"), "Ember");
+});
+
+test("multiple: arrows move focus only; Space and click toggle; Shift extends; Ctrl or Cmd+A selects all", () => {
+  const [a, b, c, d] = items("multiple");
+  a.focus();
+  key(a, "ArrowDown");
+  assertEqual(document.activeElement, b);
+  assertEqual(selected("multiple"), "", "focus moved without selecting");
+  assert(key(b, " "), "Space prevented");
+  assertEqual(selected("multiple"), "Basalt");
+  key(b, "ArrowDown", { shiftKey: true });
+  key(c, "ArrowDown", { shiftKey: true });
+  assertEqual(selected("multiple"), "Basalt,Cedar,Dune");
+  click(c);
+  assertEqual(selected("multiple"), "Basalt,Dune", "click toggles");
+  click(a, { shiftKey: true });
+  assertEqual(selected("multiple"), "Aurora,Basalt,Cedar", "Shift-click selects the range from the last toggled item");
+  key(a, "a", isMac ? { metaKey: true } : { ctrlKey: true });
+  assertEqual(selected("multiple"), "Aurora,Basalt,Cedar,Dune");
+  key(a, "Enter");
+  assertEqual(selected("multiple"), "Basalt,Cedar,Dune", "Enter toggles too");
+});
+
+test("form: submits the selected values under the name; reset restores the initial selection", () => {
+  $("single").selectedIndex = 0;
+  for (const item of items("multiple")) item.setAttribute("aria-selected", "false");
+  click(items("multiple")[1]);
+  click(items("multiple")[3]);
+  const data = new FormData($("form"));
+  assertEqual(data.get("tree"), "a");
+  assertEqual(data.getAll("many").join(","), "Basalt,Dune");
+  $("form").reset();
+  assertEqual(selected("single"), "Basalt");
+  assertEqual(selected("multiple"), "");
+  assertEqual(new FormData($("form")).get("tree"), "b");
+  click(items("multiple")[0]);
+  $("multiple").setAttribute("name", "renamed");
+  assertEqual(new FormData($("form")).getAll("renamed").join(","), "Aurora", "a rename updates the multiple list's form value");
+  $("multiple").setAttribute("name", "many");
+  click(items("multiple")[0]);
+});
+
+test("navigation: arrows move focus over links and buttons (skipping disabled), click moves aria-current and fires change", () => {
+  const [m1, m2, m3, m4] = items("nav");
+  m2.focus();
+  assert(key(m2, "ArrowDown"), "prevented");
+  assertEqual(document.activeElement, m3);
+  key(m3, "ArrowDown");
+  assertEqual(document.activeElement, m3, "disabled M4 skipped");
+  assertEqual(m2.getAttribute("aria-current"), "page", "focus does not move aria-current");
+  assert(!key(m3, "Enter"), "Enter left to the native button");
+  let changes = 0;
+  $("nav").addEventListener("change", () => changes++);
+  click(m3);
+  assertEqual(m3.getAttribute("aria-current"), "page");
+  assert(!m2.hasAttribute("aria-current"), "moved");
+  assertEqual(changes, 1);
+  assertEqual(m4.tabIndex, -1);
+  click(m1);
+});
+
+test("item design: control radius on the squircle, 32 high with the control padding; Compact 24", () => {
+  const item = items("states")[0];
+  const s = getComputedStyle(item);
+  assertEqual(s.borderTopLeftRadius, "9.44px", "8 x the squircle factor");
+  assertEqual(s.cornerTopLeftShape, "superellipse(1.3)");
+  assertEqual(item.getBoundingClientRect().height, 32);
+  assertEqual(s.paddingInlineStart, "12px");
+  assertEqual(getComputedStyle($("states")).paddingTop, "4px", "list padding 4");
+  assertEqual(item.getBoundingClientRect().left - $("states").getBoundingClientRect().left, 4, "inset 4");
+  setDensity("compact");
+  assertEqual(item.getBoundingClientRect().height, 24);
+  assertEqual(getComputedStyle(item).paddingInlineStart, "8px");
+  setDensity("normal");
+});
+
+test("state colours, light and dark: list-medium hover, base-medium-low pressed, accent fills with white text, disabled", () => {
+  const item = items("states")[0];
+  const expected = {
+    light: { hover: "#D4D4D4", pressed: "#A6A6A6", text: "#1A1A1A", disabled: "#A6A6A6", selDisabled: "#D4D4D4" },
+    dark: { hover: "#404040", pressed: "#6B6B6B", text: "#F2F2F2", disabled: "#6B6B6B", selDisabled: "#454545" },
+  };
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    const e = expected[theme];
+    assertEqual(getComputedStyle(item).backgroundColor, "rgba(0, 0, 0, 0)", `${theme} rest`);
+    assertEqual(fg(item), e.text, `${theme} text`);
+    withState(item, { "data-state": "hover" }, () => assertEqual(bg(item), e.hover, `${theme} hover`));
+    withState(item, { "data-state": "pressed" }, () => assertEqual(bg(item), e.pressed, `${theme} pressed`));
+    withState(item, { "aria-selected": "true" }, () => {
+      assertEqual(bg(item), "#0075DD", `${theme} selected`);
+      assertEqual(fg(item), "#FFFFFF");
+    });
+    withState(item, { "aria-selected": "true", "data-state": "hover" }, () => assertEqual(bg(item), "#006AC9", `${theme} selected hover`));
+    withState(item, { "aria-selected": "true", "data-state": "pressed" }, () => assertEqual(bg(item), "#0060B4", `${theme} selected pressed`));
+    withState(item, { "aria-disabled": "true", "data-state": "hover" }, () => {
+      assertEqual(getComputedStyle(item).backgroundColor, "rgba(0, 0, 0, 0)", `${theme} disabled has no hover`);
+      assertEqual(fg(item), e.disabled);
+    });
+    withState(item, { "aria-disabled": "true", "aria-selected": "true" }, () => {
+      assertEqual(bg(item), e.selDisabled, `${theme} selected disabled`);
+      assertEqual(fg(item), e.disabled);
+    });
+  }
+  setTheme("light");
+});
+
+test("contrast: white on every accent fill is AA, for the default and another accent; text on hover and pressed is AA", () => {
+  const item = items("states")[0];
+  for (const accent of ["#007CEA", "#2A9D8F", "#FF8C00"]) {
+    setAccent(accent);
+    for (const state of [null, "hover", "pressed"]) {
+      withState(item, { "aria-selected": "true", "data-state": state ?? "" }, () => {
+        const r = ratio(fg(item), bg(item));
+        assert(r >= 4.5, `${accent} ${state ?? "rest"}: ${r.toFixed(2)}`);
+      });
+    }
+  }
+  setAccent();
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    for (const state of ["hover", "pressed"]) {
+      withState(item, { "data-state": state }, () => {
+        const r = ratio(fg(item), bg(item));
+        assert(r >= 4.5, `${theme} ${state}: ${r.toFixed(2)}`);
+      });
+    }
+  }
+  setTheme("light");
+});
+
+test("hover and pressed differ visibly from the list, card and drop-down surfaces, and from each other", () => {
+  const item = items("states")[0];
+  const surfaces = { light: ["#F5F5F5", "#FFFFFF"], dark: ["#1E1E1E", "#2A2A2A"] };
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    const hover = withState(item, { "data-state": "hover" }, () => bg(item));
+    const pressed = withState(item, { "data-state": "pressed" }, () => bg(item));
+    for (const s of surfaces[theme]) {
+      assert(ratio(hover, s) >= 1.2, `${theme} hover on ${s}: ${ratio(hover, s).toFixed(2)}`);
+      assert(ratio(pressed, s) >= 1.2, `${theme} pressed on ${s}`);
+    }
+    assert(ratio(hover, pressed) >= 1.2, `${theme} hover vs pressed: ${ratio(hover, pressed).toFixed(2)}`);
+  }
+  setTheme("light");
+});
+
+test("accent flag: 3 px bar in the lighter accent on the leading edge, leading corners square; item and list overrides", () => {
+  const [one, two, three, four] = items("flagged");
+  const bar = getComputedStyle(one, "::before");
+  assertEqual(bar.width, "3px");
+  assertEqual(bg(one, "::before"), "#77BFFF");
+  assertEqual(bar.left, "0px");
+  assertEqual(parseFloat(getComputedStyle(one).borderTopLeftRadius) < 0.1, true, "leading corners square");
+  assertEqual(getComputedStyle(one).borderTopRightRadius, "9.44px", "trailing corners keep the radius");
+  assertEqual(getComputedStyle(two, "::before").backgroundColor, "rgba(0, 0, 0, 0)", "data-accent-flag=false on the item");
+  assertEqual(getComputedStyle(two).borderTopLeftRadius, "9.44px");
+  assertEqual(bg(three, "::before"), "#A6A6A6", "disabled: the disabled text colour");
+  assertEqual(getComputedStyle(four, "::before").backgroundColor, "rgba(0, 0, 0, 0)", "unselected: no flag");
+  withState(four, { "data-state": "hover" }, () => assertEqual(getComputedStyle(four, "::before").backgroundColor, "rgba(0, 0, 0, 0)", "hover shows no flag"));
+  const own = $("states").querySelector("[data-flag-on-item]");
+  assertEqual(bg(own, "::before"), "#77BFFF", "data-accent-flag=true without the list option");
+  setTheme("dark");
+  assertEqual(bg(one, "::before"), "#77BFFF", "same in dark");
+  setTheme("light");
+});
+
+test("accent flag follows the accent (Fluent's SystemAccentColorLight2) and stands apart from the fill", () => {
+  const one = items("flagged")[0];
+  for (const [accent, light2] of [["#007CEA", "#77BFFF"], ["#2A9D8F", "#78DBCF"], ["#7A00CC", "#BC59FF"]]) {
+    setAccent(accent);
+    assertEqual(bg(one, "::before"), light2, accent);
+  }
+  setAccent();
+  for (const state of [null, "hover", "pressed"]) {
+    withState(one, { "data-state": state ?? "" }, () => {
+      const r = ratio(bg(one, "::before"), bg(one));
+      assert(r >= 2.3, `${state ?? "rest"}: ${r.toFixed(2)}`);
+    });
+  }
+});
+
+test("motion: fills and the flag fade over MotionFast with the easing; instant under reduce motion", () => {
+  const item = items("states")[0];
+  document.documentElement.setAttribute("data-reduce-motion", "false");
+  const s = getComputedStyle(item);
+  assertEqual(s.transitionProperty, "background-color, color");
+  assertEqual(s.transitionDuration, "0.1s, 0.1s");
+  assertEqual(s.transitionTimingFunction.split("), ")[0] + ")", "cubic-bezier(0.3333, 1, 0.6667, 1)");
+  assertEqual(getComputedStyle(item, "::before").transitionDuration, "0.1s");
+  document.documentElement.setAttribute("data-reduce-motion", "true");
+  assertEqual(getComputedStyle(item).transitionDuration, "0s, 0s");
+});
+
+test("focus: the ring on keyboard focus, raised above its neighbours; the forced focus state draws the same ring", () => {
+  const item = items("states")[0];
+  item.focus({ focusVisible: true });
+  const s = getComputedStyle(item);
+  assertEqual(s.outlineStyle, "solid");
+  assertEqual(s.outlineWidth, "2px");
+  assertEqual(s.outlineOffset, "2px");
+  assertEqual(s.zIndex, "1");
+  item.blur();
+  withState(item, { "data-state": "focus" }, () => {
+    assertEqual(getComputedStyle(item).outlineWidth, "2px");
+    assertEqual(hex(getComputedStyle(item).outlineColor), "#007CEA");
+  });
+});
+
+test("items added later get their role, state and tabindex", async () => {
+  const added = document.createElement("div");
+  added.className = "ui-list-item ui-squircle ui-focus-ring";
+  added.textContent = "Fjord";
+  $("single").append(added);
+  await new Promise((r) => setTimeout(r));
+  assertEqual(added.getAttribute("role"), "option");
+  assertEqual(added.getAttribute("aria-selected"), "false");
+  assertEqual(added.tabIndex, -1);
+  added.remove();
+});
+</script>
+</body>
+</html>

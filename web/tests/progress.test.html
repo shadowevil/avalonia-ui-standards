@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProgressBar and ProgressRing tests</title>
+<link rel="stylesheet" href="../ui.css">
+<link rel="stylesheet" href="../blocks/progress.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<progress id="bar" class="ui-progress-bar" value="40" max="100" aria-label="Upload"></progress>
+<progress id="bar-ind" class="ui-progress-bar" aria-label="Busy"></progress>
+<progress id="bar-off" class="ui-progress-bar" value="40" max="100" aria-disabled="true" aria-label="Off"></progress>
+<progress id="ring" class="ui-progress-ring" value="70" max="100" aria-label="Sync"></progress>
+<progress id="ring-ind" class="ui-progress-ring" aria-label="Syncing"></progress>
+<progress id="ring-off" class="ui-progress-ring" value="70" max="100" aria-disabled="true" aria-label="Off"></progress>
+<progress id="ring-32" class="ui-progress-ring" value="50" max="100" style="--ui-progress-ring-size: 32px" aria-label="Big"></progress>
+<div id="probe"></div>
+<script type="module">
+import "../blocks/progress.js";
+import { test, assert, assertEqual } from "./harness.js";
+
+const $ = (id) => document.getElementById(id);
+const root = document.documentElement;
+const cs = (el, pseudo) => getComputedStyle(el, pseudo);
+const frame = () => new Promise((r) => setTimeout(r, 20));
+const probe = $("probe");
+// The resolved value of a token (light-dark() included) as the browser computes it.
+function colour(token) {
+  probe.style.color = `var(${token})`;
+  return cs(probe).color;
+}
+function length(value) {
+  probe.style.width = value;
+  return cs(probe).width;
+}
+function luminance(rgb) {
+  const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map((v) => {
+    const c = Number(v) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+async function withAttr(name, value, fn) {
+  const before = root.getAttribute(name);
+  root.setAttribute(name, value);
+  try { await fn(); } finally {
+    if (before === null) root.removeAttribute(name); else root.setAttribute(name, before);
+  }
+}
+
+test("native <progress> with a name: no role or value attributes added", () => {
+  for (const el of document.querySelectorAll("progress")) {
+    assert(el.getAttribute("aria-label"), `${el.id} has no name`);
+    assert(!el.hasAttribute("role"), `${el.id} repeats the native role`);
+    assert(!el.hasAttribute("aria-valuenow"), `${el.id} repeats the native value`);
+  }
+  assertEqual($("bar").position, 0.4);
+  assertEqual($("bar-ind").position, -1, "indeterminate has no value");
+  assert($("bar-ind").matches(":indeterminate"));
+});
+
+test("neither takes focus", () => {
+  for (const id of ["bar", "ring"]) {
+    $(id).focus();
+    assert(document.activeElement !== $(id), `${id} took focus`);
+    assertEqual(cs($(id)).outlineStyle, "none");
+  }
+});
+
+test("bar: a 4 px pill track, 200 px at least, base-low track", () => {
+  const s = cs($("bar"));
+  assertEqual(s.height, "4px");
+  assertEqual(s.borderTopLeftRadius, "2px");
+  assertEqual(s.minWidth, "200px");
+  assertEqual(s.backgroundColor, colour("--ui-system-base-low-color"));
+});
+
+// Chrome does not compute styles of the -webkit- shadow parts, so the parts' own rules are read
+// from the stylesheet; the values they take (the custom properties) are checked on the element.
+function rule(selector) {
+  for (const sheet of document.styleSheets) {
+    for (const r of sheet.cssRules) if (r.selectorText === selector) return r.style;
+  }
+  throw new Error(`no rule for ${selector}`);
+}
+function duration(el, name) {
+  probe.style.transitionDuration = cs(el).getPropertyValue(name);
+  return cs(probe).transitionDuration;
+}
+function resolved(el, name) {
+  probe.style.color = cs(el).getPropertyValue(name);
+  return cs(probe).color;
+}
+
+test("bar: the fill part is the accent pill; the segment is 40 % of the track, centred at rest", () => {
+  const value = rule(".ui-progress-bar::-webkit-progress-value");
+  assertEqual(value.background, "var(--ui-progress-bar-fill)");
+  assertEqual(value.borderRadius, "calc(var(--ui-progress-bar-thickness) / 2)");
+  assertEqual(resolved($("bar"), "--ui-progress-bar-fill"), colour("--ui-accent-fill-color"));
+  const segment = rule(".ui-progress-bar:indeterminate::-webkit-progress-value");
+  assertEqual(segment.getPropertyValue("inline-size"), "40%");
+  assertEqual(segment.getPropertyValue("translate"), "calc(75% * var(--_dir)) 0", "75 % of 40 % is the middle");
+  assert(rule(".ui-progress-bar::-webkit-progress-bar").background.includes("transparent"));
+});
+
+test("bar: disabled fill is base-medium-low", () => {
+  assertEqual(resolved($("bar-off"), "--ui-progress-bar-fill"), colour("--ui-system-base-medium-low-color"));
+});
+
+test("ring: 20 px, 16 px at Compact, any size through --ui-progress-ring-size", async () => {
+  assertEqual(cs($("ring")).width, "20px");
+  assertEqual(cs($("ring")).height, "20px");
+  assertEqual(cs($("ring-32")).width, "32px");
+  await withAttr("data-density", "compact", () => {
+    assertEqual(cs($("ring")).width, "16px");
+    assertEqual(cs($("ring")).height, "16px");
+  });
+});
+
+test("ring: stroke is a tenth of the size rounded to whole pixels, at least 2 px", async () => {
+  const stroke = (el) => length(cs(el).getPropertyValue("--ui-progress-ring-stroke"));
+  assertEqual(stroke($("ring")), "2px");
+  assertEqual(stroke($("ring-32")), "3px");
+  await withAttr("data-density", "compact", () => assertEqual(stroke($("ring")), "2px"));
+  $("ring-32").style.setProperty("--ui-progress-ring-size", "35px");
+  assertEqual(stroke($("ring-32")), "4px", "3.5 rounds up");
+  $("ring-32").style.setProperty("--ui-progress-ring-size", "100px");
+  assertEqual(stroke($("ring-32")), "10px");
+  $("ring-32").style.setProperty("--ui-progress-ring-size", "32px");
+});
+
+test("ring: the arc follows the value, and a value change updates it", async () => {
+  await frame();
+  assertEqual(cs($("ring")).getPropertyValue("--ui-progress-fraction"), "0.7");
+  assertEqual(cs($("ring-32")).getPropertyValue("--ui-progress-fraction"), "0.5");
+  $("ring").value = 25;
+  await frame();
+  assertEqual(cs($("ring")).getPropertyValue("--ui-progress-fraction"), "0.25");
+  $("ring").max = 50;
+  await frame();
+  assertEqual(cs($("ring")).getPropertyValue("--ui-progress-fraction"), "0.5");
+  $("ring").removeAttribute("value");
+  await frame();
+  assertEqual(cs($("ring")).getPropertyValue("--ui-progress-fraction"), "");
+  $("ring").max = 100;
+  $("ring").value = 70;
+  await frame();
+  assertEqual(cs($("ring")).getPropertyValue("--ui-progress-fraction"), "0.7");
+});
+
+test("ring: a ring added later is picked up", async () => {
+  const el = document.createElement("progress");
+  el.className = "ui-progress-ring";
+  el.value = 20; el.max = 100;
+  el.setAttribute("aria-label", "Late");
+  document.body.append(el);
+  await frame();
+  assertEqual(cs(el).getPropertyValue("--ui-progress-fraction"), "0.2");
+  el.remove();
+});
+
+test("ring: track and arc colours; disabled arc is base-medium-low", () => {
+  assertEqual(cs($("ring")).backgroundColor, colour("--ui-system-base-low-color"));
+  assertEqual(resolved($("ring"), "--ui-progress-ring-arc"), colour("--ui-accent-fill-color"));
+  assertEqual(resolved($("ring-off"), "--ui-progress-ring-arc"), colour("--ui-system-base-medium-low-color"));
+});
+
+test("indeterminate animations run at 2 s (bar) and 1 s (ring)", async () => {
+  await withAttr("data-reduce-motion", "false", () => {
+    assertEqual(duration($("bar-ind"), "--ui-progress-bar-period"), "2s");
+    assertEqual(duration($("ring-ind"), "--ui-progress-ring-period"), "1s");
+    assertEqual(cs($("ring-ind")).animationDuration, "1s");
+    assertEqual(cs($("ring-ind")).animationIterationCount, "infinite");
+    assertEqual(cs($("ring-ind")).animationName, "ui-progress-turn");
+    assertEqual(cs($("ring")).animationName, "none", "a determinate ring does not turn");
+    assert(rule(".ui-progress-bar:indeterminate::-webkit-progress-value").getPropertyValue("animation").includes("infinite"));
+  });
+});
+
+test("reduce motion stops them: zero duration, so the still frame shows", async () => {
+  await withAttr("data-reduce-motion", "true", () => {
+    assertEqual(duration($("bar-ind"), "--ui-progress-bar-period"), "0s");
+    assertEqual(duration($("ring-ind"), "--ui-progress-ring-period"), "0s");
+    assertEqual(cs($("ring-ind")).animationDuration, "0s");
+    assertEqual(cs($("ring-ind")).rotate, "none", "no rotation is applied at rest");
+    const running = $("ring-ind").getAnimations().filter((a) => a.playState === "running");
+    assertEqual(running.length, 0, "running animations");
+  });
+});
+
+test("right-to-left: the segment's direction flips, the ring is unaffected", () => {
+  assertEqual(cs($("bar-ind")).getPropertyValue("--_dir"), "1");
+  const wrap = document.createElement("div");
+  wrap.dir = "rtl";
+  document.body.append(wrap);
+  const bar = $("bar-ind").cloneNode();
+  const ring = $("ring-ind").cloneNode();
+  wrap.append(bar, ring);
+  assertEqual(cs(bar).getPropertyValue("--_dir"), "-1");
+  // The still frame translates by 75 % of the segment against the inline direction of the box,
+  // so the segment (at the right end in RTL) moves left to the middle.
+  probe.style.translate = "calc(75% * -1) 0";
+  assertEqual(cs(probe).translate, "-75%");
+  assertEqual(cs(ring).getPropertyValue("--_start"), "-45deg");
+  assertEqual(cs(ring).getPropertyValue("--_fraction"), "0.25");
+  assertEqual(cs(ring).animationName, cs($("ring-ind")).animationName, "the ring turns the same way");
+  probe.style.translate = "";
+  wrap.remove();
+});
+
+test("the arc is centred on the top at rest (quarter arc from -45deg)", () => {
+  const s = cs($("ring-ind"));
+  assertEqual(s.getPropertyValue("--_start"), "-45deg");
+  assertEqual(s.getPropertyValue("--_fraction"), "0.25");
+});
+
+test("theme: the track follows the theme, the accent fill does not change", async () => {
+  await withAttr("data-theme", "light", () => {
+    assertEqual(cs($("bar")).backgroundColor, "rgb(212, 212, 212)");
+  });
+  await withAttr("data-theme", "dark", () => {
+    assertEqual(cs($("bar")).backgroundColor, "rgb(69, 69, 69)");
+    assertEqual(resolved($("bar"), "--ui-progress-bar-fill"), colour("--ui-accent-fill-color"));
+  });
+});
+
+test("density does not change the bar's thickness", async () => {
+  await withAttr("data-density", "compact", () => assertEqual(cs($("bar")).height, "4px"));
+});
+
+test("contrast: the fill reaches 3:1 against the page, light and dark", async () => {
+  for (const theme of ["light", "dark"]) {
+    await withAttr("data-theme", theme, () => {
+      probe.style.backgroundColor = "var(--ui-system-region-color)";
+      const page = cs(probe).backgroundColor;
+      const fill = colour("--ui-accent-fill-color");
+      const ratio = contrast(fill, page);
+      assert(ratio >= 3, `${theme}: fill on page ${ratio.toFixed(2)}`);
+    });
+  }
+});
+</script>
+</body>
+</html>

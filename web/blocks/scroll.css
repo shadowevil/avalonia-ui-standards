@@ -1,0 +1,245 @@
+/*
+  Scrolling (0024, 0025): the class ui-scroll on any scroll container gives it the scroll-edge
+  shadows and the overlay scrollbar. scroll.js adds one overlay to the scroller (an aria-hidden
+  layer pinned over the viewport: four edge shadows and a bar per axis) and hides the native
+  scrollbars; scrolling itself stays native (wheel, touch, keys, find in page, scroll into view).
+  Without script the scroller keeps thin native scrollbars in the 0025 colours and no shadows.
+
+  - Shadows: 12 px, a gradient from a dark tint of the accent (its hue and saturation at lightness
+    0.35 and 8 % in light, 0.12 and 18 % in dark) to transparent, on each edge with content more
+    than 0.5 px out of view, fading over MotionFast. data-scroll-shadows="false" on the scroller
+    turns them off.
+  - Bar: invisible at rest; a 3 px pill thumb while scrolling, hidden 1 s after the last scroll;
+    within 24 px of the bar it fades in and widens to 8 px over a pill track. The bar's grab area is
+    18 px thick at the scroller's edge (8 gap + 8 pill + 2); the pills sit 8 px in and stop short of
+    the ends by max(SpacingS, CornerRadiusOverlay / 2). data-scrollbar-auto-hide="false" keeps the
+    thumb shown.
+*/
+.ui-scroll {
+  --ui-scroll-shadow-size: 12px;
+  --ui-scroll-shadow-color: light-dark(
+    hsl(from var(--ui-system-accent-color) h s 35% / 0.08),
+    hsl(from var(--ui-system-accent-color) h s 12% / 0.18));
+  --ui-scroll-bar-thumb: light-dark(#00000061, #FFFFFF61);
+  --ui-scroll-bar-thumb-hover: light-dark(#00000085, #FFFFFF85);
+  --ui-scroll-bar-thumb-drag: light-dark(#000000A3, #FFFFFFA3);
+  --ui-scroll-bar-track: light-dark(#0000000F, #FFFFFF14);
+  --ui-scroll-bar-edge-gap: var(--ui-spacing-s);
+  --ui-scroll-bar-inner-gap: 2px;
+  --ui-scroll-bar-full-width: 8px;
+  --ui-scroll-bar-end-inset: max(var(--ui-spacing-s), var(--ui-corner-radius-overlay) / 2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-scroll-bar-thumb) transparent;
+}
+
+/* The overlay's containing block; a stacking context, so the overlay stays inside the scroller. */
+:where(.ui-scroll) {
+  position: relative;
+  isolation: isolate;
+}
+
+.ui-scroll[data-scroll-overlay] {
+  scrollbar-width: none;
+}
+
+.ui-scroll[data-scroll-overlay]::-webkit-scrollbar {
+  display: none;
+}
+
+/* The overlay sits at the scroll origin with the viewport's size (set by scroll.js) and is moved
+   by the scroll offset, so it stays over the viewport: by scroll-driven animations where the
+   engine has them (in step with the compositor's scrolling), else by scroll.js. */
+.ui-scroll-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: var(--ui-scroll-client-width, 100%);
+  height: var(--ui-scroll-client-height, 100%);
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+  overflow-anchor: none;
+  /* Not a container of the scroller's text: no selection, no find-in-page hits. */
+  user-select: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  .ui-scroll-overlay {
+    animation: ui-scroll-pin-x linear both, ui-scroll-pin-y linear both;
+    animation-duration: auto;
+    animation-timeline: scroll(nearest x), scroll(nearest y);
+  }
+
+  .ui-scroll-bar[data-orientation="vertical"] .ui-scroll-thumb {
+    animation: ui-scroll-thumb-y linear both;
+    animation-duration: auto;
+    animation-timeline: scroll(nearest y);
+  }
+
+  .ui-scroll-bar[data-orientation="horizontal"] .ui-scroll-thumb {
+    animation: ui-scroll-thumb-x linear both;
+    animation-duration: auto;
+    animation-timeline: scroll(nearest x);
+  }
+}
+
+@keyframes ui-scroll-pin-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--ui-scroll-max-x, 0px)); }
+}
+
+@keyframes ui-scroll-pin-y {
+  from { translate: 0 0; }
+  to { translate: 0 var(--ui-scroll-max-y, 0px); }
+}
+
+@keyframes ui-scroll-thumb-x {
+  from { translate: 0 0; }
+  to { translate: var(--ui-scroll-thumb-travel, 0px) 0; }
+}
+
+@keyframes ui-scroll-thumb-y {
+  from { translate: 0 0; }
+  to { translate: 0 var(--ui-scroll-thumb-travel, 0px); }
+}
+
+/* Edge shadows. */
+.ui-scroll-shadow {
+  position: absolute;
+  opacity: 0;
+}
+
+.ui-scroll-overlay[data-live] .ui-scroll-shadow {
+  transition: opacity var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-scroll-shadow[data-shown] {
+  opacity: 1;
+}
+
+.ui-scroll-shadow[data-edge="top"] {
+  inset: 0 0 auto 0;
+  height: var(--ui-scroll-shadow-size);
+  background: linear-gradient(to bottom, var(--ui-scroll-shadow-color), transparent);
+}
+
+.ui-scroll-shadow[data-edge="bottom"] {
+  inset: auto 0 0 0;
+  height: var(--ui-scroll-shadow-size);
+  background: linear-gradient(to top, var(--ui-scroll-shadow-color), transparent);
+}
+
+.ui-scroll-shadow[data-edge="left"] {
+  inset: 0 auto 0 0;
+  width: var(--ui-scroll-shadow-size);
+  background: linear-gradient(to right, var(--ui-scroll-shadow-color), transparent);
+}
+
+.ui-scroll-shadow[data-edge="right"] {
+  inset: 0 0 0 auto;
+  width: var(--ui-scroll-shadow-size);
+  background: linear-gradient(to left, var(--ui-scroll-shadow-color), transparent);
+}
+
+.ui-scroll[data-scroll-shadows="false"] > .ui-scroll-overlay > .ui-scroll-shadow {
+  display: none;
+}
+
+/* The bar: the grab area along the inline-end edge (vertical) or the bottom (horizontal). */
+.ui-scroll-bar {
+  --ui-scroll-bar-width: 3px; /* scroll.js: 3 px, widening to 8 with the pointer's closeness */
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.ui-scroll-bar[hidden] {
+  display: none;
+}
+
+.ui-scroll-bar[data-orientation="vertical"] {
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: calc(var(--ui-scroll-bar-edge-gap) + var(--ui-scroll-bar-full-width) + var(--ui-scroll-bar-inner-gap));
+}
+
+.ui-scroll-bar[data-orientation="horizontal"] {
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: calc(var(--ui-scroll-bar-edge-gap) + var(--ui-scroll-bar-full-width) + var(--ui-scroll-bar-inner-gap));
+}
+
+.ui-scroll-track,
+.ui-scroll-thumb {
+  position: absolute;
+  border-radius: 9999px; /* a full pill at every width */
+  opacity: 0;
+}
+
+.ui-scroll-track {
+  background-color: var(--ui-scroll-bar-track);
+}
+
+.ui-scroll-thumb {
+  background-color: var(--ui-scroll-bar-thumb);
+}
+
+.ui-scroll-overlay[data-live] :is(.ui-scroll-track, .ui-scroll-thumb) {
+  transition:
+    opacity var(--ui-motion-fast) var(--ui-motion-easing),
+    width var(--ui-motion-fast) var(--ui-motion-easing),
+    height var(--ui-motion-fast) var(--ui-motion-easing),
+    background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-scroll-bar[data-state="hover"] .ui-scroll-thumb {
+  background-color: var(--ui-scroll-bar-thumb-hover);
+}
+
+.ui-scroll-bar[data-state="drag"] .ui-scroll-thumb {
+  background-color: var(--ui-scroll-bar-thumb-drag);
+}
+
+/* Vertical pills: 8 px in from the edge, clear of the ends. The thumb's length and travel come
+   from scroll.js. Physical width and height, so the widening is a plain transition. */
+.ui-scroll-bar[data-orientation="vertical"] :is(.ui-scroll-track, .ui-scroll-thumb) {
+  inset-inline-end: var(--ui-scroll-bar-edge-gap);
+  width: var(--ui-scroll-bar-width);
+}
+
+.ui-scroll-bar[data-orientation="vertical"] .ui-scroll-track {
+  inset-block: var(--ui-scroll-bar-end-inset);
+}
+
+.ui-scroll-bar[data-orientation="vertical"] .ui-scroll-thumb {
+  top: var(--ui-scroll-bar-end-inset);
+  height: var(--ui-scroll-thumb-length, 24px);
+}
+
+.ui-scroll-bar[data-orientation="horizontal"] :is(.ui-scroll-track, .ui-scroll-thumb) {
+  inset-block-end: var(--ui-scroll-bar-edge-gap);
+  height: var(--ui-scroll-bar-width);
+}
+
+.ui-scroll-bar[data-orientation="horizontal"] .ui-scroll-track {
+  inset-inline: var(--ui-scroll-bar-end-inset);
+}
+
+.ui-scroll-bar[data-orientation="horizontal"] .ui-scroll-thumb {
+  inset-inline-start: var(--ui-scroll-bar-end-inset);
+  width: var(--ui-scroll-thumb-length, 24px);
+}
+
+/* Forced colours: the thumb in the text colour, no track tint, no shadows. */
+@media (forced-colors: active) {
+  .ui-scroll-bar[data-orientation] .ui-scroll-thumb {
+    background-color: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .ui-scroll-track,
+  .ui-scroll-shadow {
+    display: none;
+  }
+}

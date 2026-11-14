@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrolling</title>
+<link rel="stylesheet" href="../ui.css">
+<link rel="stylesheet" href="../blocks/scroll.css">
+<style>
+  /* Laid out like the desktop sheets m3-scroll-shadows.png and m3-scrollbar-states.png: each cell
+     a 200 x 110 scroller on the glass panel (backdrop wash, 12 padding, glass with 8 padding) or on
+     a card (8 padding, radius 8), in a 16 px page-coloured margin. Motion is reduced, so each state
+     shows its end value. */
+  body { margin: 0; padding: 16px 24px; background: var(--ui-system-alt-high-color); }
+  h1 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }
+  h2 { margin: 16px 0 8px; font-size: 16px; font-weight: 600; }
+  table { border-collapse: collapse; }
+  th { padding: 0 0 4px; font-size: var(--ui-font-size-caption); font-weight: 400; }
+  th[scope="row"] { padding: 0 12px 0 0; text-align: start; }
+  td { padding: 0 4px 4px 0; }
+  .cell { padding: 12px 16px; background: var(--ui-system-region-color); width: max-content; }
+  .wash { padding: 12px; background: var(--ui-backdrop-wash); }
+  .glass { padding: 9px; } /* 8, and the desktop GlassBorder's 1 px border */
+  .card { --ui-squircle-radius: var(--ui-corner-radius-control); padding: 8px; background: var(--ui-system-chrome-medium-low-color); }
+  .viewer { width: 200px; height: 110px; }
+  .vertical { overflow: hidden auto; }
+  .horizontal { overflow: auto hidden; }
+  .line { padding: 4px 8px; white-space: nowrap; }
+  .tiles { display: grid; grid-template-columns: repeat(12, 48px); gap: 6px; padding: 3px; width: max-content; }
+  .tile { display: grid; place-items: center; height: 30px; border-radius: 4px; color: #FFF; }
+</style>
+</head>
+<body>
+<main>
+<h1>Scroll shadows and the overlay scrollbar</h1>
+<h2>Scroll shadows</h2>
+<table id="shadows"></table>
+<h2>ScrollBar, vertical</h2>
+<table id="bar-vertical"></table>
+<h2>ScrollBar, horizontal</h2>
+<table id="bar-horizontal"></table>
+</main>
+<script type="module">
+import "../ui.js";
+import { refreshScroll, forceScrollbarState } from "../blocks/scroll.js";
+
+const lines = (text) => Array.from({ length: 20 }, (_, i) => `<div class="line">${text(i + 1)}</div>`).join("");
+const tiles = () => `<div class="tiles">${Array.from({ length: 36 }, (_, k) => {
+  const i = k + 1;
+  return `<div class="tile" style="background: rgb(${40 + i * 5} ${120 + i * 2} ${200 - i * 3})">${i}</div>`;
+}).join("")}</div>`;
+
+function viewer(vertical, content) {
+  return `<div class="viewer ui-scroll ${vertical ? "vertical" : "horizontal"}">${content}</div>`;
+}
+
+function surface(kind, inner) {
+  return kind === "glass"
+    ? `<div class="cell"><div class="wash"><div class="glass ui-glass ui-squircle">${inner}</div></div></div>`
+    : `<div class="cell"><div class="card ui-squircle">${inner}</div></div>`;
+}
+
+function table(id, columns, cell) {
+  const rows = [["Glass panel", "glass"], ["Card", "card"]];
+  document.getElementById(id).innerHTML =
+    `<tr><td></td>${columns.map((c) => `<th scope="col">${c[0]}</th>`).join("")}</tr>` +
+    rows.map(([label, kind]) => `<tr><th scope="row">${label}</th>${columns.map((c) => `<td>${surface(kind, cell(c))}</td>`).join("")}</tr>`).join("");
+}
+
+// Shadows: top, middle and end of a vertical list; the middle of a horizontal grid.
+const shadowColumns = [["Top (bottom shadow)", true, 0], ["Middle (both)", true, 120], ["End (top shadow)", true, 10000], ["Horizontal, middle (left and right)", false, 150]];
+table("shadows", shadowColumns, ([, vertical, offset]) =>
+  viewer(vertical, vertical ? lines((i) => `Line ${i}: list content`) : tiles()).replace("class=\"viewer", `data-offset="${offset}" class="viewer`));
+
+// Bar states, scrolled to the middle.
+const states = [["Idle", {}], ["Scrolling (thin)", { scrolling: true }], ["Pointer 12 px away", { closeness: 0.5 }], ["Hovered (full)", { hover: true }], ["Dragging", { hover: true, drag: true }]];
+for (const axis of ["vertical", "horizontal"]) {
+  const vertical = axis === "vertical";
+  table(`bar-${axis}`, states, ([label]) =>
+    viewer(vertical, lines((i) => vertical ? `Line ${i}: list content` : `Line ${i}: a long line of list content that runs on`))
+      .replace("class=\"viewer", `data-state-label="${label}" data-offset="${vertical ? 120 : 80}" class="viewer`));
+}
+
+for (const el of document.querySelectorAll(".viewer")) {
+  const offset = +el.dataset.offset;
+  if (el.classList.contains("vertical")) el.scrollTop = offset;
+  else el.scrollLeft = offset;
+  refreshScroll(el);
+  const state = states.find(([label]) => label === el.dataset.stateLabel);
+  // Shadow cells keep the bar idle (the desktop sheet hides it there).
+  forceScrollbarState(el, el.classList.contains("vertical") ? "vertical" : "horizontal", state ? state[1] : {});
+}
+</script>
+</body>
+</html>

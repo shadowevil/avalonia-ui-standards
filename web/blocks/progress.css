@@ -1,0 +1,191 @@
+/*
+  ProgressBar and ProgressRing (0031). Both are the native <progress> element, so the browser
+  gives them the progressbar role, the value and the indeterminate state; a name comes from
+  aria-label or aria-labelledby. Disabled is aria-disabled="true" (<progress> has no disabled
+  attribute). Neither takes focus, so neither has a focus ring.
+
+    <progress class="ui-progress-bar" value="40" max="100" aria-label="Upload"></progress>
+    <progress class="ui-progress-ring" value="70" max="100" aria-label="Sync"></progress>
+
+  The bar's text is a sibling in a ui-progress wrapper (see the render page); the ring's arc
+  needs progress.js, which mirrors the element's position into --ui-progress-fraction.
+
+  The indeterminate periods (2 s and 1 s, 0031) are multiplied by --ui-motion-continuous, which is
+  0 under reduce motion: the animation does not run, and the element shows its still frame: the bar's
+  segment centred, the ring's quarter arc centred on the top.
+*/
+
+/* The bar: a 4 px pill track, the accent fill, 200 px long at least (Fluent's length). */
+.ui-progress-bar {
+  --ui-progress-bar-track: var(--ui-system-base-low-color);
+  --ui-progress-bar-fill: var(--ui-accent-fill-color);
+  --ui-progress-bar-thickness: 4px;
+  --ui-progress-bar-min-length: 200px;
+  --ui-progress-bar-period: calc(2s * var(--ui-motion-continuous));
+
+  /* 1 in left-to-right, -1 in right-to-left: the segment travels along the inline direction. */
+  --_dir: 1;
+
+  appearance: none;
+  box-sizing: border-box;
+  display: block;
+  inline-size: 100%;
+  min-inline-size: var(--ui-progress-bar-min-length);
+  block-size: var(--ui-progress-bar-thickness);
+  margin: 0;
+  border: 0;
+  border-radius: calc(var(--ui-progress-bar-thickness) / 2);
+  overflow: hidden;
+  background: var(--ui-progress-bar-track);
+  vertical-align: middle;
+}
+
+.ui-progress-bar:dir(rtl) {
+  --_dir: -1;
+}
+
+.ui-progress-bar[aria-disabled="true"] {
+  --ui-progress-bar-fill: var(--ui-system-base-medium-low-color);
+}
+
+.ui-progress-bar::-webkit-progress-bar {
+  background: transparent;
+}
+
+.ui-progress-bar::-webkit-progress-value {
+  background: var(--ui-progress-bar-fill);
+  border-radius: calc(var(--ui-progress-bar-thickness) / 2);
+}
+
+.ui-progress-bar::-moz-progress-bar {
+  background: var(--ui-progress-bar-fill);
+  border-radius: calc(var(--ui-progress-bar-thickness) / 2);
+}
+
+/* Indeterminate: a segment 40 % of the track, from before the start to past the end. The
+   translation is in shares of the segment's own length (-100 % to 250 % is -0.4 to 1.0 of the
+   track); the still frame is the segment centred (75 %). */
+.ui-progress-bar:indeterminate::-webkit-progress-value {
+  inline-size: 40% !important;
+  translate: calc(75% * var(--_dir)) 0;
+  animation: ui-progress-sweep var(--ui-progress-bar-period) infinite
+    /* half linear, half sine in-out */
+    linear(0, 0.023, 0.0502, 0.0815, 0.1168, 0.1558, 0.1982, 0.2436, 0.2917, 0.3418, 0.3936, 0.4465, 0.5,
+      0.5535, 0.6064, 0.6582, 0.7083, 0.7564, 0.8018, 0.8442, 0.8832, 0.9185, 0.9498, 0.977, 1);
+}
+
+.ui-progress-bar:indeterminate::-moz-progress-bar {
+  inline-size: 40%;
+  translate: calc(75% * var(--_dir)) 0;
+  animation: ui-progress-sweep var(--ui-progress-bar-period) infinite
+    linear(0, 0.023, 0.0502, 0.0815, 0.1168, 0.1558, 0.1982, 0.2436, 0.2917, 0.3418, 0.3936, 0.4465, 0.5,
+      0.5535, 0.6064, 0.6582, 0.7083, 0.7564, 0.8018, 0.8442, 0.8832, 0.9185, 0.9498, 0.977, 1);
+}
+
+@keyframes ui-progress-sweep {
+  from { translate: calc(-100% * var(--_dir)) 0; }
+  to { translate: calc(250% * var(--_dir)) 0; }
+}
+
+/* The bar with its text after it (8 px, Caption size, secondary text colour). The text repeats
+   the value for the eye only, so it is aria-hidden; the progress element announces the value. */
+.ui-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-spacing-s);
+}
+
+.ui-progress > .ui-progress-bar {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.ui-progress-text {
+  font-size: var(--ui-font-size-caption);
+  color: var(--ui-system-base-medium-color);
+  white-space: nowrap;
+}
+
+/* The ring: a circle the size of an icon (20 px, 16 px at Compact; --ui-progress-ring-size for
+   any other). The stroke is a tenth of the size rounded to whole pixels, at least 2 px. The
+   track, the arc and its two round caps are layers of the element's own background, cut to a
+   ring by a mask. */
+.ui-progress-ring {
+  --ui-progress-ring-size: var(--ui-icon-size);
+  --ui-progress-ring-track: var(--ui-system-base-low-color);
+  --ui-progress-ring-arc: var(--ui-accent-fill-color);
+  --ui-progress-ring-period: calc(1s * var(--ui-motion-continuous));
+  --ui-progress-ring-stroke: max(2px, round(nearest, calc(var(--ui-progress-ring-size) / 10), 1px));
+
+  /* The arc: from --_start by the fraction of a turn; the radius of the stroke's centre line. */
+  --_start: 0deg;
+  --_fraction: var(--ui-progress-fraction, 0);
+  --_end: calc(var(--_start) + var(--_fraction) * 360deg);
+  --_radius: calc((var(--ui-progress-ring-size) - var(--ui-progress-ring-stroke)) / 2);
+  /* The caps vanish when there is no arc. */
+  --_cap: calc(var(--ui-progress-ring-stroke) / 2 * clamp(0, var(--_fraction) * 1000, 1));
+  --_outer: calc(var(--ui-progress-ring-size) / 2);
+  --_inner: calc(var(--_outer) - var(--ui-progress-ring-stroke));
+
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-block;
+  inline-size: var(--ui-progress-ring-size);
+  block-size: var(--ui-progress-ring-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  vertical-align: middle;
+  background-color: var(--ui-progress-ring-track);
+  background-image:
+    radial-gradient(circle at calc(50% + var(--_radius) * sin(var(--_end))) calc(50% - var(--_radius) * cos(var(--_end))),
+      var(--ui-progress-ring-arc) calc(var(--_cap) - 0.5px), transparent var(--_cap)),
+    radial-gradient(circle at calc(50% + var(--_radius) * sin(var(--_start))) calc(50% - var(--_radius) * cos(var(--_start))),
+      var(--ui-progress-ring-arc) calc(var(--_cap) - 0.5px), transparent var(--_cap)),
+    conic-gradient(from var(--_start), var(--ui-progress-ring-arc) calc(var(--_fraction) * 360deg), transparent 0);
+  mask: radial-gradient(circle,
+    transparent calc(var(--_inner) - 0.5px), #000 calc(var(--_inner) + 0.5px),
+    #000 calc(var(--_outer) - 0.5px), transparent var(--_outer));
+}
+
+.ui-progress-ring[aria-disabled="true"] {
+  --ui-progress-ring-arc: var(--ui-system-base-medium-low-color);
+}
+
+.ui-progress-ring::-webkit-progress-bar,
+.ui-progress-ring::-webkit-progress-value {
+  background: transparent;
+}
+
+.ui-progress-ring::-moz-progress-bar {
+  background: transparent;
+}
+
+/* Indeterminate: a quarter arc, centred on the top at rest, turning once per period. */
+.ui-progress-ring:indeterminate {
+  --_start: -45deg;
+  --_fraction: 0.25;
+  animation: ui-progress-turn var(--ui-progress-ring-period) linear infinite;
+}
+
+@keyframes ui-progress-turn {
+  to { rotate: 360deg; }
+}
+
+/* Forced colours: system colours, kept as they are. */
+@media (forced-colors: active) {
+  .ui-progress-bar,
+  .ui-progress-ring {
+    forced-color-adjust: none;
+    --ui-progress-bar-track: ButtonFace;
+    --ui-progress-bar-fill: Highlight;
+    --ui-progress-ring-track: ButtonFace;
+    --ui-progress-ring-arc: Highlight;
+  }
+
+  .ui-progress-bar[aria-disabled="true"],
+  .ui-progress-ring[aria-disabled="true"] {
+    --ui-progress-bar-fill: GrayText;
+    --ui-progress-ring-arc: GrayText;
+  }
+}

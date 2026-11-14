@@ -14,7 +14,7 @@ Milestones for the web library of [0045](../decisions/0045-web-library.md), buil
    3. The theme entry: theme (system, light, dark), accent, density, reduce motion and reduce transparency, each following the browser's media query by default and settable by the app.
    4. The typeface: how Inter reaches the browser.
    5. HTML standards: semantics, accessibility (roles, names, contrast), keyboard, theming, and how Blocks, Modules and Screens compose. One topic per file in `docs/web/`.
-3. **W3 Shell and the Blocks the roadmap page needs:**
+3. **W3 Shell and the Blocks the roadmap page needs:** Done.
    1. The window as a web app shell ([0022](../decisions/0022-window-layout.md)): title band, backdrop wash, `Backdrop` slot, glass content panel, status bar and sidebar slot, with the narrow-window stages. Window buttons are left out by default, since the browser owns the window; how and whether they appear is agreed at this step.
    2. Button and its siblings ([0018](../decisions/0018-button.md), [0021](../decisions/0021-button-siblings.md)).
    3. Icon, from the desktop library's Phosphor path data ([0026](../decisions/0026-icon.md)).

@@ -23,6 +23,9 @@
 
   /* Accent */
   --ui-system-accent-color: #007CEA;
+  /* Fluent's SystemAccentColorLight2: the accent's HSL lightness plus 70/255. */
+  --ui-system-accent-color-light2: hsl(from var(--ui-system-accent-color) h s calc(l + 27.4509804));
+  --ui-accent-button-foreground: #FFFFFF;
   --ui-accent-fill-color: #0075DD;
   --ui-accent-fill-color-pointer-over: #006AC9;
   --ui-accent-fill-color-pressed: #0060B4;

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Icon tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { icon, iconNames } from "../blocks/icon.js";
+import { icons } from "../blocks/icons.js";
+
+const html = document.documentElement;
+const host = document.getElementById("host");
+const style = (el) => getComputedStyle(el);
+
+function reset() {
+  for (const a of ["data-theme", "data-density", "data-reduce-motion"]) html.removeAttribute(a);
+  host.replaceChildren();
+}
+
+// The starting set of 0026, plus the icons added since and the library's own.
+const SET = ["app-window", "arrows-out-line-horizontal", "bell", "calendar", "calendar-blank", "caret-down", "caret-left",
+  "caret-right", "caret-up", "chat-text", "check", "check-circle", "check-square", "clock", "cursor-click", "dots-three",
+  "drop", "eye", "eye-slash", "gear", "house", "info", "list", "list-bullets", "magnifying-glass", "minus", "palette",
+  "play", "plus", "radio-button", "ruler", "sidebar-simple", "sliders-horizontal", "squares-four", "tabs", "text-aa",
+  "toggle-right", "tree-structure", "warning", "warning-circle", "x", "x-circle"];
+const ADDED = ["eyedropper", "table", "motion-full", "motion-reduced", "motion-system"];
+
+test("the set holds every icon of 0026 and nothing else", () => {
+  assertEqual(iconNames.length, SET.length + ADDED.length, "count");
+  for (const n of [...SET, ...ADDED]) assert(n in icons, `missing ${n}`);
+  assert(Object.isFrozen(icons), "icons is not frozen");
+});
+
+test("icon() draws the path verbatim in the 256 design box, decoration by default", () => {
+  reset();
+  const svg = icon("caret-down");
+  assertEqual(svg.namespaceURI, "http://www.w3.org/2000/svg");
+  assertEqual(svg.getAttribute("class"), "ui-icon");
+  assertEqual(svg.getAttribute("viewBox"), "0 0 256 256");
+  assertEqual(svg.getAttribute("aria-hidden"), "true");
+  assertEqual(svg.getAttribute("role"), null);
+  assertEqual(svg.querySelector("path").getAttribute("d"), icons["caret-down"]);
+});
+
+test("a labelled icon is an image with that name", () => {
+  const svg = icon("warning", { label: "Warning" });
+  assertEqual(svg.getAttribute("role"), "img");
+  assertEqual(svg.getAttribute("aria-label"), "Warning");
+  assertEqual(svg.getAttribute("aria-hidden"), null);
+});
+
+test("an unknown name throws", () => {
+  let threw = false;
+  try { icon("no-such-icon"); } catch { threw = true; }
+  assert(threw, "no error for an unknown icon");
+});
+
+test("every icon stays inside its design box", () => {
+  reset();
+  for (const n of iconNames) {
+    const svg = icon(n);
+    host.append(svg);
+    const b = svg.querySelector("path").getBBox();
+    assert(b.x >= 0 && b.y >= 0 && b.x + b.width <= 256 && b.y + b.height <= 256, `${n} outside the box`);
+    assert(b.width > 0 && b.height > 0, `${n} is empty`);
+  }
+});
+
+test("20 px at Normal, 16 px at Compact, any size through size", () => {
+  reset();
+  const svg = icon("gear"), large = icon("gear", { size: 24 });
+  host.append(svg, large);
+  assertEqual(svg.getBoundingClientRect().width, 20);
+  assertEqual(svg.getBoundingClientRect().height, 20);
+  assertEqual(large.getBoundingClientRect().width, 24);
+  html.dataset.density = "compact";
+  assertEqual(svg.getBoundingClientRect().width, 16);
+  assertEqual(svg.getBoundingClientRect().height, 16);
+  assertEqual(large.getBoundingClientRect().width, 24);
+  reset();
+});
+
+test("the fill is the host's text colour, in every theme and state", () => {
+  reset();
+  html.dataset.reduceMotion = "true";
+  const button = document.createElement("button");
+  button.className = "ui-button ui-accent";
+  const svg = icon("plus");
+  button.append(svg, "Add");
+  host.append(button);
+  for (const theme of ["light", "dark"]) {
+    html.dataset.theme = theme;
+    assertEqual(style(svg).fill, style(button).color, `${theme} rest`);
+    assertEqual(style(svg).fill, "rgb(255, 255, 255)", `${theme} white on accent`);
+    button.disabled = true;
+    assertEqual(style(svg).fill, style(button).color, `${theme} disabled`);
+    assertEqual(style(svg).fill, theme === "light" ? "rgb(166, 166, 166)" : "rgb(107, 107, 107)", `${theme} disabled colour`);
+    button.disabled = false;
+  }
+  reset();
+});
+</script>
+</body>
+</html>

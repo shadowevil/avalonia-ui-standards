@@ -46,8 +46,9 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
      12. Notifications: brief toasts and an inline info bar (info, success, warning, error), with optional actions.
      13. Command palette: Cmd/Ctrl+K search over the app's commands, fed by the same menu definition as the menu bar.
      14. Search field: a search box with suggestions and recent searches, for the toolbar band or the sidebar.
+     15. Breadcrumb bar: a path of clickable segments with overflow, for locations and hierarchies.
    - Small API additions: public `Thickness` and `GridLength` forms of the spacing values, and a public way for app tests to set the accessibility settings.
-5. **M5 First Screen:** the app shell ([0022](../decisions/0022-window-layout.md)).
+5. **M5 First Screens:** the app shell ([0022](../decisions/0022-window-layout.md)), and a file browser that fills a content area: a locations sidebar, back and forward, a breadcrumb path, grid and list views with thumbnails and details, search, a file-type filter, and Open and Cancel. It follows the window's layout mode (Finder-style in the macOS layout, Explorer-style in the Windows layout).
 
 The web library is decided in [0045](../decisions/0045-web-library.md); its milestones are in the [web roadmap](web-roadmap.md).
 

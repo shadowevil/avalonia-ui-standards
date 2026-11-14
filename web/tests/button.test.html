@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Button family tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host">
+  <button id="standard" type="button" class="ui-button ui-squircle ui-focus-ring">Button</button>
+  <button id="accent" type="button" class="ui-button ui-accent ui-squircle ui-focus-ring">Button</button>
+  <button id="subtle" type="button" class="ui-button ui-subtle ui-squircle ui-focus-ring">Button</button>
+  <button id="destructive" type="button" class="ui-button ui-destructive ui-squircle ui-focus-ring">Button</button>
+  <button id="toggle" type="button" class="ui-button ui-squircle ui-focus-ring" aria-pressed="false">Toggle</button>
+  <button id="repeat" type="button" class="ui-button ui-repeat-button ui-squircle ui-focus-ring" data-delay="40" data-interval="20">Repeat</button>
+  <button id="drop-down" type="button" class="ui-button ui-drop-down-button ui-squircle ui-focus-ring" aria-haspopup="menu" aria-expanded="false">Drop down</button>
+  <span id="split" class="ui-split-button ui-squircle ui-focus-ring-within" role="group"><button id="split-primary" type="button" class="ui-button">Split</button><button id="split-menu" type="button" class="ui-button ui-drop-down-button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"></button></span>
+  <a id="link" class="ui-button ui-hyperlink-button ui-squircle ui-focus-ring" href="#never-visited-target">Link</a>
+</div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/button.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function reset() {
+  for (const a of ["data-theme", "data-density", "data-reduce-motion"]) html.removeAttribute(a);
+  for (const el of document.querySelectorAll("#host *")) {
+    el.removeAttribute("data-state");
+    if ("disabled" in el) el.disabled = false;
+  }
+  $("toggle").setAttribute("aria-pressed", "false");
+  $("split-primary").removeAttribute("aria-pressed");
+}
+
+// A computed colour as [r, g, b, a] in 0..255 (alpha 0..1); handles rgb() and color(srgb …).
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+const over = (top, bottom) => top.slice(0, 3).map((c, i) => Math.round(c * top[3] + bottom[i] * (1 - top[3])));
+const PAGE = { light: [245, 245, 245], dark: [30, 30, 30] };
+
+// The desktop theme's resolved values (Fluent's keys under StandardsTheme) per state:
+// [background, foreground] in light and dark.
+const STANDARD = {
+  rest: { light: ["#D4D4D4", "#1A1A1A"], dark: ["#454545", "#F2F2F2"] },
+  hover: { light: ["#1A1A1A@10%", "#1A1A1A"], dark: ["#F2F2F2@10%", "#F2F2F2"] },
+  pressed: { light: ["#A6A6A6", "#1A1A1A"], dark: ["#6B6B6B", "#F2F2F2"] },
+  disabled: { light: ["#D4D4D4", "#A6A6A6"], dark: ["#454545", "#6B6B6B"] },
+};
+const filled = (rest, hover, pressed, fg) => ({
+  rest: { light: [rest, fg], dark: [rest, fg] },
+  hover: { light: [hover, fg], dark: [hover, fg] },
+  pressed: { light: [pressed, fg], dark: [pressed, fg] },
+  disabled: STANDARD.disabled,
+});
+const ACCENT = filled("#0075DD", "#006AC9", "#0060B4", "#FFFFFF");
+const EXPECTED = {
+  standard: STANDARD,
+  accent: ACCENT,
+  subtle: { ...STANDARD, rest: { light: ["transparent", "#1A1A1A"], dark: ["transparent", "#F2F2F2"] },
+    disabled: { light: ["transparent", "#A6A6A6"], dark: ["transparent", "#6B6B6B"] } },
+  destructive: filled("#E02F26", "#D4271E", "#C2231B", "#FFFFFF"),
+  "toggle-checked": ACCENT,
+  "toggle-mixed": { ...STANDARD, hover: { light: ["#D4D4D4", "#1A1A1A"], dark: ["#454545", "#F2F2F2"] } },
+  "split-checked": ACCENT,
+  link: {
+    rest: { light: ["transparent", "#0068C4"], dark: ["transparent", "#1692FF"] },
+    hover: { light: ["transparent", "#0068C4"], dark: ["transparent", "#1692FF"] },
+    pressed: { light: ["transparent", "#005DAF"], dark: ["transparent", "#2B9BFF"] },
+    disabled: { light: ["transparent", "#A6A6A6"], dark: ["transparent", "#6B6B6B"] },
+  },
+};
+const TARGET = {
+  standard: () => $("standard"), accent: () => $("accent"), subtle: () => $("subtle"), destructive: () => $("destructive"),
+  "toggle-checked": () => ($("toggle").setAttribute("aria-pressed", "true"), $("toggle")),
+  "toggle-mixed": () => ($("toggle").setAttribute("aria-pressed", "mixed"), $("toggle")),
+  "split-checked": () => ($("split-primary").setAttribute("aria-pressed", "true"), $("split-menu")),
+  link: () => $("link"),
+};
+
+function setState(el, state) {
+  el.removeAttribute("data-state");
+  if (el.localName === "a") el.removeAttribute("aria-disabled");
+  else el.disabled = false;
+  if (state === "hover" || state === "pressed") el.dataset.state = state;
+  if (state === "disabled") {
+    if (el.localName === "a") el.setAttribute("aria-disabled", "true");
+    else el.disabled = true;
+  }
+}
+
+test("every variant and state takes the desktop's colours, light and dark", () => {
+  for (const [name, states] of Object.entries(EXPECTED)) {
+    reset();
+    html.dataset.reduceMotion = "true";
+    const el = TARGET[name]();
+    for (const theme of ["light", "dark"]) {
+      html.dataset.theme = theme;
+      for (const [state, looks] of Object.entries(states)) {
+        setState(el, state);
+        const [bg, fg] = looks[theme];
+        assertEqual(hex(style(el).backgroundColor), bg, `${name} ${theme} ${state} background`);
+        assertEqual(hex(style(el).color), fg, `${name} ${theme} ${state} text`);
+      }
+    }
+  }
+  reset();
+});
+
+test("indeterminate hover adds the BaseMediumLow border; others keep a transparent 1 px border", () => {
+  reset();
+  html.dataset.reduceMotion = "true";
+  html.dataset.theme = "light";
+  const t = $("toggle");
+  assertEqual(style($("standard")).borderTopWidth, "1px");
+  assertEqual(hex(style($("standard")).borderTopColor), "transparent");
+  t.setAttribute("aria-pressed", "mixed");
+  t.dataset.state = "hover";
+  assertEqual(hex(style(t).borderTopColor), "#A6A6A6");
+  reset();
+});
+
+test("text meets AA on every enabled state, over the page", () => {
+  for (const [name, states] of Object.entries(EXPECTED)) {
+    reset();
+    html.dataset.reduceMotion = "true";
+    const el = TARGET[name]();
+    for (const theme of ["light", "dark"]) {
+      html.dataset.theme = theme;
+      for (const state of ["rest", "hover", "pressed"]) {
+        setState(el, state);
+        const bg = over(rgba(style(el).backgroundColor), PAGE[theme]);
+        const ratio = contrastRatio(rgba(style(el).color).slice(0, 3), bg);
+        assert(ratio >= 4.5, `${name} ${theme} ${state}: ${ratio.toFixed(2)}:1`);
+      }
+    }
+  }
+  reset();
+});
+
+test("height 32 and padding 12,4 at Normal; 24 and 8,2 at Compact", () => {
+  reset();
+  const b = $("standard");
+  assertEqual(b.getBoundingClientRect().height, 32);
+  assertEqual(style(b).paddingInlineStart, "12px");
+  assertEqual(style(b).paddingTop, "4px");
+  html.dataset.density = "compact";
+  assertEqual(b.getBoundingClientRect().height, 24);
+  assertEqual(style(b).paddingInlineStart, "8px");
+  assertEqual(style(b).paddingTop, "2px");
+  reset();
+});
+
+test("the chrome is the control squircle", () => {
+  reset();
+  assertEqual(style($("standard")).borderTopLeftRadius, "9.44px");
+  assertEqual(style($("standard")).cornerTopLeftShape, "superellipse(1.3)");
+});
+
+test("pressed scales to 0.98, except the split button's halves", () => {
+  reset();
+  html.dataset.reduceMotion = "true";
+  $("standard").dataset.state = "pressed";
+  assertEqual(style($("standard")).scale, "0.98");
+  $("split-primary").dataset.state = "pressed";
+  assertEqual(style($("split-primary")).scale, "1");
+  reset();
+});
+
+test("fills, borders and the scale fade over MotionFast with the easing; instant under reduce motion", () => {
+  reset();
+  const s = style($("standard"));
+  assertEqual(s.transitionProperty, "background-color, border-color, scale");
+  assertEqual(s.transitionDuration, "0.1s, 0.1s, 0.1s");
+  assert(s.transitionTimingFunction.startsWith("cubic-bezier(0.3333, 1, 0.6667, 1)"), s.transitionTimingFunction);
+  html.dataset.reduceMotion = "true";
+  assertEqual(style($("standard")).transitionDuration, "0s, 0s, 0s");
+  reset();
+});
+
+test("keyboard focus shows the 2 px accent ring 2 px outside; a split button rings as a whole", () => {
+  reset();
+  const b = $("accent");
+  b.focus({ focusVisible: true });
+  assertEqual(style(b).outlineStyle, "solid");
+  assertEqual(style(b).outlineWidth, "2px");
+  assertEqual(style(b).outlineOffset, "2px");
+  assertEqual(style(b).outlineColor, "rgb(0, 124, 234)");
+  $("split-menu").focus({ focusVisible: true });
+  assertEqual(style($("split")).outlineWidth, "2px");
+  assertEqual(style($("split-menu")).outlineStyle, "none");
+  $("split-menu").blur();
+  assertEqual(style($("split")).outlineStyle, "none");
+});
+
+test("every button is a Tab stop in DOM order, the split button's two halves included", () => {
+  const stops = [...document.querySelectorAll("#host button, #host a[href]")];
+  for (const el of stops) assertEqual(el.tabIndex, 0, el.id);
+  assertEqual($("split").getAttribute("role"), "group");
+  assertEqual($("split-menu").getAttribute("aria-label"), "More options");
+  assertEqual($("split-menu").getAttribute("aria-haspopup"), "menu");
+});
+
+test("a toggle button flips aria-pressed on click, before the page's handlers", () => {
+  reset();
+  const t = $("toggle");
+  let seen = null;
+  const listener = () => { seen = t.getAttribute("aria-pressed"); };
+  t.addEventListener("click", listener);
+  t.click();
+  assertEqual(t.getAttribute("aria-pressed"), "true");
+  assertEqual(seen, "true", "handler saw the old state");
+  t.click();
+  assertEqual(t.getAttribute("aria-pressed"), "false");
+  t.setAttribute("aria-pressed", "mixed");
+  t.click();
+  assertEqual(t.getAttribute("aria-pressed"), "true");
+  t.removeEventListener("click", listener);
+  reset();
+});
+
+test("a repeat button clicks again while held, after the delay, and adds no click on release", async () => {
+  reset();
+  const r = $("repeat");
+  let clicks = 0;
+  const count = () => clicks++;
+  r.addEventListener("click", count);
+  r.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+  await wait(20);
+  assertEqual(clicks, 0, "clicked before the delay");
+  await wait(80);
+  assert(clicks >= 2, `only ${clicks} repeats`);
+  r.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+  const held = clicks;
+  r.click(); // the click the release would add
+  assertEqual(clicks, held, "release added a click");
+  await wait(30);
+  assertEqual(clicks, held, "kept repeating after release");
+  r.click(); // a later click counts again
+  assertEqual(clicks, held + 1);
+
+  // A short press is one native click, with no repeat.
+  clicks = 0;
+  r.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+  r.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+  r.click();
+  await wait(60);
+  assertEqual(clicks, 1);
+  r.removeEventListener("click", count);
+});
+
+test("the drop-down chevron: 12 px, BaseMediumHigh at rest, the text colour on hover, the side padding before and after", () => {
+  reset();
+  html.dataset.reduceMotion = "true";
+  html.dataset.theme = "light";
+  const d = $("drop-down");
+  const after = style(d, "::after");
+  assertEqual(after.width, "12px");
+  assertEqual(hex(after.backgroundColor), "#404040");
+  assertEqual(after.marginInlineStart, "4px"); // 12 with the 8 gap
+  assertEqual(style(d).paddingInlineEnd, "12px");
+  d.dataset.state = "hover";
+  assertEqual(hex(style(d, "::after").backgroundColor), "#1A1A1A");
+  html.dataset.density = "compact";
+  assertEqual(style(d, "::after").marginInlineStart, "0px");
+  assertEqual(style(d).paddingInlineEnd, "8px");
+  reset();
+});
+
+test("a split button: outer corners only, a 1 px separator, a square chevron half", () => {
+  reset();
+  const p = $("split-primary"), m = $("split-menu");
+  assertEqual(style(p).borderTopLeftRadius, "9.44px");
+  assertEqual(style(p).borderTopRightRadius, "0px");
+  assertEqual(style(m).borderTopLeftRadius, "0px");
+  assertEqual(style(m).borderBottomRightRadius, "9.44px");
+  const a = p.getBoundingClientRect(), b = m.getBoundingClientRect();
+  assertEqual(b.left - a.right, 1);
+  assertEqual(b.width, 32);
+  assertEqual(b.height, 32);
+  html.dataset.density = "compact";
+  assertEqual(m.getBoundingClientRect().width, 24);
+  reset();
+});
+
+test("a hyperlink button is underlined with the hand cursor and no fill", () => {
+  reset();
+  const l = $("link");
+  assert(style(l).textDecorationLine.includes("underline"), style(l).textDecorationLine);
+  assertEqual(style(l).cursor, "pointer");
+  assertEqual(hex(style(l).backgroundColor), "transparent");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>App shell tests</title>
+<style>
+  iframe { border: 0; display: block; }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="frames"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+import { sidebarStage } from "../modules/shell.js";
+
+// shell.html in an iframe of the given size, so the shell fills that viewport; resolves when it has
+// loaded, with the shell.js test hook as win.refresh.
+async function frame(width, height, query = "", setup) {
+  const iframe = document.createElement("iframe");
+  iframe.width = width;
+  iframe.height = height;
+  iframe.src = `shell.html${query}`;
+  document.getElementById("frames").append(iframe);
+  await new Promise((r) => iframe.addEventListener("load", r, { once: true }));
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument;
+  setup?.(doc);
+  await new Promise((resolve) => {
+    win.hookReady = resolve;
+    const s = doc.createElement("script");
+    s.type = "module";
+    s.textContent = 'import { refreshShellStages } from "../modules/shell.js"; window.refresh = refreshShellStages; window.hookReady();';
+    doc.body.append(s);
+  });
+  const q = (sel) => doc.querySelector(sel);
+  const rect = (sel) => q(sel).getBoundingClientRect();
+  return { iframe, win, doc, q, rect, shell: q(".ui-shell"), style: (sel, pseudo) => win.getComputedStyle(q(sel), pseudo) };
+}
+
+const near = (actual, expected, label, tolerance = 0.5) =>
+  assert(Math.abs(actual - expected) <= tolerance, `${label}: expected ${expected}, got ${actual}`);
+
+function resize(f, width, height = f.iframe.height) {
+  f.iframe.width = width;
+  f.iframe.height = height;
+  f.doc.documentElement.getBoundingClientRect();
+  f.win.refresh();
+}
+
+let wide;
+
+test("the page loads at the desktop frame size, 1152 x 752", async () => {
+  wide = await frame(1152, 752);
+  assert(wide.shell, "shell");
+});
+
+test("landmarks: header, nav, main, footer; one main, named nav, skip link first", async () => {
+  const f = await frame(1152, 752);
+  assertEqual(f.q(".ui-shell-title-band").tagName, "HEADER");
+  assertEqual(f.q(".ui-shell-sidebar").tagName, "NAV");
+  assertEqual(f.q(".ui-shell-content").tagName, "MAIN");
+  assertEqual(f.q(".ui-shell-status-bar").tagName, "FOOTER");
+  assertEqual(f.doc.querySelectorAll("main").length, 1);
+  assert(f.q("nav").getAttribute("aria-label"), "nav name");
+  const first = f.doc.querySelector("a[href], button, [tabindex]");
+  assert(first.classList.contains("ui-skip-link"), "skip link first");
+  assertEqual(first.getAttribute("href"), "#main");
+  f.iframe.remove();
+});
+
+test("fills the viewport with the wash, no frame: no border, radius or shadow", () => {
+  const s = wide.style(".ui-shell");
+  const r = wide.rect(".ui-shell");
+  assertEqual(`${r.left},${r.top},${r.width},${r.height}`, "0,0,1152,752");
+  assert(s.backgroundImage.startsWith("linear-gradient"), `wash: ${s.backgroundImage}`);
+  assertEqual(s.borderTopWidth, "0px");
+  assertEqual(s.borderTopLeftRadius, "0px");
+  assertEqual(s.boxShadow, "none");
+});
+
+test("title band 48 high, title 16 in, Body strong; toolbar SpacingL after the title", () => {
+  near(wide.rect(".ui-shell-title-band").height, 48, "band");
+  const title = wide.style(".ui-shell-title");
+  assertEqual(title.fontSize, "14px");
+  assertEqual(title.fontWeight, "600");
+  near(wide.rect(".ui-shell-title").left, 16, "title left");
+  near(wide.rect(".ui-shell-toolbar").left - wide.rect(".ui-shell-title").right, 16, "toolbar gap");
+  const t = wide.rect(".ui-shell-title"), b = wide.rect(".ui-shell-title-band");
+  near(t.top + t.height / 2, b.top + b.height / 2, "title centred", 1);
+});
+
+test("expanded stage: sidebar 240 wide, 8 from the left; panel 8 from it, the side and the status bar", () => {
+  assertEqual(wide.shell.dataset.sidebarStage, "expanded");
+  const nav = wide.rect(".ui-shell-sidebar"), panel = wide.rect(".ui-shell-panel"), status = wide.rect(".ui-shell-status-bar");
+  near(nav.left, 8, "sidebar left");
+  near(nav.width, 240, "sidebar width");
+  near(nav.top, 48, "sidebar top");
+  near(status.top - nav.bottom, 8, "sidebar bottom gap");
+  near(panel.left, 256, "panel left");
+  near(panel.top, 48, "panel top");
+  near(panel.right, 1152 - 8, "panel right");
+  near(status.top - panel.bottom, 8, "panel bottom gap");
+});
+
+test("glass panel: overlay radius on the squircle, glass blur, 12 px padding inside the scroll", () => {
+  const panel = wide.style(".ui-shell-panel");
+  assertEqual(panel.borderTopLeftRadius, "18.88px");
+  assert(wide.style(".ui-shell-panel", "::before").backdropFilter.includes("blur(6px)"), "blur");
+  assertEqual(panel.overflow, "clip");
+  const main = wide.style(".ui-shell-content");
+  assertEqual(main.padding, "12px");
+  assertEqual(main.overflowY, "auto");
+  assertEqual(main.overflowX, "hidden");
+});
+
+test("status bar 32 high, 16 px side padding, content vertically centred", () => {
+  const status = wide.rect(".ui-shell-status-bar");
+  near(status.height, 32, "height");
+  near(status.bottom, 752, "bottom");
+  const s = wide.style(".ui-shell-status-bar");
+  assertEqual(s.paddingInlineStart, "16px");
+  assertEqual(s.paddingInlineEnd, "16px");
+  for (const span of wide.doc.querySelectorAll(".ui-shell-status-bar > span")) {
+    const r = span.getBoundingClientRect();
+    near(r.top + r.height / 2, status.top + status.height / 2, "centred", 1);
+  }
+  near(wide.doc.querySelector(".sample-end").getBoundingClientRect().right, 1152 - 16, "end text");
+});
+
+test("backdrop slot behind everything, filling the shell", () => {
+  const b = wide.rect(".ui-shell-backdrop");
+  assertEqual(`${b.width},${b.height}`, "1152,752");
+  assertEqual(wide.style(".ui-shell-backdrop").zIndex, "-1");
+  assertEqual(wide.style(".ui-shell").isolation, "isolate");
+  // The topmost element over a point of the backdrop inside the panel is the panel's content.
+  const hit = wide.doc.elementFromPoint(700, 600);
+  assert(hit.closest(".ui-shell-panel"), `hit ${hit.tagName}.${hit.className}`);
+});
+
+test("compact stage (640 to 1007): the icon rail 48 wide, panel 8 after it", async () => {
+  const f = await frame(800, 552);
+  assertEqual(f.shell.dataset.sidebarStage, "compact");
+  near(f.rect(".ui-shell-sidebar").width, 48, "rail");
+  near(f.rect(".ui-shell-panel").left, 64, "panel left");
+  resize(f, 1008);
+  assertEqual(f.shell.dataset.sidebarStage, "expanded");
+  near(f.rect(".ui-shell-sidebar").width, 240, "expanded at 1008");
+  resize(f, 1007);
+  assertEqual(f.shell.dataset.sidebarStage, "compact");
+  resize(f, 640);
+  assertEqual(f.shell.dataset.sidebarStage, "compact");
+  near(f.rect(".ui-shell-sidebar").width, 48, "rail at 640");
+  f.iframe.remove();
+});
+
+test("hidden stage (below 640): no sidebar, not focusable; panel 8 from the side", async () => {
+  const f = await frame(480, 320);
+  assertEqual(f.shell.dataset.sidebarStage, "hidden");
+  assertEqual(f.style(".ui-shell-sidebar").display, "none");
+  const link = f.q(".ui-shell-sidebar a");
+  link.focus();
+  assert(f.doc.activeElement !== link, "hidden row took focus");
+  near(f.rect(".ui-shell-panel").left, 8, "panel left");
+  near(f.rect(".ui-shell-panel").right, 472, "panel right");
+  resize(f, 639);
+  assertEqual(f.shell.dataset.sidebarStage, "hidden");
+  f.iframe.remove();
+});
+
+test("toolbar band slot: 48 high below the title band; absent (hidden) takes no room", async () => {
+  near(wide.rect(".ui-shell-panel").top, 48, "no band");
+  const f = await frame(1152, 752, "?toolbar-band");
+  const band = f.rect(".ui-shell-toolbar-band");
+  near(band.top, 48, "top");
+  near(band.height, 48, "height");
+  near(band.width, 1152, "across the window");
+  near(f.rect(".ui-shell-panel").top, 96, "panel below it");
+  assertEqual(f.q(".ui-shell-toolbar-band").getAttribute("role"), "group");
+  f.iframe.remove();
+});
+
+test("compact density: title band 40, toolbar band 40, status bar 24, rail 40", async () => {
+  const f = await frame(800, 552, "?toolbar-band", (doc) => doc.documentElement.setAttribute("data-density", "compact"));
+  near(f.rect(".ui-shell-title-band").height, 40, "title band");
+  near(f.rect(".ui-shell-toolbar-band").height, 40, "toolbar band");
+  near(f.rect(".ui-shell-status-bar").height, 24, "status bar");
+  near(f.rect(".ui-shell-sidebar").width, 40, "rail");
+  f.doc.documentElement.removeAttribute("data-density");
+  near(f.rect(".ui-shell-title-band").height, 48, "back to normal");
+  f.iframe.remove();
+});
+
+test("content scrolls inside the panel; the panel and its glass stay in place", async () => {
+  const f = await frame(1152, 752, "?long");
+  const main = f.q(".ui-shell-content");
+  assert(main.scrollHeight > main.clientHeight, "overflows");
+  const before = f.rect(".ui-shell-panel");
+  main.scrollTop = 200;
+  assertEqual(main.scrollTop, 200);
+  const after = f.rect(".ui-shell-panel");
+  assertEqual(`${after.top},${after.height}`, `${before.top},${before.height}`);
+  assertEqual(f.doc.scrollingElement.scrollTop, 0);
+  f.iframe.remove();
+});
+
+test("data-content-scrollable=false: the content gets the panel's size inside the padding", async () => {
+  const f = await frame(1152, 752, "?fixed&long");
+  const main = f.q(".ui-shell-content");
+  assertEqual(f.style(".ui-shell-content").overflowY, "clip");
+  const panel = f.rect(".ui-shell-panel"), m = main.getBoundingClientRect();
+  near(m.height, panel.height, "fills the panel");
+  f.iframe.remove();
+});
+
+test("without a status bar the panel sits 8 from the bottom", async () => {
+  const f = await frame(1152, 752, "", (doc) => doc.querySelector(".ui-shell-status-bar").remove());
+  near(f.rect(".ui-shell-panel").bottom, 744, "bottom");
+  f.iframe.remove();
+});
+
+test("right to left mirrors: sidebar 8 from the right, title 16 from the right", async () => {
+  const f = await frame(1152, 752, "", (doc) => doc.documentElement.setAttribute("dir", "rtl"));
+  near(f.rect(".ui-shell-sidebar").right, 1144, "sidebar");
+  near(f.rect(".ui-shell-title").right, 1136, "title");
+  near(f.rect(".ui-shell-panel").right, 1144 - 240 - 8, "panel");
+  f.iframe.remove();
+});
+
+test("sidebarStage thresholds: 1008 and 640", () => {
+  assertEqual(sidebarStage(1008), "expanded");
+  assertEqual(sidebarStage(1007.5), "compact");
+  assertEqual(sidebarStage(640), "compact");
+  assertEqual(sidebarStage(639.5), "hidden");
+});
+
+// A token resolved to [r, g, b] in the frame's current theme.
+function colour(f, token) {
+  const probe = f.doc.createElement("span");
+  probe.style.color = `var(${token})`;
+  f.shell.append(probe);
+  const text = f.win.getComputedStyle(probe).color;
+  probe.remove();
+  const m = text.match(/\d+(\.\d+)?/g).map(Number);
+  return m.slice(0, 3);
+}
+
+const over = (top, alpha, bottom) => top.map((c, i) => c * alpha + bottom[i] * (1 - alpha));
+
+test("contrast: primary and secondary text reach AA on the wash's ends and on the glass over them", () => {
+  for (const theme of ["light", "dark"]) {
+    wide.doc.documentElement.setAttribute("data-theme", theme);
+    const ends = ["--ui-backdrop-wash-start-color", "--ui-backdrop-wash-end-color"].map((t) => colour(wide, t));
+    const tint = colour(wide, "--ui-glass-tint-color");
+    const alpha = parseFloat(wide.win.getComputedStyle(wide.shell).getPropertyValue("--ui-glass-tint-opacity"));
+    const backgrounds = [...ends, ...ends.map((e) => over(tint, alpha, e))];
+    for (const token of ["--ui-system-base-high-color", "--ui-system-base-medium-color"]) {
+      const text = colour(wide, token);
+      for (const bg of backgrounds) {
+        const ratio = contrastRatio(text, bg.map(Math.round));
+        assert(ratio >= 4.5, `${theme} ${token} on ${bg.map(Math.round)}: ${ratio.toFixed(2)}`);
+      }
+    }
+  }
+  wide.doc.documentElement.removeAttribute("data-theme");
+});
+
+test("theme switch: the wash follows data-theme", () => {
+  wide.doc.documentElement.setAttribute("data-theme", "light");
+  const light = colour(wide, "--ui-backdrop-wash-start-color").join();
+  wide.doc.documentElement.setAttribute("data-theme", "dark");
+  const dark = colour(wide, "--ui-backdrop-wash-start-color").join();
+  wide.doc.documentElement.removeAttribute("data-theme");
+  assertEqual(light, "220,233,244");
+  assertEqual(dark, "26,43,59");
+});
+</script>
+</body>
+</html>

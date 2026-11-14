@@ -23,7 +23,7 @@ These standards are recorded in [0048](../decisions/0048-web-html-standards.md).
 ## Landmarks and headings
 
 - A page has one `<main>`. Navigation is `<nav>` (named with `aria-label` when there is more than one), page-level header and footer are `<header>` and `<footer>`, a side panel is `<aside>`. Every region of the page sits in a landmark.
-- The app shell Screen ([0022](../decisions/0022-window-layout.md)) maps its areas to landmarks: title band `<header>`, sidebar `<nav>`, glass content panel `<main>`, status bar `<footer>`, inspector `<aside>`.
+- The app shell Screen ([0022](../decisions/0022-window-layout.md)) maps its areas to landmarks: title band `<header>`, sidebar `<nav>`, glass content panel `<main>`, status bar `<footer>`, and the inspector, once it has a slot, `<aside>`.
 - Headings are real `<h1>`-`<h6>` elements, in order, with one `<h1>` per page and no skipped levels. Their size comes from a class (the type ramp, [0012](../decisions/0012-type.md)), never from the level.
 - Section titles that do not name a region (such as the sidebar's section headers) are not headings unless they structure content.
 

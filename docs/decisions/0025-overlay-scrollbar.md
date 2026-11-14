@@ -21,4 +21,5 @@
     - The track and thumb stop short of the bar's ends by max(half of `CornerRadiusOverlay`, the edge gap), currently 8 px, so they clear the panel's rounded corners. Clicks in those end zones do not page.
     - Minimum thumb length 24 px.
   - Motion: fixed `MotionFast` transitions with cross-fade colours ([0016](0016-motion.md)); instant under reduce motion. Keyboard and accessibility behave as in Fluent.
+  - Web ([0045](0045-web-library.md)): `scroll.js` hides the native bars and draws the bar over the content; scrolling, keys, find in page and assistive technology stay native. The layer is the scroller's last child, held in place by scroll-driven animations (Chromium, Safari) or by script on scroll (Firefox). The track repeats paging while held (300 ms, then every 100 ms). Without script there are thin native bars in the thumb colour. The OS "always show scrollbars" setting cannot be read and there is no native scrollbar menu. `data-scrollbar-auto-hide="false"` keeps the thumb shown.
 - **Why:** Content gets the full width, the bar stays out of the way until needed, and it is easy to grab when it is.
