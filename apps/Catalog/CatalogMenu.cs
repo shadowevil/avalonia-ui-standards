@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 
@@ -72,6 +73,16 @@ internal sealed class CatalogMenu
 
         Menu = new NativeMenu { file, edit, view, help };
         window.AddHandler(InputElement.GotFocusEvent, (_, e) => TrackText(e.Source), handledEventsToo: true);
+        // Focus leaving the text box for nothing (no new focus to track) clears it too.
+        window.AddHandler(InputElement.LostFocusEvent, (_, e) =>
+        {
+            if (e.Source == _text)
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_window.FocusManager?.GetFocusedElement() is null)
+                        TrackText(null);
+                });
+        }, handledEventsToo: true);
         UpdateTextActions();
     }
 
@@ -109,7 +120,7 @@ internal sealed class CatalogMenu
         var item = new NativeMenuItem(header) { Gesture = gesture };
         item.Click += (_, _) =>
         {
-            if (_text is { } box)
+            if (_text is { } box && TopLevel.GetTopLevel(box) is not null)
                 action(box);
         };
         _textActions.Add(item);

@@ -582,7 +582,7 @@ public class MenuRowTests
             window.LayoutMode = WindowLayoutMode.MacOS;
             Pump(window);
             Assert.False(NativeMenu.GetIsNativeMenuExported(window));
-            Assert.Contains(window.KeyBindings, b => b.Gesture == nativeNew.Gesture);
+            Assert.Contains(nativeNew.Gesture, window.MenuShortcuts.Gestures);
             Press(window, Key.N, RawInputModifiers.Control, "n");
             Assert.Equal(2, clicks);
             Press(window, Key.LeftAlt, RawInputModifiers.Alt, physical: PhysicalKey.AltLeft);
@@ -600,7 +600,7 @@ public class MenuRowTests
             Assert.Equal(3, clicks);
             NativeMenu.SetMenu(window, null!);
             Pump(window);
-            Assert.Empty(window.MenuShortcuts.Bindings);
+            Assert.Empty(window.MenuShortcuts.Gestures);
             Press(window, Key.M, RawInputModifiers.Control, "m");
             Assert.Equal(3, clicks);
         }
@@ -611,40 +611,54 @@ public class MenuRowTests
     }
 
     [AvaloniaFact]
-    public void ControlA_InAFocusedListBox_SelectsAll_NotTheCatalogsSelectAll()
+    public void FocusedControls_HandleTheirKeysFirst_UnusedGesturesReachTheMenu()
     {
-        // The catalog's Edit, Select all has the platform's select-all gesture (Ctrl+A, Cmd+A on macOS).
-        var app = Application.Current!;
-        var window = new Catalog.MainWindow { Width = 1000, Height = 700 };
-        window.Styles.Add(new StandardsTheme(OsAccessibility.Settings.NotReduced) { ReduceMotion = true });
-        var list = new ListBox { SelectionMode = SelectionMode.Multiple, ItemsSource = new[] { "One", "Two", "Three" } };
+        var command = Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
+        var clicks = new Dictionary<string, int>();
+        NativeMenuItem Counted(string header, Key key)
+        {
+            var item = new NativeMenuItem(header) { Gesture = new KeyGesture(key, command) };
+            item.Click += (_, _) => clicks[header] = clicks.GetValueOrDefault(header) + 1;
+            return item;
+        }
+        var menu = new NativeMenu
+        {
+            new NativeMenuItem("_File") { Menu = new NativeMenu { Counted("_New", Key.N) } },
+            new NativeMenuItem("_Edit") { Menu = new NativeMenu { Counted("_Copy", Key.C), Counted("Select _all", Key.A) } },
+        };
         var box = new TextBox { Text = "Some text" };
-        window.Content = new StackPanel { Children = { list, box } };
-        var selectAll = window.Menus.TextActions[^1];
-        var gesture = selectAll.Gesture!;
-        Assert.Equal(app.PlatformSettings!.HotkeyConfiguration.SelectAll[0], gesture);
+        var list = new ListBox { SelectionMode = SelectionMode.Multiple, ItemsSource = new[] { "One", "Two", "Three" } };
+        var window = Show(menu);
+        window.Content = new StackPanel { Children = { box, list } };
+        var modifiers = (RawInputModifiers)command;
         try
         {
-            window.Show();
             Pump(window);
-            var clicks = 0;
-            selectAll.Click += (_, _) => clicks++;
 
-            // A list focused: the list selects all; the menu entry is disabled and claims nothing.
+            // A text box keeps select all and copy, though the menu's entries are enabled.
+            box.Focus();
+            Pump(window);
+            Press(window, Key.A, modifiers, "a");
+            Assert.Equal(box.Text!.Length, box.SelectionEnd - box.SelectionStart);
+            Press(window, Key.C, modifiers, "c");
+            Assert.Equal(0, clicks.GetValueOrDefault("Select _all"));
+            Assert.Equal(0, clicks.GetValueOrDefault("_Copy"));
+
+            // A list keeps select all.
             list.SelectedIndex = 0;
             list.ContainerFromIndex(0)!.Focus();
             Pump(window);
-            Assert.False(selectAll.IsEnabled);
-            Press(window, gesture.Key, (RawInputModifiers)gesture.KeyModifiers, "a");
-            Assert.Equal(0, clicks);
+            Press(window, Key.A, modifiers, "a");
             Assert.Equal(3, list.SelectedItems!.Count);
+            Assert.Equal(0, clicks.GetValueOrDefault("Select _all"));
 
-            // A text box focused: the entry is enabled and acts on it.
+            // A gesture no control uses reaches the menu, once, from either control.
+            Press(window, Key.N, modifiers, "n");
+            Assert.Equal(1, clicks.GetValueOrDefault("_New"));
             box.Focus();
             Pump(window);
-            Assert.True(selectAll.IsEnabled);
-            Press(window, gesture.Key, (RawInputModifiers)gesture.KeyModifiers, "a");
-            Assert.Equal(box.Text!.Length, box.SelectionEnd - box.SelectionStart);
+            Press(window, Key.N, modifiers, "n");
+            Assert.Equal(2, clicks.GetValueOrDefault("_New"));
         }
         finally
         {
@@ -728,7 +742,7 @@ public class MenuRowTests
     private static void Wait(Window window) =>
         Thread.Sleep(window.GetPlatformSettings()!.GetDoubleTapTime(PointerType.Mouse) + TimeSpan.FromMilliseconds(100));
 
-    private static void Press(Window window, Key key, RawInputModifiers modifiers = RawInputModifiers.None, string? symbol = null,
+    internal static void Press(Window window, Key key, RawInputModifiers modifiers = RawInputModifiers.None, string? symbol = null,
         PhysicalKey physical = PhysicalKey.None)
     {
         window.KeyPress(key, modifiers, physical, symbol);
