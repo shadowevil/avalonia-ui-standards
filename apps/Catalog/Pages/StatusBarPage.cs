@@ -11,13 +11,14 @@ using AvaloniaUiStandards.Style;
 namespace Catalog.Pages;
 
 /// <summary>
-/// StatusBar: a live bar on the window background in a card, with every item kind, an export that runs a cancelable
+/// StatusBar: a live bar on the window background in a card, with a stats row above the main row (a checkbox toggles it), every item kind, an export that runs a cancelable
 /// progress item, and a slider that narrows the bar so its items shorten and hide; and the two progress kinds.
 /// </summary>
 internal sealed class StatusBarPage : UserControl
 {
     private readonly TextBlock _last = Ui.Caption("Last command: none");
     private readonly StatusBar _live;
+    private readonly StatusBarRow _stats = new();
     private readonly StatusProgress _export = new() { Text = "Exporting 0 %", IsCancelable = true, IsVisible = false };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
 
@@ -31,6 +32,9 @@ internal sealed class StatusBarPage : UserControl
         void Resize() => _live.Width = Math.Max(0, (card.Bounds.Width - 2) * width.Value / 100);
         card.SizeChanged += (_, _) => Resize();
         width.ValueChanged += (_, _) => Resize();
+
+        var showStats = new CheckBox { Content = "Show stats row", IsChecked = true };
+        showStats.IsCheckedChanged += (_, _) => _stats.IsVisible = showStats.IsChecked == true;
 
         var run = new Button { Content = "Run export" };
         run.Click += (_, _) => Start();
@@ -60,15 +64,18 @@ internal sealed class StatusBarPage : UserControl
                         Spacing = 12,
                         Children = { Ui.Body("Width"), width, run },
                     },
+                    showStats,
                     _last,
                 },
             }),
             Ui.Section("Progress", new StackPanel { Spacing = 12, Children = { Card(syncing), Card(exporting) } }),
             Ui.Section("Use", Ui.Caption(
-                "The bottom row of the window, on the window background, 24 high at every density. The message leads and is announced " +
-                "politely; leading, centre and trailing zones. Text in Caption size and secondary text; clickable items are subtle buttons " +
-                "and drop-downs with a 20 px hover fill. When the bar is too narrow, items take their shorter texts, then hide, highest " +
-                "priority first. Clickable items are the window's last Tab stops; text takes no focus.")));
+                "The bottom of the window, on the window background: the main row, 24 high at every density, and any rows above it " +
+                "(the bar's Rows, each 24 high, shown or hidden by the app). The message leads the main row and is announced " +
+                "politely; leading, centre and trailing zones in every row. Text in Caption size and secondary text; clickable items are " +
+                "subtle buttons and drop-downs with a 20 px hover fill. When a row is too narrow, its items take their shorter texts, then " +
+                "hide, highest priority first, each row on its own. Clickable items are the window's last Tab stops, the rows from the " +
+                "top and then the main row; text takes no focus.")));
     }
 
     private StatusBar Live()
@@ -104,7 +111,22 @@ internal sealed class StatusBarPage : UserControl
         Subtle(zoom, "Zoom");
         StatusBar.SetZone(zoom, StatusZone.Trailing);
 
-        return new StatusBar { Message = "Ready", Items = { layer, size, _export, mode, zoom } };
+        var cursor = new TextBlock { Text = "Cursor 1280, 640 px" };
+        StatusBar.SetShortTexts(cursor, ["1280, 640"]);
+        StatusBar.SetPriority(cursor, 2);
+        var selection = new TextBlock { Text = "Selection 1200 × 800 px" };
+        StatusBar.SetShortTexts(selection, ["1200 × 800"]);
+        StatusBar.SetPriority(selection, 3);
+        var memory = new TextBlock { Text = "Memory 412 MB" };
+        StatusBar.SetShortTexts(memory, ["412 MB"]);
+        StatusBar.SetPriority(memory, 1);
+        var fps = new TextBlock { Text = "60 fps" };
+        StatusBar.SetZone(memory, StatusZone.Trailing);
+        StatusBar.SetZone(fps, StatusZone.Trailing);
+        foreach (var item in new Control[] { cursor, selection, memory, fps })
+            _stats.Items.Add(item);
+
+        return new StatusBar { Message = "Ready", Items = { layer, size, _export, mode, zoom }, Rows = { _stats } };
     }
 
     private void Start()

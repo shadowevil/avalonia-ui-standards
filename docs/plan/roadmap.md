@@ -34,7 +34,7 @@ Work goes tier by tier under the dependency rule of [0004](../decisions/0004-tie
    - Then these, in this order, set by what apps built on the library need first; each one's design is researched and agreed at its step, with a catalog page:
      1. Status bar: the bottom row of `StandardsWindow`, with zones for status text, progress and small indicators. Done ([0047](../decisions/0047-status-bar.md)), with a catalog page; the catalog's own status bar uses it ([0020](../decisions/0020-catalog-app.md)).
      2. Full screen on macOS: the green window button enters and leaves the system full screen (Option-click zooms), Ctrl+Cmd+F toggles it, and the title band reveals at the top edge; Windows and Linux keep minimise and maximise. With it, window buttons follow what the window can do (a fixed-size window shows no maximise).
-     3. Multi-row status bar: the status bar can stack more than one row, each with its own zones and priority hiding.
+     3. Multi-row status bar: the status bar can stack more than one row, each with its own zones and priority hiding. Done ([0047](../decisions/0047-status-bar.md)), with a catalog demo.
      4. Split panes and dock panels: resizable, collapsible side and bottom panels, and panel stacks with title strips, tab groups and collapse; floating and re-docking later.
      5. Tool palette: an always-visible column of tool icons with nested tool groups in flyouts, a slot below the tools, and its own selection; with the image-editor tool icons, drawn in Phosphor Regular's style where Phosphor has none.
      6. Dialogs and sheets: confirmation and content dialogs from one API, a sheet on macOS and a centred dialog on Windows and Linux.
