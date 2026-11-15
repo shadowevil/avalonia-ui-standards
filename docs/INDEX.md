@@ -50,9 +50,10 @@
 - [0047 — Status bar](decisions/0047-status-bar.md) — the StatusBar Module: its window row, height, zones and gaps, the message live region, item kinds and the clickable items' inset fill, progress, shortening then hiding by priority, keyboard and automation
 - [0048 — Web HTML standards](decisions/0048-web-html-standards.md) — which documents are the web HTML standards, and the roles, landmarks, custom element, keyboard, file, shortcut and unit choices they make
 - [0049 — Full screen and window button availability](decisions/0049-full-screen.md) — macOS full screen (green light, Ctrl+Cmd+F, the menu item, the top that hides and reveals) and how the window buttons follow CanMinimize, CanMaximize and CanResize
+- [0050 — Adopting apps](decisions/0050-adopting-apps.md) — how apps request missing components, use stand-ins, keep app-specific pieces, avoid lookalikes and local restyles, and check layouts
 
 ## Guides
-- [Adopting the library in an app](guides/adopting.md) — requirements, reference, setup, menus, usage rules, the reading list and how missing components are requested
+- [Adopting the library in an app](guides/adopting.md) — status, requirements, how to reference the library, the names an app starts with and the reading list
 
 ## Web
 - [Web semantics](web/semantics.md) — native elements first, when a custom element is allowed, landmarks, headings, forms, language and direction
