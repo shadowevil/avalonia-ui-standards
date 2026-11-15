@@ -24,6 +24,10 @@ internal sealed class BackdropRegions
     private readonly List<Action> _listeners = [];
     private bool _subscribed;
 
+    // Transforms and clip geometries of the sources and their ancestors, watched for changes made in place (an
+    // animated TranslateTransform.X, a RectangleGeometry.Rect), which raise no property change on the visual.
+    private readonly HashSet<object> _watched = [];
+
     private BackdropRegions(TopLevel root) => _root = root;
 
     static BackdropRegions()
@@ -84,7 +88,11 @@ internal sealed class BackdropRegions
             Changed();
     }
 
-    public void RemoveSampler(GlassBackdropSampler sampler) => _samplers.Remove(sampler);
+    public void RemoveSampler(GlassBackdropSampler sampler)
+    {
+        _samplers.Remove(sampler);
+        Subscribe();
+    }
 
     /// <summary>Calls <paramref name="listener"/> after every update; the returned object stops it.</summary>
     public IDisposable Listen(Action listener)
@@ -138,6 +146,8 @@ internal sealed class BackdropRegions
     private void Subscribe()
     {
         var needed = _sources.Count > 0 || _samplers.Count > 0 || _listeners.Count > 0;
+        if (!needed)
+            Watch([]);
         if (needed == _subscribed)
             return;
         _subscribed = needed;
@@ -164,6 +174,7 @@ internal sealed class BackdropRegions
             if (OpaqueRects(source) is { Length: > 0 } rects)
                 opaque.Add((source, rects));
         Opaque = opaque;
+        Watch(WatchedFor(_sources));
 
         var reach = 0.0;
         foreach (var glass in _glass)
@@ -178,6 +189,45 @@ internal sealed class BackdropRegions
         foreach (var listener in _listeners.ToArray())
             listener();
     }
+
+    // The render transforms and clips of the sources and their ancestors.
+    private HashSet<object> WatchedFor(IEnumerable<Visual> sources)
+    {
+        var result = new HashSet<object>();
+        foreach (var source in sources)
+            for (Visual? v = source; v is not null && v != _root; v = v.GetVisualParent())
+            {
+                if (v.RenderTransform is Transform transform)
+                    result.Add(transform);
+                if (v.Clip is { } clip)
+                    result.Add(clip);
+            }
+        return result;
+    }
+
+    // Watches exactly the given transforms and geometries: the others are let go.
+    private void Watch(HashSet<object> wanted)
+    {
+        foreach (var old in _watched.Where(o => !wanted.Contains(o)).ToArray())
+        {
+            if (old is Transform t)
+                t.Changed -= OnInPlaceChange;
+            else if (old is Geometry g)
+                g.Changed -= OnInPlaceChange;
+            _watched.Remove(old);
+        }
+        foreach (var added in wanted.Where(o => !_watched.Contains(o)).ToArray())
+        {
+            if (added is Transform t)
+                t.Changed += OnInPlaceChange;
+            else if (added is Geometry g)
+                g.Changed += OnInPlaceChange;
+            _watched.Add(added);
+        }
+    }
+
+    // Recomputed after the coming layout pass, before the frame is committed.
+    private void OnInPlaceChange(object? sender, EventArgs e) => _root.InvalidateArrange();
 
     // The opaque regions of the glass's own content, in its coordinates.
     private Rect[] SkipFor(GlassBorder glass)

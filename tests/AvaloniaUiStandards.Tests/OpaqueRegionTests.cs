@@ -326,6 +326,119 @@ public class OpaqueRegionTests
         }
     }
 
+    // An animation changes a transform in place (TranslateTransform.X), with no property change on the visual: the
+    // region follows it before each frame is drawn. The frames are stepped as an animation writes them, at animation
+    // priority on the same transform (Avalonia's animation clock does not run in headless tests).
+    [AvaloniaFact]
+    public void Region_FollowsAnAnimatedTranslateTransform()
+    {
+        var (window, doc) = DocumentWindow();
+        var translate = new TranslateTransform();
+        doc.RenderTransform = translate;
+        Pump(window);
+        try
+        {
+            var panel = Part<GlassBorder>(window, StandardsWindowTheme.ContentPanelPart);
+            var before = SkipBounds(panel);
+            var centre = Centre(InLayers(window, doc));
+            Assert.False(window.BackdropVisibleRegion.Contains(centre));
+
+            // An ease-out over six frames to 150 px; after each frame, before it is drawn, the region has followed.
+            for (var frame = 1; frame <= 6; frame++)
+            {
+                var t = frame / 6.0;
+                translate.SetValue(TranslateTransform.XProperty, 150 * (1 - Math.Pow(1 - t, 3)), Avalonia.Data.BindingPriority.Animation);
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                Assert.Equal(before.X + translate.X, SkipBounds(panel).X, 1);
+            }
+            Pump(window);
+
+            Assert.Same(translate, doc.RenderTransform);
+            Assert.Equal(150, translate.X);
+            Assert.Equal(before.X + 150, SkipBounds(panel).X, 1);
+            Assert.True(window.BackdropVisibleRegion.Contains(new Point(centre.X - 150, centre.Y - 100)));
+
+            // Back to where it started.
+            translate.SetValue(TranslateTransform.XProperty, 0.0, Avalonia.Data.BindingPriority.Animation);
+            Pump(window);
+            Assert.Equal(before, SkipBounds(panel));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // A clip geometry changed in place (RectangleGeometry.Rect) cuts the region at once.
+    [AvaloniaFact]
+    public void Region_FollowsAClipGeometryChangedInPlace()
+    {
+        var doc = new Border { Background = Brushes.White, Width = 400, Height = 260 };
+        OpaqueRegion.SetIsOpaque(doc, true);
+        var clip = new RectangleGeometry(new Rect(0, 0, 400, 260));
+        var holder = new Border { Child = doc, Clip = clip, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+        var window = Show(NewWindow(content: holder, scrollable: false));
+        try
+        {
+            var panel = Part<GlassBorder>(window, StandardsWindowTheme.ContentPanelPart);
+            Assert.Equal(400, SkipBounds(panel).Width);
+            clip.Rect = new Rect(0, 0, 200, 260);
+            Pump(window);
+            Assert.Equal(200, SkipBounds(panel).Width);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // A first region that is empty still clips the backdrop (to nothing), and a new template is clipped again.
+    [AvaloniaFact]
+    public void EmptyRegion_AndANewTemplate_StillSetTheClip()
+    {
+        var cover = new Border { Background = Brushes.White, Width = 4000, Height = 4000 };
+        OpaqueRegion.SetIsOpaque(cover, true);
+        var window = NewWindow();
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { GlassQuality = GlassQuality.Solid });
+        Show(window);
+        try
+        {
+            OverlayLayer.GetOverlayLayer(window)!.Children.Add(cover);
+            Pump(window);
+            Assert.True(window.BackdropVisibleRegion.IsEmpty);
+            var clip = Part<Control>(window, StandardsWindowTheme.BackdropPart).Clip;
+            Assert.NotNull(clip);
+            Assert.False(clip!.FillContains(new Point(10, 10)));
+
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        // A new template: its backdrop part is clipped again, though the region is the same.
+        var (docWindow, _) = DocumentWindow();
+        try
+        {
+            var region = docWindow.BackdropVisibleRegion;
+            var oldPart = Part<Control>(docWindow, StandardsWindowTheme.BackdropPart);
+            var template = docWindow.Template;
+            docWindow.Template = null;
+            Pump(docWindow);
+            docWindow.Template = template;
+            Pump(docWindow);
+            var newPart = Part<Control>(docWindow, StandardsWindowTheme.BackdropPart);
+            Assert.NotSame(oldPart, newPart);
+            Assert.Equal(region, docWindow.BackdropVisibleRegion);
+            Assert.NotNull(newPart.Clip);
+        }
+        finally
+        {
+            docWindow.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void Region_Arithmetic()
     {

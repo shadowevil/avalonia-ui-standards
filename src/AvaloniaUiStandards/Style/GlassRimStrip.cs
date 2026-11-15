@@ -199,6 +199,9 @@ internal sealed class GlassRimStrip : IDisposable
     private SKSurface? _samples, _extremesSurface, _strip;
     private bool _valid;
 
+    // The GPU context the strip's surfaces were made in; another one (a lost device) makes them again.
+    private GRRecordingContext? _context;
+
     private GlassRimStrip(GlassRimDrawOperation.Parameters p, double scale, SKRuntimeEffect sample, SKRuntimeEffect extremes, SKRuntimeEffect pack, SKRuntimeEffect band)
     {
         _p = p;
@@ -277,6 +280,11 @@ internal sealed class GlassRimStrip : IDisposable
         var m = canvas.TotalMatrix;
         if (!m.TryInvert(out var inverse))
             return true;
+        if (_samples is not null && !ReferenceEquals(surface.Context as GRRecordingContext, _context))
+        {
+            DisposeSurfaces();
+            _valid = false;
+        }
         var rect = _p.Rect;
         var clip = canvas.LocalClipBounds;
         var maxRadius = _radii.Max();
@@ -395,7 +403,17 @@ internal sealed class GlassRimStrip : IDisposable
     private SKSurface? NewSurface(SKSurface like, GRContext? gr, int height)
     {
         var info = new SKImageInfo(_row, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-        return like.Context is GRRecordingContext context ? SKSurface.Create(context, true, info) : SKSurface.Create(info);
+        _context = like.Context as GRRecordingContext;
+        return _context is not null ? SKSurface.Create(_context, true, info) : SKSurface.Create(info);
+    }
+
+    private void DisposeSurfaces()
+    {
+        _samples?.Dispose();
+        _extremesSurface?.Dispose();
+        _strip?.Dispose();
+        _samples = _extremesSurface = _strip = null;
+        _context = null;
     }
 
     public void Dispose()
@@ -404,8 +422,6 @@ internal sealed class GlassRimStrip : IDisposable
         _uExtremes.Dispose();
         _uPack.Dispose();
         _uBand.Dispose();
-        _samples?.Dispose();
-        _extremesSurface?.Dispose();
-        _strip?.Dispose();
+        DisposeSurfaces();
     }
 }

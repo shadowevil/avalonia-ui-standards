@@ -113,6 +113,7 @@ internal sealed class GlassBackdropSampler : Avalonia.Controls.Control
         _regions = BackdropRegions.For(this);
         _regions?.AddSampler(this);
         Live.Add(_self);
+        Sample.Released = false;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -121,6 +122,7 @@ internal sealed class GlassBackdropSampler : Avalonia.Controls.Control
         _regions?.RemoveSampler(this);
         _regions = null;
         Live.Remove(_self);
+        Sample.Released = true;
         Consumers = [];
         Targets = [];
     }
@@ -159,8 +161,10 @@ internal sealed class GlassBackdropSampler : Avalonia.Controls.Control
 
     public override void Render(DrawingContext context)
     {
-        if (Consumers.Count > 0 && Enabled)
-            context.Custom(new GlassSampleOperation(Sample, new Rect(Bounds.Size), Targets.ToArray(), Consumers.ToArray(), BlurSigma, BackdropScale));
+        // With no glass reading it, an operation with no targets frees the kept textures.
+        context.Custom(Consumers.Count > 0 && Enabled
+            ? new GlassSampleOperation(Sample, new Rect(Bounds.Size), Targets.ToArray(), Consumers.ToArray(), BlurSigma, BackdropScale)
+            : new GlassSampleOperation(Sample, new Rect(Bounds.Size), [], [], BlurSigma, BackdropScale));
     }
 }
 
@@ -173,8 +177,10 @@ internal readonly record struct SampleConsumer(GlassBorder Glass, Rect[] Skip)
 }
 
 /// <summary>
-/// The shared sample as the render thread sees it: the blurred image of this frame's sample operation, how it maps to
-/// the device, and the consumers it covers.
+/// The shared sample of one window as the render thread sees it: the kept textures (the downscaled copy and its blur),
+/// the blurred image of this frame, how it maps to the device, and the consumers it covers. The textures outlive the
+/// sample operations: a new operation (other consumers or targets) reuses them while their size, scale and GPU context
+/// stay the same.
 /// </summary>
 internal sealed class SharedBackdropSample
 {
@@ -183,6 +189,58 @@ internal sealed class SharedBackdropSample
     internal float Scale;
     internal SampleConsumer[] Covered = [];
     internal object? Owner;
+
+    internal SKSurface? Down, Blurred;
+    internal SKSizeI Size;
+    internal float SurfaceScale;
+    internal GRRecordingContext? Context;
+
+    /// <summary>Counts the allocations of the kept textures; what was filled before the current one is gone.</summary>
+    internal int Generation;
+
+    /// <summary>Set on the UI thread when the sampler leaves its window: the last operation's disposal frees the textures.</summary>
+    internal volatile bool Released;
+
+    /// <summary>
+    /// The kept textures for <paramref name="size"/> at <paramref name="scale"/>, made in <paramref name="like"/>'s GPU
+    /// context: allocated again, empty, when any of those differ (a resize, a move to another scaling, a lost device).
+    /// False when they cannot be allocated.
+    /// </summary>
+    internal bool EnsureSurfaces(SKSurface like, SKSizeI size, float scale)
+    {
+        var context = like.Context as GRRecordingContext;
+        if (Down is not null && Blurred is not null && Size == size && SurfaceScale == scale && ReferenceEquals(Context, context))
+            return true;
+        DisposeSurfaces();
+        var info = new SKImageInfo(size.Width, size.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        Down = context is not null ? SKSurface.Create(context, false, info) : SKSurface.Create(info);
+        Blurred = context is not null ? SKSurface.Create(context, false, info) : SKSurface.Create(info);
+        if (Down is null || Blurred is null)
+        {
+            DisposeSurfaces();
+            return false;
+        }
+        Down.Canvas.Clear(SKColors.Transparent);
+        Blurred.Canvas.Clear(SKColors.Transparent);
+        Size = size;
+        SurfaceScale = scale;
+        Context = context;
+        Generation++;
+        return true;
+    }
+
+    /// <summary>Frees the kept textures and the image (render thread).</summary>
+    internal void DisposeSurfaces()
+    {
+        Image?.Dispose();
+        Image = null;
+        Covered = [];
+        Owner = null;
+        Down?.Dispose();
+        Blurred?.Dispose();
+        Down = Blurred = null;
+        Context = null;
+    }
 
     /// <summary>Whether the sample covers <paramref name="consumer"/> as it is now.</summary>
     public bool Covers(SampleConsumer consumer) => Image is not null && Array.IndexOf(Covered, consumer) >= 0;
@@ -199,9 +257,10 @@ internal sealed class SharedBackdropSample
 }
 
 /// <summary>
-/// Copies the redrawn part of the backdrop into the kept, downscaled texture and blurs it where glass reads it. It owns
-/// its textures: a new operation (a change of consumers or targets) starts with fresh ones, and Avalonia redraws its
-/// whole bounds then, so they are filled in full.
+/// Copies the redrawn part of the backdrop into the window's kept, downscaled texture and blurs it where glass reads
+/// it. A new operation (a change of consumers or targets) makes Avalonia redraw its whole bounds, the frame, so the new
+/// targets are filled in full; until an operation has filled the whole texture once (since the textures were last
+/// allocated), it covers no consumer, and the glass blurs its backdrop itself. With no targets it frees the textures.
 /// </summary>
 internal sealed class GlassSampleOperation : ICustomDrawOperation
 {
@@ -224,9 +283,8 @@ internal sealed class GlassSampleOperation : ICustomDrawOperation
 
     private static readonly SKSamplingOptions Linear = new(SKFilterMode.Linear, SKMipmapMode.None);
 
-    private SKSurface? _down, _blurred;
-    private SKSizeI _size;
-    private float _scale;
+    // The texture generation this operation has filled in full, or -1.
+    private int _complete = -1;
 
     public Rect Bounds => _bounds;
 
@@ -251,6 +309,11 @@ internal sealed class GlassSampleOperation : ICustomDrawOperation
             _sample.Clear(this);
             return;
         }
+        if (_targets.Length == 0)
+        {
+            _sample.DisposeSurfaces();
+            return;
+        }
         var canvas = lease.SkCanvas;
         var m = canvas.TotalMatrix;
         var deviceScale = Math.Sqrt(m.ScaleX * m.ScaleX + m.SkewY * m.SkewY);
@@ -263,21 +326,10 @@ internal sealed class GlassSampleOperation : ICustomDrawOperation
             return;
 
         var size = new SKSizeI((int)Math.Ceiling(device.Width * k), (int)Math.Ceiling(device.Height * k));
-        if (_down is null || _size != size || _scale != k)
-        {
-            _down?.Dispose();
-            _blurred?.Dispose();
-            var info = new SKImageInfo(size.Width, size.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
-            _down = NewSurface(surface, info);
-            _blurred = NewSurface(surface, info);
-            _size = size;
-            _scale = k;
-            if (_down is null || _blurred is null)
-            {
-                _sample.Clear(this);
-                return;
-            }
-        }
+        if (!_sample.EnsureSurfaces(surface, size, k))
+            return;
+        var downSurface = _sample.Down!;
+        var blurredSurface = _sample.Blurred!;
 
         // Texels: (device - origin) * k. The redrawn region, in whole texels inside it.
         var clip = canvas.DeviceClipBounds;
@@ -314,7 +366,7 @@ internal sealed class GlassSampleOperation : ICustomDrawOperation
                 using var copy = from.Width > 0 && from.Height > 0 ? surface.Snapshot(from) : null;
                 if (copy is not null)
                 {
-                    var down = _down.Canvas;
+                    var down = downSurface.Canvas;
                     down.Save();
                     down.ClipPath(copyArea);
                     down.Scale(k);
@@ -329,11 +381,11 @@ internal sealed class GlassSampleOperation : ICustomDrawOperation
         var stale = SKRect.Inflate(fresh, blurReach, blurReach);
         _sample.Image?.Dispose();
         _sample.Image = null;
-        using (var downImage = _down!.Snapshot())
+        using (var downImage = downSurface.Snapshot())
         using (var blur = SKImageFilter.CreateBlur(sigmaTexels, sigmaTexels, SKShaderTileMode.Clamp))
         using (var paint = new SKPaint { ImageFilter = blur, BlendMode = SKBlendMode.Src })
         {
-            var target = _blurred!.Canvas;
+            var target = blurredSurface.Canvas;
             foreach (var t in texelTargets)
             {
                 var r = SKRect.Intersect(SKRect.Inflate(t, 1, 1), stale);
@@ -346,20 +398,20 @@ internal sealed class GlassSampleOperation : ICustomDrawOperation
             }
         }
 
-        _sample.Image = _blurred.Snapshot();
+        // Filled in full once the redrawn region was the whole texture.
+        if (fresh.Left <= 0 && fresh.Top <= 0 && fresh.Right >= size.Width && fresh.Bottom >= size.Height)
+            _complete = _sample.Generation;
+        _sample.Image = blurredSurface.Snapshot();
         _sample.Origin = new SKPointI(device.Left, device.Top);
         _sample.Scale = k;
-        _sample.Covered = _consumers;
+        _sample.Covered = _complete == _sample.Generation ? _consumers : [];
         _sample.Owner = this;
     }
-
-    private static SKSurface? NewSurface(SKSurface like, SKImageInfo info) =>
-        like.Context is GRRecordingContext context ? SKSurface.Create(context, false, info) : SKSurface.Create(info);
 
     public void Dispose()
     {
         _sample.Clear(this);
-        _down?.Dispose();
-        _blurred?.Dispose();
+        if (_sample.Released)
+            _sample.DisposeSurfaces();
     }
 }

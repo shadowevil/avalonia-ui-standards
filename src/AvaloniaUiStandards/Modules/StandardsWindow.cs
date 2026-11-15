@@ -102,6 +102,9 @@ public class StandardsWindow : Window, IFrameTickSource
     private Rect _contentPanelBounds;
     private BackdropRegion _backdropVisibleRegion = BackdropRegion.Empty;
     private Control? _backdrop;
+    // The backdrop part and region the clip was last set for: null until the first, and again after a new template.
+    private Control? _clippedBackdrop;
+    private BackdropRegion? _clippedRegion;
     private IDisposable? _regionsListener;
     private readonly FrameTicker _ticker;
     private EventHandler<FrameTickEventArgs>? _frameTick;
@@ -237,11 +240,7 @@ public class StandardsWindow : Window, IFrameTickSource
     public BackdropRegion BackdropVisibleRegion
     {
         get => _backdropVisibleRegion;
-        private set
-        {
-            if (!value.Equals(_backdropVisibleRegion))
-                SetAndRaise(BackdropVisibleRegionProperty, ref _backdropVisibleRegion, value);
-        }
+        private set => SetAndRaise(BackdropVisibleRegionProperty, ref _backdropVisibleRegion, value);
     }
 
     /// <summary>
@@ -826,9 +825,11 @@ public class StandardsWindow : Window, IFrameTickSource
             .Select(r => r.Deflate(reach));
         var area = new Rect(layers.Bounds.Size);
         var region = BackdropRegion.Create(area, holes);
-        if (region.Equals(BackdropVisibleRegion))
-            return;
         BackdropVisibleRegion = region;
+        if (backdrop == _clippedBackdrop && region.Equals(_clippedRegion))
+            return;
+        _clippedBackdrop = backdrop;
+        _clippedRegion = region;
         backdrop.Clip = region.Rects.Count == 1 && region.Rects[0] == area ? null : BackdropClip(region);
     }
 

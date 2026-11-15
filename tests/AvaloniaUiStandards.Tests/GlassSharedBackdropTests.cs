@@ -240,6 +240,67 @@ public class GlassSharedBackdropTests
         }
     }
 
+    // Moving an opaque card changes what the panel skips, so a new sample operation is made each time: the window's
+    // kept textures are reused, and the panel keeps reading the sample.
+    [AvaloniaFact]
+    public void KeptTextures_SurviveNewSampleOperations()
+    {
+        var doc = new Border { Background = Brushes.White, Width = 300, Height = 200 };
+        OpaqueRegion.SetIsOpaque(doc, true);
+        Canvas.SetTop(doc, 20);
+        var window = Show(NewWindow(content: new Canvas { Children = { doc } }, scrollable: false));
+        try
+        {
+            window.CaptureRenderedFrame()!.Dispose();
+            var sample = Sampler(window).Sample;
+            var generation = sample.Generation;
+            Assert.NotNull(sample.Down);
+            for (var i = 1; i <= 5; i++)
+            {
+                Canvas.SetLeft(doc, 30 * i);
+                Pump(window);
+                window.CaptureRenderedFrame()!.Dispose();
+                Assert.Equal(generation, sample.Generation);
+                Assert.NotEmpty(sample.Covered);
+            }
+
+            // A new size allocates them again.
+            window.Width = 700;
+            Pump(window);
+            window.CaptureRenderedFrame()!.Dispose();
+            Assert.Equal(generation + 1, sample.Generation);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // With no glass reading the sample (Solid), the kept textures are freed.
+    [AvaloniaFact]
+    public void KeptTextures_AreFreed_WhenNoGlassReadsTheSample()
+    {
+        var theme = new StandardsTheme(AccessibilitySettings.NotReduced);
+        var window = NewWindow();
+        window.Styles.Add(theme);
+        Show(window);
+        try
+        {
+            window.CaptureRenderedFrame()!.Dispose();
+            var sample = Sampler(window).Sample;
+            Assert.NotNull(sample.Down);
+            theme.GlassQuality = GlassQuality.Solid;
+            Pump(window);
+            window.CaptureRenderedFrame()!.Dispose();
+            Assert.Null(sample.Down);
+            Assert.Null(sample.Image);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void Switch_Off_DrawsEveryFillWithItsOwnBlur()
     {
