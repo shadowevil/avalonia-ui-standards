@@ -237,6 +237,89 @@ public class MenuRowTests
         }
     }
 
+    private static List<object?> Shown(ItemsControl menu) =>
+        menu.Items.OfType<Control>().Where(c => c.IsVisible).Select(i => i is MenuItem m ? m.Header : "-").ToList();
+
+    [AvaloniaFact]
+    public void Separators_NeverShowFirstLastOrNextToAnother_WhateverIsHidden()
+    {
+        var hiddenFirst = Item("_Hidden first");
+        var hiddenTail = Item("_Hidden tail");
+        var hiddenMid = Item("_Hidden mid");
+        hiddenFirst.IsVisible = hiddenTail.IsVisible = hiddenMid.IsVisible = false;
+        var menu = new NativeMenu
+        {
+            new NativeMenuItem("_File")
+            {
+                Menu = new NativeMenu
+                {
+                    hiddenFirst, new NativeMenuItemSeparator(), Item("_A"), new NativeMenuItemSeparator(), hiddenMid,
+                    new NativeMenuItemSeparator(), Item("_B"), new NativeMenuItemSeparator(), new NativeMenuItemSeparator(),
+                    Item("_C"), new NativeMenuItemSeparator(), hiddenTail,
+                },
+            },
+            new NativeMenuItem("_Edit")
+            {
+                Menu = new NativeMenu
+                {
+                    Item("_Open"),
+                    new NativeMenuItem("_Recent")
+                    {
+                        Menu = new NativeMenu { new NativeMenuItemSeparator(), Item("_One"), new NativeMenuItemSeparator(), new NativeMenuItemSeparator(), Item("_Two"), new NativeMenuItemSeparator() },
+                    },
+                    new NativeMenuItemSeparator(),
+                },
+            },
+        };
+        var window = Show(menu);
+        try
+        {
+            Assert.Equal(new object?[] { "_A", "-", "_B", "-", "_C" }, Shown(Title(window, "_File")));
+            var edit = Title(window, "_Edit");
+            Assert.Equal(new object?[] { "_Open", "_Recent" }, Shown(edit));
+            Assert.Equal(new object?[] { "_One", "-", "_Two" }, Shown((MenuItem)edit.Items[1]!));
+
+            // An item shown or hidden later moves the separators with it.
+            var file = menu.Items[0].As<NativeMenuItem>().Menu!;
+            hiddenTail.IsVisible = true;
+            Pump(window);
+            Assert.Equal(new object?[] { "_A", "-", "_B", "-", "_C", "-", "_Hidden tail" }, Shown(Title(window, "_File")));
+            hiddenMid.IsVisible = true;
+            hiddenFirst.IsVisible = true;
+            Pump(window);
+            Assert.Equal(new object?[] { "_Hidden first", "-", "_A", "-", "_Hidden mid", "-", "_B", "-", "_C", "-", "_Hidden tail" }, Shown(Title(window, "_File")));
+            foreach (var item in file.Items.OfType<NativeMenuItem>().Where(i => i.Header is "_A" or "_B" or "_C" or "_Hidden mid"))
+                item.IsVisible = false;
+            Pump(window);
+            Assert.Equal(new object?[] { "_Hidden first", "-", "_Hidden tail" }, Shown(Title(window, "_File")));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AppMenu_SeparatorBeforeItsItems_HidesWhenTheyAreAllHidden()
+    {
+        var app = Application.Current!;
+        var about = Item("_About");
+        NativeMenu.SetMenu(app, new NativeMenu { about });
+        var window = Show(FourMenus());
+        try
+        {
+            Assert.Equal(new object?[] { "_Documentation", "-", "_About" }, Shown(Title(window, "_Help")));
+            about.IsVisible = false;
+            Pump(window);
+            Assert.Equal(new object?[] { "_Documentation" }, Shown(Title(window, "_Help")));
+        }
+        finally
+        {
+            window.Close();
+            NativeMenu.SetMenu(app, null!);
+        }
+    }
+
     [AvaloniaFact]
     public void Clicks_GoToTheNativeItem_WhichKeepsTheCheckState()
     {
@@ -720,6 +803,53 @@ public class MenuRowTests
             Directory.CreateDirectory(dir);
             using var stream = File.Create(Path.Combine(dir, "menu-row-fold-light.png"));
             crop.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// The catalog's View menu off macOS, where its full screen item is hidden: the separator before it shows no orphan
+    /// (screenshots/menu-separators-view-light.png).
+    /// </summary>
+    [AvaloniaFact]
+    public void HiddenLastItem_LeavesNoOrphanSeparator_Renders()
+    {
+        var menu = new NativeMenu
+        {
+            new NativeMenuItem("_View")
+            {
+                Menu = new NativeMenu
+                {
+                    new NativeMenuItem("_Theme") { Menu = new NativeMenu { Item("_Light") } },
+                    new NativeMenuItem("_Density") { Menu = new NativeMenu { Item("_Normal") } },
+                    new NativeMenuItemSeparator(),
+                    Item("_Next page", "Ctrl+PageDown"),
+                    Item("_Previous page", "Ctrl+PageUp"),
+                    new NativeMenuItemSeparator(),
+                    new NativeMenuItem("Enter _Full Screen") { IsVisible = false },
+                },
+            },
+        };
+        var window = Show(menu, width: 528);
+        window.Background = new SolidColorBrush(Color.Parse("#C9CDD3"));
+        window.SetRenderScaling(Sheet.Scale);
+        try
+        {
+            Pump(window);
+            var view = Title(window, "_View");
+            view.Focus();
+            view.IsSubMenuOpen = true;
+            Pump(window);
+            using var frame = Frame.Capture(window);
+            using var crop = Frame.Crop(frame.Bitmap, new PixelRect(0, 0, (int)(400 * Sheet.Scale), (int)(260 * Sheet.Scale)));
+            var dir = Path.Combine(AppContext.BaseDirectory, "screenshots");
+            Directory.CreateDirectory(dir);
+            using var stream = File.Create(Path.Combine(dir, "menu-separators-view-light.png"));
+            crop.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+            Assert.Equal(new object?[] { "_Theme", "_Density", "-", "_Next page", "_Previous page" }, Shown(view));
         }
         finally
         {
