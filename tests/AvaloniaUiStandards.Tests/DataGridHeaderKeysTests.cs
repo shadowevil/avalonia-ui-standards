@@ -166,8 +166,8 @@ public class DataGridHeaderKeysTests
             Press(window, Key.Up);
             foreach (var (key, modifiers) in new[]
             {
-                (Key.Down, KeyModifiers.Shift), (Key.Up, KeyModifiers.Shift), (Key.Up, KeyModifiers.None),
-                (Key.Up, DataGridHeaderKeys.Edge | KeyModifiers.Shift), (Key.PageDown, KeyModifiers.Shift),
+                (Key.Up, KeyModifiers.Shift), (Key.Up, KeyModifiers.None),
+                (Key.Left, DataGridHeaderKeys.Edge | KeyModifiers.Shift), (Key.Right, DataGridHeaderKeys.Edge | KeyModifiers.Shift),
             })
             {
                 Press(window, key, modifiers);
@@ -204,6 +204,106 @@ public class DataGridHeaderKeysTests
             Assert.Equal(row, grid.SelectedIndex);
             Assert.Same(grid.Columns[column], grid.CurrentColumn);
             Assert.Same(grid.SelectedItem, grid.SelectedItems[0]);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.PageDown, false, 4)]
+    [InlineData(Key.Down, true, 5)]
+    [InlineData(Key.Down, false, 1)]
+    public void ShiftOnAHeader_ExtendsTheSelection_InExtendedMode(Key key, bool edge, int selected)
+    {
+        var (window, grid) = Show(configure: g =>
+        {
+            g.Height = 130;
+            g.SelectionMode = DataGridSelectionMode.Extended;
+        });
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
+            Press(window, key, KeyModifiers.Shift | (edge ? DataGridHeaderKeys.Edge : KeyModifiers.None));
+            Assert.Equal(selected, grid.SelectedItems.Count);
+            Assert.Same(grid, Focused(window));
+            Assert.Same(grid.Columns[1], grid.CurrentColumn);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(DataGridSelectionMode.Extended, 5)]
+    [InlineData(DataGridSelectionMode.Single, 1)]
+    public void EdgeA_OnAHeader_SelectsAllRows_OnlyInExtendedMode(DataGridSelectionMode mode, int selected)
+    {
+        var (window, grid) = Show(configure: g => g.SelectionMode = mode);
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
+            Press(window, Key.A, DataGridHeaderKeys.Edge);
+            Assert.Equal(selected, grid.SelectedItems.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Right_InAnEmptyGrid_ScrollsAnOffScreenHeaderIntoView()
+    {
+        var (window, grid) = Show(configure: g =>
+        {
+            g.ItemsSource = new List<DataGridTests.Item>();
+            foreach (var column in g.Columns)
+                column.Width = new DataGridLength(300);
+        });
+        try
+        {
+            HeaderOf(grid, 0).Focus(NavigationMethod.Directional);
+            DataGridTests.Pump(window);
+            for (var i = 0; i < 3; i++)
+            {
+                Press(window, Key.Right);
+                var header = HeaderOf(grid, i + 1);
+                Assert.Same(header, Focused(window));
+                var left = header.TranslatePoint(default, grid)!.Value.X;
+                // In view, give or take the thumb drag's rounding.
+                Assert.InRange(left, -2, grid.Bounds.Width - header.Bounds.Width + 2);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.PageDown, false, "Button")]
+    [InlineData(Key.Down, true, "Sidebar")]
+    public void RowKeys_InAGroupedGrid_LandOnTheRightItem(Key key, bool edge, string name)
+    {
+        var (window, grid) = Show(configure: g =>
+        {
+            g.Height = 130;
+            var view = new Avalonia.Collections.DataGridCollectionView((IEnumerable<DataGridTests.Item>)g.ItemsSource!);
+            view.GroupDescriptions.Add(new Avalonia.Collections.DataGridPathGroupDescription(nameof(DataGridTests.Item.Category)));
+            g.ItemsSource = view;
+        });
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
+            Assert.Same(HeaderOf(grid, 1), Focused(window));
+            Press(window, key, edge ? DataGridHeaderKeys.Edge : KeyModifiers.None);
+            Assert.Equal(name, ((DataGridTests.Item)grid.SelectedItem!).Name);
         }
         finally
         {

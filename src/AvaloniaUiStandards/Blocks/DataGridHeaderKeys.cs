@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -10,10 +12,12 @@ namespace AvaloniaUiStandards.Blocks;
 /// <summary>
 /// Keyboard access to a DataGrid's column headers, which the package does not focus; the keys
 /// are the web grid's (decision 0040, "Header keys"). Up from the first row moves to the current
-/// column's header. On a header: Down, Ctrl+Down, Ctrl+Up, PageDown, PageUp and Ctrl+Home or End
-/// go to a row, Left, Right, Ctrl+Left, Ctrl+Right, Home and End move between headers, Enter or
-/// Space sorts and Shift+Left or Shift+Right resizes. Left and Right swap in a right-to-left
-/// grid. A header takes focus only through these keys or a click, never as a Tab stop.
+/// column's header. On a header: Down, Edge+Down, Edge+Up, PageDown, PageUp and Edge+Home or End
+/// go to a row (with Shift they extend the selection), Left, Right, Edge+Left, Edge+Right, Home
+/// and End move between headers, Enter or Space sorts, Shift+Left or Shift+Right resizes and
+/// Edge+A selects all rows in extended selection mode. Left and Right swap in a right-to-left
+/// grid. "Edge" is Cmd on macOS and Ctrl elsewhere. A header takes focus only through these keys
+/// or a click, never as a Tab stop.
 /// </summary>
 internal static class DataGridHeaderKeys
 {
@@ -37,11 +41,13 @@ internal static class DataGridHeaderKeys
     }
 
     // The package keeps focus on the grid while arrow keys move the current cell, so the cell is the one marked current.
+    // The first row is the first item, which with grouping is not the row at index 0 (a group header is).
     private static bool EnterHeaders(DataGrid grid)
     {
         var cell = grid.GetVisualDescendants().OfType<DataGridCell>().FirstOrDefault(c => c.IsVisible && c.Classes.Contains(":current"));
         if (cell is null || grid.HeadersVisibility is not (DataGridHeadersVisibility.Column or DataGridHeadersVisibility.All)
-            || cell.FindAncestorOfType<DataGridRow>() is not { Index: 0 }
+            || cell.FindAncestorOfType<DataGridRow>() is not { DataContext: { } item }
+            || !ReferenceEquals(item, Items(grid).FirstOrDefault())
             || DataGridColumn.GetColumnContainingElement(cell) is not { } column)
             return false;
         return Focus(grid, column);
@@ -54,48 +60,50 @@ internal static class DataGridHeaderKeys
         var key = e.Key;
         if (grid.FlowDirection == FlowDirection.RightToLeft)
             key = key switch { Key.Left => Key.Right, Key.Right => Key.Left, _ => key };
-        var plain = e.KeyModifiers == KeyModifiers.None;
-        var shift = e.KeyModifiers == KeyModifiers.Shift;
-        var edge = e.KeyModifiers == Edge;
+        var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        var bare = e.KeyModifiers & ~KeyModifiers.Shift;
+        var plain = bare == KeyModifiers.None;
+        var edge = bare == Edge;
         var columns = grid.Columns.Where(c => c.IsVisible).OrderBy(c => c.DisplayIndex).ToList();
-        var last = (grid.ItemsSource?.Cast<object>().Count() ?? 0) - 1;
         var at = columns.IndexOf(column);
 
         switch (key)
         {
-            case Key.Left or Key.Right when plain || edge:
+            case Key.Left or Key.Right when !shift && (plain || edge):
                 var target = edge ? (key == Key.Right ? columns[^1] : columns[0]) : columns.ElementAtOrDefault(at + (key == Key.Right ? 1 : -1));
                 if (target is not null)
                     Focus(grid, target);
                 return true;
-            case Key.Left or Key.Right when shift:
+            case Key.Left or Key.Right when shift && plain:
                 Resize(grid, column, columns, key == Key.Right ? ResizeStep : -ResizeStep);
                 return true;
             case Key.Home or Key.End when plain:
                 Focus(grid, key == Key.Home ? columns[0] : columns[^1]);
                 return true;
             case Key.Down when plain:
-                GoTo(grid, 0, column);
+            case Key.Up when edge:
+            case Key.PageUp when plain:
+                GoTo(grid, _ => 0, column, shift);
                 return true;
             case Key.Down when edge:
-                GoTo(grid, last, column);
-                return true;
-            case Key.Up when edge:
-                GoTo(grid, 0, column);
+                GoTo(grid, count => count - 1, column, shift);
                 return true;
             case Key.Home when edge:
-                GoTo(grid, 0, columns[0]);
+                GoTo(grid, _ => 0, columns[0], shift);
                 return true;
             case Key.End when edge:
-                GoTo(grid, last, columns[^1]);
+                GoTo(grid, count => count - 1, columns[^1], shift);
                 return true;
             case Key.PageDown when plain:
-                GoTo(grid, PageRows(grid, header), column);
+                var page = PageRows(grid, header);
+                GoTo(grid, _ => page, column, shift);
                 return true;
-            case Key.PageUp when plain:
-                GoTo(grid, 0, column);
+            case Key.A when edge && !shift:
+                if (grid.SelectionMode != DataGridSelectionMode.Extended)
+                    return false;
+                grid.SelectAll();
                 return true;
-            case Key.Enter or Key.Space when plain:
+            case Key.Enter or Key.Space when plain && !shift:
                 if (grid.CanUserSortColumns && column.CanUserSort)
                     column.Sort();
                 return true;
@@ -106,6 +114,9 @@ internal static class DataGridHeaderKeys
                 return false;
         }
     }
+
+    // The grid's rows in its own order (sorted, filtered, grouped), without group headers.
+    private static IEnumerable<object> Items(DataGrid grid) => grid.CollectionView?.Cast<object>() ?? [];
 
     // The rows that fit under the headers, as the web grid counts a page.
     private static int PageRows(DataGrid grid, DataGridColumnHeader header)
@@ -126,21 +137,55 @@ internal static class DataGridHeaderKeys
         if (header is null)
             return false;
         if (visible is null)
-            header.BringIntoView();
+            ScrollHeaderIntoView(grid, header);
         return header.Focus(NavigationMethod.Directional);
     }
 
-    // The current cell moves to a row (clamped to the rows there are) in a column, selecting the row, as an arrow key would.
-    private static void GoTo(DataGrid grid, int row, DataGridColumn column)
+    // With no rows there is nothing to scroll the column through; the headers sit outside the
+    // scroll viewer, so the grid's horizontal scroll bar is moved to bring the header into view.
+    private static void ScrollHeaderIntoView(DataGrid grid, DataGridColumnHeader header)
     {
-        var count = grid.ItemsSource?.Cast<object>().Count() ?? 0;
+        if (grid.GetVisualDescendants().OfType<ScrollBar>().FirstOrDefault(b => b.Name == "PART_HorizontalScrollbar") is not { } bar
+            || header.TranslatePoint(default, grid) is not { } origin)
+            return;
+        var left = origin.X;
+        var right = left + header.Bounds.Width;
+        // Left edge into view first, then as much of the right edge as fits.
+        var delta = left < 0 ? left : right > grid.Bounds.Width ? Math.Min(right - grid.Bounds.Width, left) : 0;
+        if (delta == 0)
+            return;
+        // The grid follows the bar's Scroll event, which only a drag or a click on the bar raises:
+        // so the bar's thumb is dragged by the distance that moves the value by the delta.
+        if (bar.GetVisualDescendants().OfType<Thumb>().FirstOrDefault() is not { } thumb
+            || bar.GetVisualDescendants().OfType<Track>().FirstOrDefault() is not { } track
+            || bar.Maximum <= bar.Minimum)
+            return;
+        var travel = track.Bounds.Width - thumb.Bounds.Width;
+        thumb.RaiseEvent(new VectorEventArgs { RoutedEvent = Thumb.DragDeltaEvent, Vector = new Vector(delta * travel / (bar.Maximum - bar.Minimum), 0) });
+        grid.UpdateLayout();
+    }
+    // The current cell moves to a row (clamped to the rows there are) in a column, selecting the row as an arrow
+    // key would, or with <paramref name="extend"/> in extended selection mode the rows from the selection's anchor.
+    private static void GoTo(DataGrid grid, Func<int, int> row, DataGridColumn column, bool extend)
+    {
+        var count = grid.CollectionView switch { DataGridCollectionView view => view.Count, { } view => view.Cast<object>().Count(), _ => 0 };
         if (count == 0)
             return;
-        grid.SelectedIndex = Math.Clamp(row, 0, count - 1);
+        var index = Math.Clamp(row(count), 0, count - 1);
+        var anchor = grid.SelectedIndex;
+        grid.SelectedIndex = index;
+        if (extend && grid.SelectionMode == DataGridSelectionMode.Extended && anchor >= 0 && anchor != index)
+        {
+            var (from, to) = (Math.Min(anchor, index), Math.Max(anchor, index));
+            var range = Items(grid).Skip(from).Take(to - from + 1).ToList();
+            grid.SelectedItems.Clear();
+            foreach (var item in range)
+                grid.SelectedItems.Add(item);
+        }
         grid.CurrentColumn = column;
         // The selected item, not the source's row: the grid's rows follow its sort.
-        if (grid.SelectedItem is { } item)
-            grid.ScrollIntoView(item, column);
+        if (grid.SelectedItem is { } selected)
+            grid.ScrollIntoView(selected, column);
         grid.Focus(NavigationMethod.Directional);
     }
 
