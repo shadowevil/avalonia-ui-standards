@@ -298,22 +298,49 @@ public class StandardsWindow : Window, IFrameTickSource
     /// </remarks>
     internal static Size FitOpeningSize(Size requested, Size workingArea, bool nativeMacOSFrame)
     {
-        static double Fit(double side, double area, bool inset) =>
-            inset ? (side >= area ? Math.Max(0, area - 2 * OpeningInset) : side) : Math.Min(side, area);
-        return new Size(Fit(requested.Width, workingArea.Width, nativeMacOSFrame), Fit(requested.Height, workingArea.Height, nativeMacOSFrame));
+        if (nativeMacOSFrame)
+            return new Size(FitInset(requested.Width, workingArea.Width), FitInset(requested.Height, workingArea.Height));
+        return new Size(Math.Min(requested.Width, workingArea.Width), Math.Min(requested.Height, workingArea.Height));
     }
 
-    // A normal window that would open larger than the working area opens inside it, still centred (see FitOpeningSize).
+    private static double FitInset(double side, double area)
+    {
+        if (side < area)
+            return side;
+        return Math.Max(0, area - 2 * OpeningInset);
+    }
+
+    // A normal window that would open larger than the working area opens inside it, and is centred again when its
+    // start location asks for it (the platform may place a window before or after this resize, so the position is set here).
     private void FitOpeningSize()
     {
         if (WindowState != WindowState.Normal || (Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen)
             return;
         var requested = new Size(double.IsNaN(Width) ? ClientSize.Width : Width, double.IsNaN(Height) ? ClientSize.Height : Height);
         var fitted = FitOpeningSize(requested, screen.WorkingArea.Size.ToSize(screen.Scaling), HasNativeFrame);
+        if (fitted.Width == requested.Width && fitted.Height == requested.Height)
+            return;
         if (fitted.Width != requested.Width)
             Width = Math.Max(fitted.Width, MinWidth);
         if (fitted.Height != requested.Height)
             Height = Math.Max(fitted.Height, MinHeight);
+
+        var area = screen.WorkingArea;
+        var size = new PixelSize((int)Math.Round(Width * screen.Scaling), (int)Math.Round(Height * screen.Scaling));
+        PixelRect? centreOn = WindowStartupLocation switch
+        {
+            WindowStartupLocation.CenterScreen => area,
+            WindowStartupLocation.CenterOwner when Owner is Window owner =>
+                new PixelRect(owner.Position, PixelSize.FromSize(owner.Bounds.Size, owner.RenderScaling)),
+            _ => null,
+        };
+        if (centreOn is not { } target)
+            return;
+        var x = target.X + (target.Width - size.Width) / 2;
+        var y = target.Y + (target.Height - size.Height) / 2;
+        Position = new PixelPoint(
+            Math.Clamp(x, area.X, Math.Max(area.X, area.Right - size.Width)),
+            Math.Clamp(y, area.Y, Math.Max(area.Y, area.Bottom - size.Height)));
     }
 
     /// <summary>Whether the app runs on macOS, where the window has full screen (settable for tests).</summary>

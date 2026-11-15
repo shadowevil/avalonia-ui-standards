@@ -199,6 +199,10 @@ public class StandardsWindowTests
                 var centre = new Point(window.Position.X + window.Width * screen.Scaling / 2, window.Position.Y + window.Height * screen.Scaling / 2);
                 Assert.InRange(centre.X, screen.WorkingArea.Center.X - 1, screen.WorkingArea.Center.X + 1);
                 Assert.InRange(centre.Y, screen.WorkingArea.Center.Y - 1, screen.WorkingArea.Center.Y + 1);
+                // ... and inside it.
+                Assert.True(window.Position.X >= screen.WorkingArea.X && window.Position.Y >= screen.WorkingArea.Y);
+                Assert.True(window.Position.X + window.Width * screen.Scaling <= screen.WorkingArea.Right + 1);
+                Assert.True(window.Position.Y + window.Height * screen.Scaling <= screen.WorkingArea.Bottom + 1);
             }
         }
         finally
