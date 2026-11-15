@@ -99,16 +99,16 @@ internal static class DataGridHeaderKeys
                 GoTo(grid, _ => page, column, shift);
                 return true;
             case Key.A when edge && !shift:
-                if (grid.SelectionMode != DataGridSelectionMode.Extended)
-                    return false;
-                grid.SelectAll();
+                if (grid.SelectionMode == DataGridSelectionMode.Extended)
+                    grid.SelectAll();
                 return true;
             case Key.Enter or Key.Space when plain && !shift:
                 if (grid.CanUserSortColumns && column.CanUserSort)
                     column.Sort();
                 return true;
             // Other navigation keys would move the grid's current cell while a header has focus.
-            case Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.PageUp or Key.PageDown:
+            // Enter and Space with a modifier would act on the cell behind the header too.
+            case Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.PageUp or Key.PageDown or Key.Enter or Key.Space:
                 return true;
             default:
                 return false;
@@ -136,34 +136,18 @@ internal static class DataGridHeaderKeys
             .FirstOrDefault(h => h.IsVisible && ReferenceEquals(DataGridColumn.GetColumnContainingElement(h), column));
         if (header is null)
             return false;
-        if (visible is null)
-            ScrollHeaderIntoView(grid, header);
+        // With no rows there is nothing to scroll a column through (the package scrolls the headers
+        // only with the rows), so focus stays on the headers that start inside the grid.
+        if (visible is null && header.TranslatePoint(default, grid) is { } origin && (origin.X >= grid.Bounds.Width || origin.X + header.Bounds.Width <= 0))
+            return false;
         return header.Focus(NavigationMethod.Directional);
     }
 
-    // With no rows there is nothing to scroll the column through; the headers sit outside the
-    // scroll viewer, so the grid's horizontal scroll bar is moved to bring the header into view.
-    private static void ScrollHeaderIntoView(DataGrid grid, DataGridColumnHeader header)
-    {
-        if (grid.GetVisualDescendants().OfType<ScrollBar>().FirstOrDefault(b => b.Name == "PART_HorizontalScrollbar") is not { } bar
-            || header.TranslatePoint(default, grid) is not { } origin)
-            return;
-        var left = origin.X;
-        var right = left + header.Bounds.Width;
-        // Left edge into view first, then as much of the right edge as fits.
-        var delta = left < 0 ? left : right > grid.Bounds.Width ? Math.Min(right - grid.Bounds.Width, left) : 0;
-        if (delta == 0)
-            return;
-        // The grid follows the bar's Scroll event, which only a drag or a click on the bar raises:
-        // so the bar's thumb is dragged by the distance that moves the value by the delta.
-        if (bar.GetVisualDescendants().OfType<Thumb>().FirstOrDefault() is not { } thumb
-            || bar.GetVisualDescendants().OfType<Track>().FirstOrDefault() is not { } track
-            || bar.Maximum <= bar.Minimum)
-            return;
-        var travel = track.Bounds.Width - thumb.Bounds.Width;
-        thumb.RaiseEvent(new VectorEventArgs { RoutedEvent = Thumb.DragDeltaEvent, Vector = new Vector(delta * travel / (bar.Maximum - bar.Minimum), 0) });
-        grid.UpdateLayout();
-    }
+    // The row where a Shift-extended selection started: kept across presses while it stays selected,
+    // so the range grows from it rather than from the row the last press landed on.
+    private static readonly AttachedProperty<object?> AnchorProperty =
+        AvaloniaProperty.RegisterAttached<DataGrid, DataGrid, object?>("SelectionAnchor");
+
     // The current cell moves to a row (clamped to the rows there are) in a column, selecting the row as an arrow
     // key would, or with <paramref name="extend"/> in extended selection mode the rows from the selection's anchor.
     private static void GoTo(DataGrid grid, Func<int, int> row, DataGridColumn column, bool extend)
@@ -172,16 +156,22 @@ internal static class DataGridHeaderKeys
         if (count == 0)
             return;
         var index = Math.Clamp(row(count), 0, count - 1);
-        var anchor = grid.SelectedIndex;
+        var anchor = grid.GetValue(AnchorProperty);
+        if (anchor is null || !grid.SelectedItems.Contains(anchor))
+            anchor = grid.SelectedItem;
+        var items = Items(grid).ToList();
+        var anchorIndex = anchor is null ? -1 : items.IndexOf(anchor);
         grid.SelectedIndex = index;
-        if (extend && grid.SelectionMode == DataGridSelectionMode.Extended && anchor >= 0 && anchor != index)
+        if (extend && grid.SelectionMode == DataGridSelectionMode.Extended && anchorIndex >= 0)
         {
-            var (from, to) = (Math.Min(anchor, index), Math.Max(anchor, index));
-            var range = Items(grid).Skip(from).Take(to - from + 1).ToList();
+            var (from, to) = (Math.Min(anchorIndex, index), Math.Max(anchorIndex, index));
             grid.SelectedItems.Clear();
-            foreach (var item in range)
+            foreach (var item in items.Skip(from).Take(to - from + 1))
                 grid.SelectedItems.Add(item);
+            grid.SetValue(AnchorProperty, anchor);
         }
+        else
+            grid.SetValue(AnchorProperty, null);
         grid.CurrentColumn = column;
         // The selected item, not the source's row: the grid's rows follow its sort.
         if (grid.SelectedItem is { } selected)

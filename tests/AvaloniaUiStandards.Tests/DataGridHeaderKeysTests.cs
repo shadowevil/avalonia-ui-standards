@@ -166,7 +166,7 @@ public class DataGridHeaderKeysTests
             Press(window, Key.Up);
             foreach (var (key, modifiers) in new[]
             {
-                (Key.Up, KeyModifiers.Shift), (Key.Up, KeyModifiers.None),
+                (Key.Up, KeyModifiers.Shift), (Key.Up, KeyModifiers.None), (Key.Enter, KeyModifiers.Shift), (Key.Space, KeyModifiers.Shift),
                 (Key.Left, DataGridHeaderKeys.Edge | KeyModifiers.Shift), (Key.Right, DataGridHeaderKeys.Edge | KeyModifiers.Shift),
             })
             {
@@ -257,7 +257,7 @@ public class DataGridHeaderKeysTests
     }
 
     [AvaloniaFact]
-    public void Right_InAnEmptyGrid_ScrollsAnOffScreenHeaderIntoView()
+    public void LeftAndRight_InAnEmptyGrid_StayWithinTheHeadersInView()
     {
         var (window, grid) = Show(configure: g =>
         {
@@ -269,15 +269,43 @@ public class DataGridHeaderKeysTests
         {
             HeaderOf(grid, 0).Focus(NavigationMethod.Directional);
             DataGridTests.Pump(window);
-            for (var i = 0; i < 3; i++)
-            {
-                Press(window, Key.Right);
-                var header = HeaderOf(grid, i + 1);
-                Assert.Same(header, Focused(window));
-                var left = header.TranslatePoint(default, grid)!.Value.X;
-                // In view, give or take the thumb drag's rounding.
-                Assert.InRange(left, -2, grid.Bounds.Width - header.Bounds.Width + 2);
-            }
+            Press(window, Key.Right);
+            Assert.Same(HeaderOf(grid, 1), Focused(window));
+            // The next header starts at 600, past the grid's 520 (the package scrolls headers only with
+            // rows): focus stays, and the key is still consumed.
+            Press(window, Key.Right);
+            Assert.Same(HeaderOf(grid, 1), Focused(window));
+            Press(window, Key.Right, DataGridHeaderKeys.Edge);
+            Assert.Same(HeaderOf(grid, 1), Focused(window));
+            Press(window, Key.Left);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ShiftSelection_GrowsFromTheOriginalAnchor_AcrossPresses()
+    {
+        var (window, grid) = Show(configure: g =>
+        {
+            g.Height = 130;
+            g.SelectionMode = DataGridSelectionMode.Extended;
+        });
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
+            Press(window, Key.PageDown, KeyModifiers.Shift);
+            Assert.Equal(4, grid.SelectedItems.Count);
+            // Back on the header, a longer Shift move keeps row 0 as the anchor, not row 3 where the last press landed.
+            HeaderOf(grid, 1).Focus(NavigationMethod.Directional);
+            DataGridTests.Pump(window);
+            Press(window, Key.Down, KeyModifiers.Shift | DataGridHeaderKeys.Edge);
+            Assert.Equal(5, grid.SelectedItems.Count);
+            Assert.Contains(grid.SelectedItems.Cast<DataGridTests.Item>(), i => i.Name == "Accent");
         }
         finally
         {
