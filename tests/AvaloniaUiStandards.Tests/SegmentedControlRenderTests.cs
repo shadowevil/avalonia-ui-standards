@@ -1,10 +1,16 @@
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
@@ -34,6 +40,39 @@ public class SegmentedControlRenderTests
         sheet.Save("m3-segmented-control.png");
     }
 
+    /// <summary>The icon-only selection modes (New, Add, Subtract, Intersect) and selection styles (Normal, Fixed ratio, Fixed size), cropped to the controls, in light and dark.</summary>
+    [AvaloniaFact]
+    public void SelectionMode_RendersInLightAndDark()
+    {
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+        {
+            var control = new StackPanel { Spacing = 12, Children = { SelectionMode(), SelectionStyle() } };
+            var surface = new Border { Padding = new Thickness(16, 12), Child = control };
+            surface.Bind(Border.BackgroundProperty, new DynamicResourceExtension("SystemRegionColor"));
+            var window = new Window { SizeToContent = SizeToContent.WidthAndHeight, RequestedThemeVariant = variant, Content = surface };
+            window.SetRenderScaling(Sheet.Scale);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // The control with 12 px (logical) of its surface around it.
+            using var frame = Frame.Capture(window);
+            var origin = control.TranslatePoint(default, window)!.Value * Sheet.Scale;
+            const int margin = 12;
+            var area = new PixelRect(
+                (int)origin.X - margin,
+                (int)origin.Y - margin,
+                (int)Math.Round(control.Bounds.Width * Sheet.Scale) + 2 * margin,
+                (int)Math.Round(control.Bounds.Height * Sheet.Scale) + 2 * margin);
+            using var crop = Frame.Crop(frame.Bitmap, area);
+            var dir = Path.Combine(AppContext.BaseDirectory, "screenshots");
+            Directory.CreateDirectory(dir);
+            using (var stream = File.Create(Path.Combine(dir, $"selection-mode-icons-{label.ToLowerInvariant()}.png")))
+                crop.Save(stream, new PngBitmapEncoderOptions());
+            window.Close();
+        }
+    }
+
     // --- Content -------------------------------------------------------------------------
 
     internal static SegmentedControl Text()
@@ -46,6 +85,43 @@ public class SegmentedControlRenderTests
     {
         var control = new SegmentedControl { SelectedIndex = 0 };
         foreach (var (name, data) in new[] { ("List", Icons.ListBullets), ("Grid", Icons.SquaresFour), ("Columns", Icons.SidebarSimple), ("Gallery", Icons.Eye) })
+        {
+            var item = new SegmentedControlItem { Content = new Icon { Data = data } };
+            ToolTip.SetTip(item, name);
+            Avalonia.Automation.AutomationProperties.SetName(item, name);
+            control.Items.Add(item);
+        }
+        return control;
+    }
+
+    internal static SegmentedControl SelectionMode()
+    {
+        var control = new SegmentedControl { SelectedIndex = 0 };
+        foreach (var (name, data) in new[]
+        {
+            ("New selection", Icons.Square),
+            ("Add to selection", Icons.UniteSquare),
+            ("Subtract from selection", Icons.SubtractSquare),
+            ("Intersect with selection", Icons.IntersectSquare),
+        })
+        {
+            var item = new SegmentedControlItem { Content = new Icon { Data = data } };
+            ToolTip.SetTip(item, name);
+            Avalonia.Automation.AutomationProperties.SetName(item, name);
+            control.Items.Add(item);
+        }
+        return control;
+    }
+
+    internal static SegmentedControl SelectionStyle()
+    {
+        var control = new SegmentedControl { SelectedIndex = 0 };
+        foreach (var (name, data) in new[]
+        {
+            ("Normal selection", Icons.Selection),
+            ("Fixed ratio", Icons.FrameCorners),
+            ("Fixed size", Icons.Ruler),
+        })
         {
             var item = new SegmentedControlItem { Content = new Icon { Data = data } };
             ToolTip.SetTip(item, name);
