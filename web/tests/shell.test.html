@@ -13,7 +13,7 @@
 <script type="module">
 import { test, assert, assertEqual } from "./harness.js";
 import { contrastRatio } from "../style/colour.js";
-import { sidebarStage } from "../modules/shell.js";
+import { sidebarStage, toggleFullScreen, isFullScreen, isFullScreenAvailable } from "../modules/shell.js";
 
 // shell.html in an iframe of the given size, so the shell fills that viewport; resolves when it has
 // loaded, with the shell.js test hook as win.refresh.
@@ -278,6 +278,95 @@ test("theme switch: the wash follows data-theme", () => {
   wide.doc.documentElement.removeAttribute("data-theme");
   assertEqual(light, "220,233,244");
   assertEqual(dark, "26,43,59");
+});
+// Full screen, with the document's Fullscreen API stubbed: a real request is not made, since
+// Chrome settles it (here a refusal, without a user gesture) only with the next rendered frame,
+// which headless virtual time does not always produce, leaving the test waiting.
+function stubFullScreen({ enabled = true, element = null } = {}) {
+  const calls = [];
+  let current = element;
+  Object.defineProperty(document, "fullscreenEnabled", { configurable: true, get: () => enabled });
+  Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => current });
+  document.exitFullscreen = async () => {
+    calls.push("exit");
+    current = null;
+    document.dispatchEvent(new Event("fullscreenchange"));
+  };
+  const restore = () => {
+    delete document.fullscreenEnabled;
+    delete document.fullscreenElement;
+    delete document.exitFullscreen;
+  };
+  const enter = (el) => {
+    current = el;
+    document.dispatchEvent(new Event("fullscreenchange"));
+  };
+  return { calls, restore, enter };
+}
+
+test("full screen: toggleFullScreen asks for the shell, and leaves full screen when in it", async () => {
+  const shell = document.createElement("div");
+  shell.className = "ui-shell";
+  document.body.append(shell);
+  const stub = stubFullScreen();
+  shell.requestFullscreen = async () => {
+    stub.calls.push("request");
+    stub.enter(shell);
+  };
+  try {
+    assertEqual(isFullScreenAvailable(), true);
+    assertEqual(await toggleFullScreen(), true, "entered");
+    assertEqual(isFullScreen(), true);
+    assert(shell.hasAttribute("data-full-screen"), "data-full-screen set");
+    assertEqual(await toggleFullScreen(), false, "left");
+    assertEqual(stub.calls.join(), "request,exit");
+    assert(!shell.hasAttribute("data-full-screen"), "data-full-screen cleared");
+  } finally {
+    stub.restore();
+    shell.remove();
+  }
+});
+
+test("full screen: data-full-screen follows the browser leaving it (Esc, its own key)", () => {
+  const shell = document.createElement("div");
+  shell.className = "ui-shell";
+  document.body.append(shell);
+  const stub = stubFullScreen();
+  try {
+    stub.enter(shell);
+    assert(shell.hasAttribute("data-full-screen"), "set");
+    stub.enter(null);
+    assert(!shell.hasAttribute("data-full-screen"), "cleared when the browser leaves");
+    assertEqual(isFullScreen(), false);
+  } finally {
+    stub.restore();
+    shell.remove();
+  }
+});
+
+test("full screen: a refusal is quiet and the state stays; nothing is asked where it is not available", async () => {
+  const shell = document.createElement("div");
+  shell.className = "ui-shell";
+  document.body.append(shell);
+  let stub = stubFullScreen();
+  try {
+    // The browser refuses, as without a user gesture or in an iframe without allow="fullscreen".
+    shell.requestFullscreen = () => Promise.reject(new TypeError("Permissions check failed"));
+    assertEqual(await toggleFullScreen(shell), false, "refused");
+    assert(!shell.hasAttribute("data-full-screen"), "unchanged");
+    stub.restore();
+    stub = stubFullScreen({ enabled: false });
+    let asked = false;
+    shell.requestFullscreen = async () => {
+      asked = true;
+    };
+    assertEqual(isFullScreenAvailable(), false);
+    assertEqual(await toggleFullScreen(shell), false);
+    assert(!asked, "not asked");
+  } finally {
+    stub.restore();
+    shell.remove();
+  }
 });
 </script>
 </body>

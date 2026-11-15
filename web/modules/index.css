@@ -1,2 +1,6 @@
 /* Modules tier: Blocks composed into working units. */
 @import "./shell.css";
+@import "./sidebar.css";
+@import "./menu-row.css";
+@import "./toolbar-band.css";
+@import "./status-bar.css";

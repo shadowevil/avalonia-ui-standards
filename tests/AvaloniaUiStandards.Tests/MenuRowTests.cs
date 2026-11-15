@@ -857,6 +857,168 @@ public class MenuRowTests
         }
     }
 
+    // --- Alt activates the row only for a clean press and release ------------------------------
+
+    private static void AltDown(Window window) =>
+        window.KeyPress(Key.LeftAlt, RawInputModifiers.Alt, PhysicalKey.AltLeft, null);
+
+    private static void AltUp(Window window)
+    {
+        window.KeyRelease(Key.LeftAlt, RawInputModifiers.None, PhysicalKey.AltLeft, null);
+        Pump(window);
+    }
+
+    // Runs the input between Alt down and Alt up and returns whether the menu row took focus.
+    private static bool AltActivates(Action<StandardsWindow, Point> between, WindowLayoutMode layout = WindowLayoutMode.Windows)
+    {
+        var window = Show(FourMenus(), layout: layout);
+        try
+        {
+            var box = (TextBox)window.Content!;
+            box.Focus();
+            Pump(window);
+            var point = box.TranslatePoint(new Point(40, 20), window)!.Value;
+            AltDown(window);
+            between(window, point);
+            AltUp(window);
+            return window.MenuRow.IsOpen || window.MenuRow.Titles.Any(t => t.IsSelected || t.IsKeyboardFocusWithin);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Alt_PlainPressAndReleaseActivatesTheRow() =>
+        Assert.True(AltActivates((_, _) => { }));
+
+    [AvaloniaFact]
+    public void Alt_WithPointerPressDragAndReleaseDoesNotActivate()
+    {
+        Assert.False(AltActivates((w, p) =>
+        {
+            w.MouseDown(p, MouseButton.Left, RawInputModifiers.Alt);
+            w.MouseUp(p, MouseButton.Left, RawInputModifiers.Alt);
+        }));
+        Assert.False(AltActivates((w, p) =>
+        {
+            w.MouseDown(p, MouseButton.Left, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+            w.MouseMove(p + new Point(30, 10), RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+            w.MouseUp(p + new Point(30, 10), MouseButton.Left, RawInputModifiers.Alt);
+        }));
+    }
+
+    [AvaloniaFact]
+    public void Alt_WithAKeyDoesNotActivate() =>
+        Assert.False(AltActivates((w, _) => Press(w, Key.A, RawInputModifiers.Alt, "a", PhysicalKey.A)));
+
+    [AvaloniaFact]
+    public void Alt_WithAWheelTurnDoesNotActivate() =>
+        Assert.False(AltActivates((w, p) => w.MouseWheel(p, new Vector(0, -1), RawInputModifiers.Alt)));
+
+    [AvaloniaFact]
+    public void Alt_WithAPlainPointerMoveStillActivates() =>
+        Assert.True(AltActivates((w, p) => w.MouseMove(p + new Point(5, 5), RawInputModifiers.Alt)));
+
+    [AvaloniaFact]
+    public void Alt_InTheMacOSLayoutOpensNothing() =>
+        Assert.False(AltActivates((_, _) => { }, WindowLayoutMode.MacOS));
+
+    [AvaloniaFact]
+    public void Alt_AfterADirtyReleaseTheNextCleanOneActivates()
+    {
+        var window = Show(FourMenus());
+        try
+        {
+            var box = (TextBox)window.Content!;
+            box.Focus();
+            Pump(window);
+            var point = box.TranslatePoint(new Point(40, 20), window)!.Value;
+            foreach (var dirty in new Action[]
+            {
+                () => Press(window, Key.A, RawInputModifiers.Alt, "a", PhysicalKey.A),
+                () => window.MouseWheel(point, new Vector(0, -1), RawInputModifiers.Alt),
+                () => { window.MouseDown(point, MouseButton.Left, RawInputModifiers.Alt); window.MouseUp(point, MouseButton.Left, RawInputModifiers.Alt); },
+            })
+            {
+                AltDown(window);
+                dirty();
+                AltUp(window);
+                Assert.False(window.MenuRow.IsOpen);
+                Assert.False(Title(window, "_File").IsSelected);
+                AltDown(window);
+                AltUp(window);
+                Assert.True(Title(window, "_File").IsSelected);
+                Press(window, Key.Escape);
+                box.Focus();
+                Pump(window);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Alt_CleanTapAfterTheWindowWasDeactivatedActivates()
+    {
+        var window = Show(FourMenus());
+        try
+        {
+            var box = (TextBox)window.Content!;
+            box.Focus();
+            Pump(window);
+            AltDown(window);
+            window.MouseWheel(box.TranslatePoint(new Point(40, 20), window)!.Value, new Vector(0, -1), RawInputModifiers.Alt);
+            DeactivateAndReactivate(window);
+            AltDown(window);
+            AltUp(window);
+            Assert.True(Title(window, "_File").IsSelected);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Alt_ReleaseAfterTheWindowWasDeactivatedDoesNotActivate()
+    {
+        var window = Show(FourMenus());
+        try
+        {
+            var box = (TextBox)window.Content!;
+            box.Focus();
+            Pump(window);
+            AltDown(window);
+            DeactivateAndReactivate(window);
+            AltUp(window);
+            Assert.False(window.MenuRow.IsOpen);
+            Assert.False(Title(window, "_File").IsSelected);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The platform reports the window deactivated, then active again. These callbacks are not accessible
+    // (IWindowBaseImpl.Deactivated does not compile), so they are reached by reflection.
+    private static void DeactivateAndReactivate(StandardsWindow window)
+    {
+        Action? Callback(string name) => (Action?)typeof(Avalonia.Platform.IWindowBaseImpl)
+            .GetProperty(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(window.PlatformImpl!);
+        Callback("Deactivated")?.Invoke();
+        Pump(window);
+        Callback("Activated")?.Invoke();
+        Pump(window);
+        ((TextBox)window.Content!).Focus();
+        Pump(window);
+    }
+
     // --- Helpers ------------------------------------------------------------------------------
 
     private static void DoubleClick(Window window, Point point)

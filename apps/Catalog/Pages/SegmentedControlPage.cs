@@ -19,6 +19,8 @@ internal sealed class SegmentedControlPage : UserControl
                 return control;
             }),
         ], control => ((SegmentedControl)control).ContainerFromIndex(1) ?? control)),
+        Ui.Section("Selection mode", SelectionMode()),
+        Ui.Section("Selection style", SelectionStyle()),
         Ui.Section("Use", Ui.Caption(
             "One of a few options for one setting, about five to seven at most; text or icons, not mixed. Icon segments carry a tooltip " +
             "and an automation name. Tab reaches the control once; the arrow keys, Home and End move and select.")));
@@ -36,6 +38,47 @@ internal sealed class SegmentedControlPage : UserControl
     {
         var control = new SegmentedControl();
         foreach (var (name, data) in new[] { ("List", Icons.ListBullets), ("Grid", Icons.SquaresFour), ("Sidebar", Icons.SidebarSimple) })
+        {
+            var item = new SegmentedControlItem { Content = new Icon { Data = data } };
+            ToolTip.SetTip(item, name);
+            AutomationProperties.SetName(item, name);
+            control.Items.Add(item);
+        }
+        control.SelectedIndex = 0;
+        return control;
+    }
+
+    // Icon-only selection modes: New, Add, Subtract and Intersect.
+    internal static SegmentedControl SelectionMode()
+    {
+        var control = new SegmentedControl();
+        foreach (var (name, data) in new[]
+        {
+            ("New selection", Icons.Square),
+            ("Add to selection", Icons.UniteSquare),
+            ("Subtract from selection", Icons.SubtractSquare),
+            ("Intersect with selection", Icons.IntersectSquare),
+        })
+        {
+            var item = new SegmentedControlItem { Content = new Icon { Data = data } };
+            ToolTip.SetTip(item, name);
+            AutomationProperties.SetName(item, name);
+            control.Items.Add(item);
+        }
+        control.SelectedIndex = 0;
+        return control;
+    }
+
+    // Icon-only selection styles: Normal, Fixed ratio and Fixed size.
+    internal static SegmentedControl SelectionStyle()
+    {
+        var control = new SegmentedControl();
+        foreach (var (name, data) in new[]
+        {
+            ("Normal selection", Icons.Selection),
+            ("Fixed ratio", Icons.FrameCorners),
+            ("Fixed size", Icons.Ruler),
+        })
         {
             var item = new SegmentedControlItem { Content = new Icon { Data = data } };
             ToolTip.SetTip(item, name);

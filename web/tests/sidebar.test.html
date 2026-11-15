@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar tests</title>
+<style>iframe { border: 0; display: block; }</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="frames"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+
+// sidebar.html in an iframe of the given size; `win.refresh()` re-reads the shell's stage.
+async function frame(width, height, query = "") {
+  const iframe = document.createElement("iframe");
+  iframe.width = width;
+  iframe.height = height;
+  iframe.src = `sidebar.html${query}`;
+  document.getElementById("frames").append(iframe);
+  await new Promise((r) => iframe.addEventListener("load", r, { once: true }));
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument;
+  await new Promise((resolve) => {
+    win.hookReady = resolve;
+    const s = doc.createElement("script");
+    s.type = "module";
+    s.textContent = 'import { refreshShellStages } from "../modules/shell.js"; window.refresh = refreshShellStages; window.hookReady();';
+    doc.body.append(s);
+  });
+  // Headless virtual time does not advance transitions; motion is off except where a test turns it on.
+  doc.documentElement.dataset.reduceMotion = "true";
+  await new Promise((r) => setTimeout(r, 30));
+  const f = {
+    iframe, win, doc,
+    shell: doc.getElementById("shell"),
+    sb: doc.querySelector("ui-sidebar"),
+    toggle: doc.querySelector(".ui-sidebar-toggle"),
+    q: (sel) => doc.querySelector(sel),
+    rect: (sel) => (typeof sel === "string" ? doc.querySelector(sel) : sel).getBoundingClientRect(),
+    style: (sel, pseudo) => win.getComputedStyle(typeof sel === "string" ? doc.querySelector(sel) : sel, pseudo),
+    rows: () => [...doc.querySelectorAll("ui-sidebar .ui-list-item")],
+    row: (name) => [...doc.querySelectorAll("ui-sidebar .ui-list-item")].find((r) => r.textContent.trim() === name),
+    key(target, key, init = {}) {
+      const e = new win.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
+      target.dispatchEvent(e);
+      return e;
+    },
+    resize(w, h = height) {
+      iframe.width = w;
+      iframe.height = h;
+      doc.documentElement.getBoundingClientRect();
+      win.refresh();
+    },
+    settle: () => new Promise((r) => setTimeout(r, 30)),
+    done: () => new Promise((r) => setTimeout(r, 320)),
+    stage: () => f.shell.dataset.sidebarStage,
+  };
+  return f;
+}
+
+const near = (actual, expected, label, tolerance = 0.5) =>
+  assert(Math.abs(actual - expected) <= tolerance, `${label}: expected ${expected}, got ${actual}`);
+const labelHidden = (f, row) => f.style(row.querySelector(".ui-sidebar-label")).opacity === "0";
+
+let f;
+test("loads at the desktop frame size, expanded", async () => {
+  f = await frame(1152, 752, "?footer&headers");
+  assertEqual(f.stage(), "expanded");
+  assert(f.sb.isConnected && f.sb.constructor.name === "UiSidebar", "defined");
+});
+
+test("expanded: 240 wide slot 8 from the edge, rows 32 high inset 4, icon 20 at 10, label SpacingS after it", () => {
+  const nav = f.rect(".ui-shell-sidebar");
+  near(nav.left, 8, "left");
+  near(nav.width, 240, "width");
+  const row = f.row("Colours");
+  const r = f.rect(row);
+  near(r.height, 32, "row height");
+  near(r.left - nav.left, 4, "inset");
+  near(r.width, 232, "row width");
+  const icon = f.rect(row.querySelector(".ui-icon"));
+  near(icon.width, 20, "icon");
+  near(icon.left - r.left, 10, "icon at the side padding");
+  near(f.rect(row.querySelector(".ui-sidebar-label")).left - icon.right, 8, "label gap");
+  assertEqual(f.style(row.querySelector(".ui-sidebar-label")).opacity, "1");
+  assert(!f.sb.hasAttribute("data-rail"), "no rail");
+});
+
+test("rows are the list item design: radius 8 squircle, selected accent fill with white text", () => {
+  const row = f.row("Button");
+  const s = f.style(row);
+  assertEqual(row.getAttribute("aria-current"), "page");
+  assertEqual(s.backgroundColor, f.style(f.q(".ui-shell")).getPropertyValue("--ui-accent-fill-color") ? s.backgroundColor : "");
+  assert(s.backgroundColor !== "rgba(0, 0, 0, 0)", "selected fill");
+  assert(/^rgb\(2[4-5]\d/.test(s.color), "white text: " + s.color);
+  assertEqual(f.style(row.querySelector(".ui-icon")).fill, s.color, "icon takes the row text colour");
+  assertEqual(f.style(f.row("Colours").querySelector(".ui-icon")).fill, f.style(f.row("Colours")).color, "icon follows text colour at rest");
+});
+
+test("headers: caption text, secondary colour, row-high band, text aligned with the icons, not rows", () => {
+  const h = f.q(".ui-sidebar-header");
+  const s = f.style(h);
+  assertEqual(s.fontSize, "12px");
+  assertEqual(s.color, f.style(f.q(".ui-shell")).getPropertyValue("--ui-system-base-medium-color") ? s.color : "");
+  near(f.rect(h).height, 32, "band height");
+  assertEqual(s.alignItems, "flex-end");
+  const icon = f.rect(f.row("Colours").querySelector(".ui-icon"));
+  near(f.rect(h).left + 10, icon.left, "text at the icon's place");
+  assert(!h.matches(".ui-list-item") && !h.hasAttribute("tabindex"), "not a row, no focus");
+});
+
+test("footer: pinned at the bottom below the list, SpacingS gap, named list", async () => {
+  const footer = f.q(".ui-sidebar-footer");
+  assertEqual(footer.getAttribute("aria-label"), "Sidebar footer");
+  assertEqual(footer.getAttribute("role"), "list");
+  const nav = f.rect(".ui-shell-sidebar");
+  near(f.rect(f.row("Settings")).bottom, nav.bottom - 4, "footer row at the bottom");
+  const list = f.rect(".ui-sidebar-list");
+  near(f.rect(footer).top - list.bottom, 8, "gap");
+  assertEqual(f.style(".ui-sidebar-list").overflowY, "auto");
+  assertEqual(f.style(footer).overflowY, "visible");
+});
+
+test("roles and tab stop: one Tab stop on the current row; the others tabindex -1", () => {
+  const stops = f.rows().filter((r) => r.getAttribute("tabindex") === "0");
+  assertEqual(stops.length, 1);
+  assertEqual(stops[0].textContent.trim(), "Button");
+  assertEqual(f.rows().filter((r) => r.hasAttribute("aria-current")).length, 1);
+  assertEqual(f.q(".ui-shell-sidebar").tagName, "NAV");
+  assert(f.q(".ui-shell-sidebar").getAttribute("aria-label"), "nav name");
+});
+
+test("keys: arrows move focus over the headers and on into the footer and back; Home and End", async () => {
+  f.row("Button").focus();
+  f.key(f.row("Button"), "ArrowDown");
+  assertEqual(f.doc.activeElement, f.row("ListBox"));
+  f.key(f.row("ListBox"), "ArrowUp");
+  f.key(f.row("Button"), "ArrowUp");
+  assertEqual(f.doc.activeElement, f.row("Motion"));
+  f.key(f.row("Motion"), "ArrowUp"); f.key(f.row("Glass"), "ArrowUp"); f.key(f.row("Shape"), "ArrowUp");
+  f.key(f.row("Spacing"), "ArrowUp"); f.key(f.row("Type"), "ArrowUp");
+  assertEqual(f.doc.activeElement, f.row("Colours"));
+  f.key(f.row("Colours"), "ArrowUp");
+  assertEqual(f.doc.activeElement, f.row("Colours"), "stops at the first");
+  const e = f.key(f.row("Colours"), "End");
+  assertEqual(f.doc.activeElement, f.row("Settings"), "End reaches the footer");
+  assert(e.defaultPrevented, "navigation keys are prevented");
+  f.key(f.row("Settings"), "ArrowDown");
+  assertEqual(f.doc.activeElement, f.row("Settings"), "stops at the last");
+  f.key(f.row("Settings"), "ArrowUp");
+  assertEqual(f.doc.activeElement, f.row("Search"), "back up into the list");
+  f.key(f.row("Search"), "Home");
+  assertEqual(f.doc.activeElement, f.row("Colours"));
+  assertEqual(f.row("Button").getAttribute("aria-current"), "page", "arrows move focus only");
+  assertEqual(f.rows().filter((r) => r.getAttribute("tabindex") === "0").length, 1, "still one Tab stop");
+  assertEqual(f.rows().find((r) => r.getAttribute("tabindex") === "0"), f.row("Colours"), "the Tab stop follows focus");
+});
+
+test("choosing: click moves aria-current (one selection across list and footer) and fires change once", async () => {
+  let changes = 0;
+  f.sb.addEventListener("change", () => changes++);
+  f.row("Settings").addEventListener("click", (e) => e.preventDefault());
+  f.row("Settings").click();
+  assertEqual(f.row("Settings").getAttribute("aria-current"), "page");
+  assertEqual(f.row("Button").hasAttribute("aria-current"), false, "list selection cleared");
+  assertEqual(f.sb.selectedIndex, f.rows().length - 1);
+  assertEqual(changes, 1);
+  f.row("Settings").click();
+  assertEqual(changes, 1, "no change event when nothing changed");
+  f.row("Icon").addEventListener("click", (e) => e.preventDefault());
+  f.row("Icon").click();
+  assertEqual(f.row("Settings").hasAttribute("aria-current"), false, "footer selection cleared");
+  assertEqual(changes, 2);
+  // The one Tab stop is the selected row, in either part.
+  f.row("Settings").click();
+  f.doc.activeElement?.blur?.();
+  f.row("Settings").dispatchEvent(new f.win.FocusEvent("focusout", { bubbles: true }));
+  await f.settle();
+  assertEqual(f.rows().filter((r) => r.getAttribute("tabindex") === "0").length, 1);
+});
+
+test("Space chooses a link; Enter is the link's own", () => {
+  const row = f.row("Spacing");
+  row.addEventListener("click", (e) => e.preventDefault());
+  const e = f.key(row, " ");
+  assert(e.defaultPrevented, "Space prevented (no scroll)");
+  assertEqual(row.getAttribute("aria-current"), "page");
+  f.row("Icon").click(); // the current row for the tests below
+});
+
+test("accent flag: off by default; the attribute turns on the bar and squares the leading corners", async () => {
+  const row = f.row("Spacing");
+  assertEqual(f.style(row).getPropertyValue("--ui-accent-flag"), "0");
+  const g = await frame(1152, 752, "?flag");
+  const sel = g.row("Button");
+  assertEqual(g.style(sel).getPropertyValue("--ui-accent-flag"), "1");
+  assertEqual(g.style(sel, "::before").opacity, "1");
+  assert(parseFloat(g.style(sel).borderStartStartRadius) < 1, "square leading corner");
+  assert(parseFloat(g.style(sel).borderStartEndRadius) > 4, "round trailing corner");
+  near(parseFloat(g.style(sel, "::before").width), 3, "bar");
+  g.iframe.remove();
+});
+
+test("disabled rows are skipped by the arrows and take no Tab stop", async () => {
+  const g = await frame(1152, 752, "?disabled");
+  const rows = g.rows();
+  const disabled = g.row("Icon");
+  assertEqual(disabled.getAttribute("tabindex"), "-1");
+  g.row("ListBox").focus();
+  g.key(g.row("ListBox"), "ArrowDown");
+  assertEqual(g.doc.activeElement, g.row("Tabs"), "skips Icon");
+  g.iframe.remove();
+});
+
+test("compact stage (800): the rail is 48 wide, icons centred with the labels hidden, tooltips from the labels", async () => {
+  f.resize(800, 552);
+  await f.settle();
+  assertEqual(f.stage(), "compact");
+  near(f.rect(".ui-shell-sidebar").width, 48, "rail");
+  assert(f.sb.hasAttribute("data-rail"), "data-rail");
+  const row = f.row("Colours");
+  const r = f.rect(row);
+  near(r.width, 40, "row is a pill 40 wide");
+  const icon = f.rect(row.querySelector(".ui-icon"));
+  near(icon.left + icon.width / 2, r.left + r.width / 2, "icon centred in the pill");
+  near(icon.left - f.rect(".ui-shell-sidebar").left, 14, "icon keeps its place: 4 + 10");
+  assert(labelHidden(f, row), "label faded out");
+  assert(f.rect(row.querySelector(".ui-sidebar-label")).width < 1, "label has no room");
+  const tip = f.doc.getElementById(row.getAttribute("aria-describedby"));
+  assert(tip?.classList.contains("ui-tooltip"), "tooltip Block");
+  assertEqual(tip.textContent, "Colours");
+  near(f.rect(f.q(".ui-sidebar-header")).height, 32, "headers keep their height");
+  assert(f.style(f.q(".ui-sidebar-header")).opacity === "0", "header text hidden");
+  assertEqual(row.textContent.trim(), "Colours", "label stays the accessible name");
+  assertEqual(f.row("Icon").getAttribute("aria-current"), "page", "selection keeps the pill");
+  assert(/^rgb\((2[4-5]\d)/.test(f.style(f.row("Icon")).color), "white text: " + f.style(f.row("Icon")).color);
+});
+
+test("rail tooltip shows on keyboard focus and is the row's description", async () => {
+  const row = f.row("Type");
+  const tip = f.doc.getElementById(row.getAttribute("aria-describedby"));
+  row.focus();
+  await new Promise((r) => setTimeout(r, 500));
+  assert(tip.matches(":popover-open"), "tooltip open on focus");
+  row.blur();
+});
+
+test("compact density: rail 40, row 24, icon 16 centred", async () => {
+  f.doc.documentElement.dataset.density = "compact";
+  await f.settle();
+  near(f.rect(".ui-shell-sidebar").width, 40, "rail");
+  const row = f.row("Colours");
+  near(f.rect(row).height, 24, "row");
+  const r = f.rect(row), icon = f.rect(row.querySelector(".ui-icon"));
+  near(icon.width, 16, "icon");
+  near(icon.left + icon.width / 2, r.left + r.width / 2, "centred");
+  delete f.doc.documentElement.dataset.density;
+  await f.settle();
+});
+
+test("compact: the button opens the overlay: 240 wide on glass over the panel, labels shown, current row focused, no tooltips", async () => {
+  f.toggle.focus();
+  assertEqual(f.toggle.getAttribute("aria-expanded"), "false");
+  f.toggle.click();
+  await f.done();
+  assert(f.sb.isOverlayOpen, "open");
+  assertEqual(f.toggle.getAttribute("aria-expanded"), "true");
+  near(f.rect(f.sb).width, 240, "overlay width");
+  near(f.rect(f.sb).left, 8, "from the slot's place");
+  const nav = f.rect(".ui-shell-sidebar");
+  near(f.rect(f.sb).height, nav.height, "full height");
+  const surface = f.q(".ui-sidebar-surface");
+  assert(surface.classList.contains("ui-glass"), "glass");
+  assertEqual(f.style(surface).borderTopLeftRadius, "18.88px", "radius 16 squircle");
+  assert(f.style(surface, "::before").backdropFilter.includes("blur"), "blurred glass");
+  assert(!labelHidden(f, f.row("Colours")), "labels show");
+  assertEqual(f.row("Colours").hasAttribute("aria-describedby"), false, "no tooltips");
+  assertEqual(f.doc.activeElement, f.row("Icon"), "the selected row has focus");
+  assert(f.rect(".ui-shell-panel").left < f.rect(f.sb).right, "over the panel");
+  assert(f.rect(".ui-shell-panel").width > 500, "the panel did not move");
+});
+
+test("overlay: arrows keep it open; Escape closes it and gives focus back to the button", async () => {
+  f.key(f.row("Icon"), "ArrowDown");
+  assertEqual(f.doc.activeElement, f.row("Tabs"));
+  assert(f.sb.isOverlayOpen, "still open");
+  f.key(f.row("Tabs"), "Escape");
+  await f.settle();
+  assert(!f.sb.isOverlayOpen, "closed");
+  assertEqual(f.doc.activeElement, f.toggle, "focus back");
+  assert(f.sb.hasAttribute("data-rail"), "rail again");
+});
+
+test("overlay: choosing a row (click) closes it and keeps focus on the row in the compact stage", async () => {
+  f.toggle.click();
+  await f.settle();
+  const row = f.row("Motion");
+  row.addEventListener("click", (e) => e.preventDefault());
+  row.click();
+  await f.settle();
+  assert(!f.sb.isOverlayOpen, "closed");
+  assertEqual(f.doc.activeElement, row, "focus stays on the row");
+  assertEqual(row.getAttribute("aria-current"), "page");
+});
+
+test("overlay: the button closes it; a click outside closes it and is not passed on", async () => {
+  f.toggle.focus();
+  f.toggle.click();
+  await f.settle();
+  f.toggle.click();
+  await f.settle();
+  assert(!f.sb.isOverlayOpen, "closed by the button");
+  assertEqual(f.doc.activeElement, f.toggle, "focus back");
+
+  let clicked = 0;
+  f.q("#outside").addEventListener("click", () => clicked++);
+  f.toggle.click();
+  await f.settle();
+  const outside = f.q("#outside");
+  outside.dispatchEvent(new f.win.PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerType: "mouse" }));
+  outside.dispatchEvent(new f.win.PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerType: "mouse" }));
+  outside.click();
+  await new Promise((r) => setTimeout(r, 100));
+  assert(!f.sb.isOverlayOpen, "closed by an outside click");
+  assertEqual(clicked, 0, "the click was not passed on");
+  assertEqual(f.doc.activeElement, f.toggle, "focus back to the opener");
+  outside.click();
+  assertEqual(clicked, 1, "later clicks pass");
+});
+
+test("overlay: focus leaving it by keyboard closes it", async () => {
+  f.toggle.focus();
+  f.toggle.click();
+  await f.settle();
+  f.q("#outside").focus();
+  await f.settle();
+  assert(!f.sb.isOverlayOpen, "closed");
+  assertEqual(f.doc.activeElement, f.q("#outside"), "focus stays where it went");
+});
+
+test("expanded: the button collapses to the rail and back; the choice holds in the stage; a threshold returns to automatic", async () => {
+  f.resize(1152, 752);
+  await f.settle();
+  assertEqual(f.toggle.getAttribute("aria-expanded"), "true");
+  f.toggle.click();
+  await new Promise((r) => setTimeout(r, 350));
+  assert(f.sb.isCollapsed && f.sb.hasAttribute("data-rail"), "collapsed");
+  assert(!f.sb.isOverlayOpen, "no overlay");
+  near(f.rect(".ui-shell-sidebar").width, 48, "rail width");
+  near(f.rect(".ui-shell-panel").left, 8 + 48 + 8, "panel follows");
+  assert(labelHidden(f, f.row("Colours")), "labels hidden");
+  assertEqual(f.toggle.getAttribute("aria-expanded"), "false");
+  assert(f.row("Colours").hasAttribute("aria-describedby"), "tooltips");
+  f.toggle.click();
+  await new Promise((r) => setTimeout(r, 350));
+  assert(!f.sb.isCollapsed, "expanded again");
+  near(f.rect(".ui-shell-sidebar").width, 240, "width");
+  assert(!labelHidden(f, f.row("Colours")), "labels back");
+  assertEqual(f.row("Colours").hasAttribute("aria-describedby"), false, "tooltips gone");
+  f.toggle.click();
+  await new Promise((r) => setTimeout(r, 350));
+  assert(f.sb.isCollapsed, "collapsed by the user");
+  f.resize(1100);
+  await f.settle();
+  assert(f.sb.isCollapsed, "holds while the stage stays");
+  f.resize(900);
+  await f.settle();
+  assertEqual(f.stage(), "compact");
+  assert(!f.sb.isCollapsed, "crossing a threshold returns to automatic");
+  f.resize(1152);
+  await f.settle();
+  near(f.rect(".ui-shell-sidebar").width, 240, "automatic expanded");
+});
+
+test("hidden stage (below 640): no width, no focus; the glass panel sits SpacingS from the edge; the button opens the overlay", async () => {
+  f.resize(600, 552);
+  await f.settle();
+  assertEqual(f.stage(), "hidden");
+  near(f.rect(".ui-shell-sidebar").width, 0, "nav width");
+  near(f.rect(".ui-shell-panel").left, 8, "panel from the edge");
+  assertEqual(f.style(f.sb).visibility, "hidden");
+  assert(f.row("Colours").tabIndex === -1, "no Tab stop");
+  f.row("Colours").focus();
+  assert(f.doc.activeElement !== f.row("Colours"), "hidden rows take no focus");
+  f.toggle.focus();
+  f.toggle.click();
+  await f.done();
+  assert(f.sb.isOverlayOpen, "open");
+  assertEqual(f.style(f.sb).visibility, "visible");
+  near(f.rect(f.sb).width, 240, "overlay 240");
+  assertEqual(f.doc.activeElement, f.sb.selectedItem, "current row focused");
+  f.row("Spacing").addEventListener("click", (e) => e.preventDefault());
+  f.row("Spacing").click();
+  await f.settle();
+  assert(!f.sb.isOverlayOpen, "closed on choosing");
+  assertEqual(f.doc.activeElement, f.toggle, "focus given back in the hidden stage");
+  assertEqual(f.style(f.sb).visibility, "hidden");
+});
+
+test("the overlay closes when the window crosses a threshold", async () => {
+  f.toggle.click();
+  await f.settle();
+  assert(f.sb.isOverlayOpen, "open");
+  f.resize(800);
+  await f.settle();
+  assert(!f.sb.isOverlayOpen, "closed");
+});
+
+test("the button is a Tab stop in the title band, before the title; hidden without a sidebar", async () => {
+  assertEqual(f.toggle.tagName, "BUTTON");
+  assertEqual(f.toggle.getAttribute("type"), "button");
+  assertEqual(f.toggle.getAttribute("aria-label"), "Toggle sidebar");
+  assertEqual(f.toggle.getAttribute("aria-controls"), f.sb.id);
+  assert(f.toggle.compareDocumentPosition(f.q(".ui-shell-title")) & Node.DOCUMENT_POSITION_FOLLOWING, "before the title");
+  assertEqual(f.toggle.tabIndex, 0);
+  assert(f.style(f.toggle).display !== "none", "shown with a sidebar");
+  near(f.rect(f.toggle).width, 32, "square at the button height");
+  near(f.rect(f.toggle).height, 32, "square at the button height");
+  f.resize(1152, 752);
+  await f.settle();
+  near(f.rect(f.toggle.querySelector(".ui-icon")).left, f.rect(f.row("Colours").querySelector(".ui-icon")).left, "icon lines up with the rail's icons", 1);
+  assert(f.doc.getElementById(f.toggle.getAttribute("aria-describedby")), "tooltip");
+  f.q(".ui-shell-sidebar").hidden = true;
+  assertEqual(f.style(f.toggle).display, "none", "hidden when the slot is hidden");
+  f.q(".ui-shell-sidebar").hidden = false;
+});
+
+test("the overlay and rail animate only on a toggle, never on a resize", async () => {
+  f.resize(1152, 752);
+  await f.settle();
+  assertEqual(f.style(".ui-shell-sidebar").transitionProperty, "all", "no transition at rest");
+  f.resize(800);
+  assert(!f.sb.hasAttribute("data-animating"), "a stage change from resizing applies at once");
+  near(f.rect(".ui-shell-sidebar").width, 48, "at once");
+  f.doc.documentElement.dataset.reduceMotion = "false";
+  f.toggle.click();
+  assert(f.sb.hasAttribute("data-animating"), "a toggle animates");
+  assert(f.style(f.sb).transitionProperty.includes("inline-size"), "width transition");
+  assertEqual(f.style(f.sb).transitionDuration, "0.2s");
+  assertEqual(f.style(f.sb.querySelector(".ui-sidebar-label")).transitionProperty, "opacity", "labels fade");
+  assertEqual(f.style(f.sb.querySelector(".ui-sidebar-label")).transitionDuration, "0.1s");
+  f.key(f.doc.activeElement, "Escape");
+  await new Promise((r) => setTimeout(r, 400));
+  assert(!f.sb.hasAttribute("data-animating"), "ends");
+  f.doc.documentElement.dataset.reduceMotion = "true";
+});
+
+test("reduce motion: the toggle is instant", async () => {
+  f.resize(1152, 752);
+  await f.settle();
+  f.toggle.click();
+  await f.settle();
+  near(f.rect(".ui-shell-sidebar").width, 48, "instant");
+  f.toggle.click();
+  delete f.doc.documentElement.dataset.reduceMotion;
+});
+
+test("long list: the list scrolls with its own shadows, the footer stays; headers are skipped", async () => {
+  const g = await frame(1152, 500, "?footer&headers&long");
+  const list = g.q(".ui-sidebar-list");
+  assert(list.scrollHeight > list.clientHeight, "scrolls");
+  assert(list.hasAttribute("data-scroll-overlay") || g.q(".ui-scroll-overlay"), "scroll shadows");
+  near(g.rect(g.row("Settings")).bottom, g.rect(".ui-shell-sidebar").bottom - 4, "footer pinned");
+  g.row("Page 30").focus();
+  g.row("Page 30").scrollIntoView();
+  assert(g.rect(g.row("Settings")).top > g.rect(list).bottom, "footer outside the list");
+  g.iframe.remove();
+});
+
+test("RTL: the sidebar mirrors to the right, rows and icons mirror, Up and Down unchanged", async () => {
+  const g = await frame(1152, 752, "?dir=rtl&footer");
+  const nav = g.rect(".ui-shell-sidebar");
+  near(nav.right, 1152 - 8, "slot at the inline start");
+  const r = g.rect(g.row("Colours"));
+  const icon = g.rect(g.row("Colours").querySelector(".ui-icon"));
+  near(r.right - icon.right, 10, "icon at the inline start");
+  assert(g.rect(g.row("Colours").querySelector(".ui-sidebar-label")).right < icon.left, "label after the icon");
+  g.row("Button").focus();
+  g.key(g.row("Button"), "ArrowDown");
+  assertEqual(g.doc.activeElement, g.row("ListBox"));
+  g.resize(800, 552);
+  await g.settle();
+  g.toggle.click();
+  await g.settle();
+  near(g.rect(g.sb).right, 1152 > 800 ? 800 - 8 : 0, "overlay from the inline start");
+  g.iframe.remove();
+});
+
+test("dark theme: the overlay is glass and rows keep AA text; selected row white on the accent fill", async () => {
+  f.resize(800, 552);
+  f.doc.documentElement.dataset.theme = "dark";
+  await f.settle();
+  f.toggle.click();
+  await f.settle();
+  assert(/^rgb\((2[4-5]\d)/.test(f.style(f.row("Icon")).color), "white text: " + f.style(f.row("Icon")).color);
+  assert(f.style(f.row("Colours")).color !== "rgb(255, 255, 255)", "unselected rows use the theme text");
+  f.key(f.doc.activeElement, "Escape");
+  delete f.doc.documentElement.dataset.theme;
+});
+
+test("forced colours: the overlay keeps a visible edge (the rule exists)", async () => {
+  const text = await (await fetch("../modules/sidebar.css")).text();
+  assert(/forced-colors: active[\s\S]*ui-sidebar-surface[\s\S]*CanvasText/.test(text), "forced-colors rule");
+});
+</script>
+</body>
+</html>

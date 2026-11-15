@@ -135,10 +135,11 @@ export function placeFlyout(flyout) {
       x = end >= 0 && end + w <= vw ? end : start;
       y = a.top - shift + h > vh ? a.bottom + shift - h : a.top - shift;
     } else {
-      if (placement === "block-end-start") {
+      if (placement === "block-end-start" || placement === "block-end-end") {
         const startAligned = rtl ? a.right - w + shift : a.left - shift;
         const endAligned = rtl ? a.left - shift : a.right - w + shift;
-        x = startAligned >= 0 && startAligned + w <= vw ? startAligned : endAligned;
+        const [first, second] = placement === "block-end-end" ? [endAligned, startAligned] : [startAligned, endAligned];
+        x = first >= 0 && first + w <= vw ? first : second;
       } else {
         x = a.left + a.width / 2 - w / 2;
       }

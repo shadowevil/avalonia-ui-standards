@@ -1,0 +1,147 @@
+/*
+  Sidebar (0034, 0042): <ui-sidebar> inside the shell's nav.ui-shell-sidebar slot (0022). Markup:
+
+    <nav class="ui-shell-sidebar" aria-label="Pages">
+      <ui-sidebar accent-flag>                                         accent-flag: the accent flag (0042)
+        <div class="ui-sidebar-list ui-scroll">
+          <ul role="list">
+            <li class="ui-sidebar-header">Section</li>                 not selectable, no focus
+            <li><a class="ui-list-item ui-squircle ui-focus-ring" href="#a" aria-current="page">
+              <svg class="ui-icon">...</svg><span class="ui-sidebar-label">A</span></a></li>
+          </ul>
+        </div>
+        <ul class="ui-sidebar-footer" role="list">...</ul>            optional rows pinned below the list
+      </ui-sidebar>
+    </nav>
+
+  Rows are the ListBox item design (list-box.css: .ui-list-item) with the row padding below and the
+  label SpacingS after the icon; the icon is the row's text colour. In the icon rail the label has
+  no room (the row clips it) and is faded out, so the icon keeps its place in every stage. The
+  stage comes from the shell (shell.css widths, shell.js's data-sidebar-stage); sidebar.js adds
+  data-rail (the rail, by stage or by the user), data-collapsed (the user's rail in the expanded
+  stage), data-overlay (the expanded sidebar over the panel, on glass) and data-animating (while
+  a toggle runs: the width and label transitions apply to toggles only, never to a resize).
+  A hidden sidebar is visibility: hidden (no focus, out of the accessibility tree); the overlay
+  shows it again. The slot's own rules for a Sidebar (overflow, the user's rail width, the hidden
+  stage, the button's visibility) are in shell.css.
+  Forced states: data-state="hover" etc. on a row is the ListBox's.
+*/
+ui-sidebar {
+  --ui-sidebar-width: 240px;
+  /* The row's side padding centres the 20 (16 compact) icon in the rail: (rail - 8 - icon) / 2. */
+  --ui-sidebar-row-padding: var(--ui-spacing-xs) 10px;
+  --ui-sidebar-footer-gap: var(--ui-spacing-s);
+  --ui-accent-flag: 0;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  isolation: isolate;
+}
+
+:root[data-density="compact"] ui-sidebar {
+  --ui-sidebar-row-padding: 2px var(--ui-spacing-s);
+}
+
+ui-sidebar[accent-flag] {
+  --ui-accent-flag: 1;
+}
+
+/* The overlay: the expanded sidebar over the panel, from the slot's place, on glass. */
+ui-sidebar[data-overlay] {
+  inline-size: var(--ui-sidebar-width);
+  visibility: visible;
+}
+
+.ui-sidebar-surface {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: none;
+}
+
+ui-sidebar[data-overlay] > .ui-sidebar-surface {
+  display: block;
+}
+
+/* Toggles animate the width over MotionNormal and fade the labels over MotionFast. */
+ui-sidebar[data-animating] {
+  transition: inline-size var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+.ui-sidebar-list {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  box-sizing: border-box;
+  padding: var(--ui-spacing-xs);
+  overflow: hidden auto;
+  scroll-padding: var(--ui-spacing-xs);
+}
+
+.ui-sidebar-list > ul,
+.ui-sidebar-footer {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-sidebar-footer {
+  flex: none;
+  box-sizing: border-box;
+  margin-block-start: var(--ui-sidebar-footer-gap);
+  padding: var(--ui-spacing-xs);
+}
+
+ui-sidebar .ui-list-item {
+  padding: var(--ui-sidebar-row-padding);
+  overflow: clip;
+}
+
+.ui-sidebar-label,
+.ui-sidebar-header {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-sidebar-label {
+  flex: 1 1 0;
+}
+
+/* A header: caption text in the secondary colour at the bottom of a row-high band, aligned with the icons. */
+.ui-sidebar-header {
+  display: flex;
+  align-items: flex-end;
+  box-sizing: border-box;
+  min-block-size: var(--ui-control-min-height);
+  padding: var(--ui-sidebar-row-padding);
+  color: var(--ui-system-base-medium-color);
+  font-size: var(--ui-font-size-caption);
+  user-select: none;
+}
+
+ui-sidebar[data-animating] :is(.ui-sidebar-label, .ui-sidebar-header) {
+  transition: opacity var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+ui-sidebar[data-rail]:not([data-overlay]) :is(.ui-sidebar-label, .ui-sidebar-header) {
+  opacity: 0;
+}
+
+/* The sidebar button in the title band (the shell's): a subtle button, square at the button height. */
+.ui-sidebar-toggle {
+  flex: none;
+  inline-size: var(--ui-control-min-height);
+  padding: 0;
+}
+
+@media (forced-colors: active) {
+  .ui-sidebar-surface {
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+}

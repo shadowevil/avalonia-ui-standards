@@ -16,16 +16,16 @@
   <header class="ui-shell-title-band">
     <span class="ui-shell-title">Avalonia UI Standards catalog</span>
   </header>
-  <div class="ui-shell-toolbar-band catalog-band" role="group" aria-label="Theme settings"></div>
+  <div class="ui-shell-menu-row"></div>
+  <ui-toolbar-band class="ui-shell-toolbar-band catalog-band"></ui-toolbar-band>
   <nav class="ui-shell-sidebar catalog-sidebar" aria-label="Pages">
-    <ui-list-box class="ui-squircle" navigation><ul></ul></ui-list-box>
+    <ui-sidebar><div class="ui-sidebar-list ui-scroll"><ul role="list"></ul></div></ui-sidebar>
   </nav>
   <div class="ui-shell-panel ui-glass ui-squircle">
     <main class="ui-shell-content" id="main" tabindex="-1"></main>
   </div>
   <footer class="ui-shell-status-bar catalog-status">
-    <span class="catalog-status-page"></span>
-    <span class="catalog-status-version"></span>
+    <ui-status-bar><span class="ui-status-bar-message catalog-status-page"></span><span class="catalog-status-version" data-zone="trailing" data-priority="1"></span></ui-status-bar>
   </footer>
 </div>
 </body>

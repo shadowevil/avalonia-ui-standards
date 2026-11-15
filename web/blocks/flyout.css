@@ -17,6 +17,7 @@
     block-end        (default) below the anchor, centred on it; above it when there is no room
                      below, slid along the edge to stay in view (Avalonia's Bottom)
     block-end-start  below the anchor, start edges lined up (a menu bar's menu)
+    block-end-end    below the anchor, end edges lined up (the toolbar band's "…" menu)
     inline-end       at the anchor's end edge, tops lined up; at its start edge when there is no
                      room (a submenu)
     point            at a point (a context menu at the pointer)
@@ -120,6 +121,13 @@
     position-area: block-end span-inline-end;
     justify-self: normal;
     margin-inline-start: calc(-1 * var(--ui-flyout-shift));
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  }
+
+  .ui-flyout[data-anchored][data-placement="block-end-end"] {
+    position-area: block-end span-inline-start;
+    justify-self: normal;
+    margin-inline-end: calc(-1 * var(--ui-flyout-shift));
     position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
   }
 

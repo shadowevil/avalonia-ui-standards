@@ -25,7 +25,8 @@ internal sealed class DataGridPage : UserControl
                     g.CanUserReorderColumns = true;
                 }),
                 Ui.Caption("Click a header to sort; drag a header edge to resize (the grip shows near a resizable edge). Name stays frozen while the grid scrolls sideways. " +
-                    "Double click or press F2 to edit a cell: text becomes a field, Category a combo box, In stock toggles. Tab in and use the arrow keys to see the focus ring on the current cell."),
+                    "Double click or press F2 to edit a cell: text becomes a field, Category a combo box, In stock toggles. Tab in and use the arrow keys to see the focus ring on the current cell. " +
+                    "Up from the first row moves to the column header; Left and Right move between headers, Enter or Space sorts, Shift+Left or Shift+Right resizes by 8 px, Down returns to the rows."),
             },
         }),
         Ui.Section("States", new WrapPanel
