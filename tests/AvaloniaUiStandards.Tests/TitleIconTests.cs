@@ -42,7 +42,7 @@ public class TitleIconTests
     // replaced by one that returns the generated bitmap.
     private static WindowIcon MakeIcon() => new(MakeBitmap());
 
-    private static void UseTestDecoder(StandardsWindow window) => window.IconDecoder = _ => MakeBitmap();
+    private static void UseTestDecoder(StandardsWindow window) => window.TitleIconDecoderForTests = _ => MakeBitmap();
 
     private static StandardsWindow Open(WindowLayoutMode mode, bool icon, ThemeVariant? variant = null, DensityStyle density = DensityStyle.Normal,
         WindowButtonStyle buttons = WindowButtonStyle.Auto, bool testDecoder = true)
@@ -74,6 +74,28 @@ public class TitleIconTests
 
     private static TextBlock TitlePart(Window window) =>
         window.GetVisualDescendants().OfType<TextBlock>().Single(c => c.Name == StandardsWindowTheme.TitlePart);
+
+    [AvaloniaFact]
+    public void TitleIconDecoderForTests_IsPublic_AndAppliesAtOnce()
+    {
+        // Headless icons hold no image data: without the test decoder the title icon does not render.
+        var window = Open(WindowLayoutMode.Windows, icon: true, testDecoder: false);
+        try
+        {
+            Assert.False(IconPart(window).IsVisible);
+            window.TitleIconDecoderForTests = _ => MakeBitmap();
+            Pump(window);
+            Assert.True(IconPart(window).IsVisible);
+            Assert.NotNull(IconPart(window).Source);
+            window.TitleIconDecoderForTests = null;
+            Pump(window);
+            Assert.False(IconPart(window).IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     [AvaloniaFact]
     public void WindowsLayout_WithIcon_ShowsIt16Px_LeftOfTheTitle_Centred()

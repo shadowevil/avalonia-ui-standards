@@ -60,6 +60,7 @@
     - Minimal glass at the second level, side by side in one panel, holds 30 fps up to about 33 surfaces. It is lost by 65.
     - Where 30 fps is lost, the GPU is the limit: about 20 ms of GPU time per frame against 8 to 10 ms of CPU, mostly the fills' backdrop blurs (about 0.7 ms each).
     - Not yet done, the next step: one shared backdrop sample per frame (one blur for all glass layers) in place of each fill's own backdrop blur.
+    - Planned with it: content marks its opaque regions once, and they follow the content as it moves or resizes. Glass fills skip those regions, `StandardsWindow.Backdrop` is clipped to the rest, and the visible region is exposed with change notification so an animated backdrop can skip hidden work. Why: with an opaque document covering about 65% of a full-size window (Apple A18 Pro, 60 Hz, 2x scale, animated backdrop), full glass cost about 10 ms per frame more than Solid while blurring under it.
   - Fallbacks:
     - Without Skia runtime effects, the blur stays and refraction and dispersion drop.
     - Without Skia, when "reduce transparency" is on, or with `GlassQuality` `Solid`, it is a solid fill in the neutral palette ([0011](0011-colour.md)).

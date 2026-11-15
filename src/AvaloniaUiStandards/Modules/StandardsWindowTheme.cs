@@ -4,6 +4,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Chrome;
 using Avalonia.Controls.Templates;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
@@ -42,6 +44,8 @@ internal static class StandardsWindowTheme
     public const string BackdropPart = "PART_Backdrop";
     public const string StatusBarPart = "PART_StatusBar";
     public const string ResizeGripsPart = "PART_ResizeGrips";
+    public const string TopPart = "PART_Top";
+    public const string RevealSheetPart = "PART_RevealSheet";
 
     public static string ResizePart(WindowEdge edge) => $"PART_Resize{edge}";
 
@@ -70,6 +74,15 @@ internal static class StandardsWindowTheme
     internal static readonly object ShadowColorKey = new();
     internal static readonly object TitleBandHeightKey = new();
     internal static readonly object MenuRowHeightKey = new();
+    internal static readonly object RevealTransitionsKey = new();
+
+    /// <summary>
+    /// The full screen reveal's transitions: <paramref name="duration"/> is <c>MotionNormal</c>, or zero under reduce
+    /// motion (no transition: the rows show and hide at once).
+    /// </summary>
+    public static Transitions RevealTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
+        ? []
+        : [new DoubleTransition { Property = WindowTop.RevealProperty, Duration = duration, Easing = easing }];
 
     internal static readonly Color ShadowLight = Color.Parse("#40000000");
     internal static readonly Color ShadowDark = Color.Parse("#80000000");
@@ -114,6 +127,15 @@ internal static class StandardsWindowTheme
                 (SquircleBorder.BorderThicknessProperty, new Thickness(0))),
             Part<WindowShadow>(ShadowPart, ":maximized", (Visual.IsVisibleProperty, false)),
             Part<Panel>(ResizeGripsPart, ":maximized", (Visual.IsVisibleProperty, false)),
+
+            // Full screen: as maximised. The title band and the menu row hide above the top edge (WindowTop).
+            Part<SquircleBorder>(FramePart, ":fullscreen",
+                (Layoutable.MarginProperty, new Thickness(0)),
+                (SquircleBorder.CornerRadiusProperty, new CornerRadius(0)),
+                (SquircleBorder.BorderThicknessProperty, new Thickness(0))),
+            Part<WindowShadow>(ShadowPart, ":fullscreen", (Visual.IsVisibleProperty, false)),
+            Part<Panel>(ResizeGripsPart, ":fullscreen", (Visual.IsVisibleProperty, false)),
+            Part<WindowTop>(TopPart, ":fullscreen", (WindowTop.IsFullScreenProperty, true)),
             Part<SquircleBorder>(FramePart, ":opaque",
                 (Layoutable.MarginProperty, new Thickness(0)),
                 (SquircleBorder.CornerRadiusProperty, new CornerRadius(0))),
@@ -170,9 +192,23 @@ internal static class StandardsWindowTheme
             Part<Image>(TitleIconPart, ":title-icon", (Visual.IsVisibleProperty, true)),
             Part<TextBlock>(TitlePart, ":title-icon", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
             Part<ContentPresenter>(SidebarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, Spacing.S))),
+            Part<GlassBorder>(ContentPanelPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, Spacing.S, Spacing.S))),
             Part<ContentPresenter>(SidebarPart, ":sidebar-module",
                 (Layoutable.MarginProperty, new Thickness(0, 0, 0, Spacing.S)),
                 (Visual.ZIndexProperty, 1)),
+            // Full screen without a toolbar band: the glass panel and the sidebar keep SpacingS from the top edge.
+            new Avalonia.Styling.Style(x => x.Nesting().Class(":fullscreen").Not(y => y.Class(":toolbar-band")).Template().OfType<GlassBorder>().Name(ContentPanelPart))
+            {
+                Setters = { new Setter(Layoutable.MarginProperty, new Thickness(Spacing.S)) },
+            },
+            new Avalonia.Styling.Style(x => x.Nesting().Class(":fullscreen").Not(y => y.Class(":toolbar-band")).Template().OfType<ContentPresenter>().Name(SidebarPart))
+            {
+                Setters = { new Setter(Layoutable.MarginProperty, new Thickness(0, Spacing.S, 0, Spacing.S)) },
+            },
+            new Avalonia.Styling.Style(x => x.Nesting().Class(":fullscreen").Not(y => y.Class(":toolbar-band")).Not(y => y.Class(":sidebar-module")).Template().OfType<ContentPresenter>().Name(SidebarPart))
+            {
+                Setters = { new Setter(Layoutable.MarginProperty, new Thickness(Spacing.S, Spacing.S, 0, Spacing.S)) },
+            },
         },
     };
 
@@ -231,7 +267,6 @@ internal static class StandardsWindowTheme
         }, TitleBandPart);
         WindowDecorationProperties.SetElementRole(titleBand, WindowDecorationsElementRole.TitleBar);
         titleBand.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(TitleBandHeightKey));
-        DockPanel.SetDock(titleBand, Dock.Top);
 
         // The menu row below it, in the Windows layout of a window with a menu (the window places its
         // menu bar in it): on the window background, part of the title bar (its empty area drags the
@@ -239,13 +274,20 @@ internal static class StandardsWindowTheme
         var menuRow = Named(new Panel { Background = Brushes.Transparent, IsVisible = false }, MenuRowPart);
         WindowDecorationProperties.SetElementRole(menuRow, WindowDecorationsElementRole.TitleBar);
         menuRow.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(MenuRowHeightKey));
-        DockPanel.SetDock(menuRow, Dock.Top);
 
         // The toolbar band below it, on the window background; the presenter takes presses on the
         // band's empty area (the window decides whether they drag).
         var toolbarBand = Named(Slot(StandardsWindow.ToolbarBandProperty), ToolbarBandPart);
         toolbarBand.Background = Brushes.Transparent;
-        DockPanel.SetDock(toolbarBand, Dock.Top);
+
+        // The top: the title band and menu row above the toolbar band. In full screen the two rows hide above the top
+        // edge and slide in over the content on a glass sheet, the toolbar band moving down below them; drawn above the
+        // sidebar and the glass panel.
+        var sheet = Named(new GlassBorder { CornerRadius = new CornerRadius(0) }, RevealSheetPart);
+        var top = Named(new WindowTop(new StackPanel { Children = { titleBand, menuRow } }, toolbarBand, sheet), TopPart);
+        top.Bind(Animatable.TransitionsProperty, new DynamicResourceExtension(RevealTransitionsKey));
+        top.ZIndex = 2;
+        DockPanel.SetDock(top, Dock.Top);
 
         // Status bar, sidebar and the glass content panel. The status bar is the last row, across
         // the window and under the sidebar; it comes last in the tree, so its items are the last Tab stops.
@@ -271,11 +313,7 @@ internal static class StandardsWindowTheme
         {
             Converter = new FuncValueConverter<bool, ScrollBarVisibility>(on => on ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled),
         });
-        var panel = Named(new GlassBorder
-        {
-            Margin = new Thickness(Spacing.S, 0, Spacing.S, Spacing.S),
-            Child = scroller,
-        }, ContentPanelPart);
+        var panel = Named(new GlassBorder { Child = scroller }, ContentPanelPart);
 
         // Frame (the backdrop behind everything in it), shadow and resize grips.
         var backdrop = Named(Slot(StandardsWindow.BackdropProperty), BackdropPart);
@@ -290,7 +328,7 @@ internal static class StandardsWindowTheme
                     {
                         Children =
                         {
-                            titleBand, menuRow, toolbarBand,
+                            top,
                             new Grid
                             {
                                 RowDefinitions = new RowDefinitions("*,Auto"),
@@ -310,6 +348,8 @@ internal static class StandardsWindowTheme
         shadow.Bind(WindowShadow.SmoothingProperty, new DynamicResourceExtension("CornerSmoothing"));
 
         var grips = Named(new Panel(), ResizeGripsPart);
+        // A window that cannot be resized has no grips.
+        grips.Bind(Visual.IsVisibleProperty, new TemplateBinding(Window.CanResizeProperty));
         foreach (var edge in Enum.GetValues<WindowEdge>())
             grips.Children.Add(Named(Grip(edge), ResizePart(edge)));
 

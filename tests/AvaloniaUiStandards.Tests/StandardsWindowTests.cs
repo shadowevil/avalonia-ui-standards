@@ -154,12 +154,47 @@ public class StandardsWindowTests
 
     // --- Behaviour -----------------------------------------------------------------------
 
+    [Theory]
+    [InlineData(1440, 900, 1376, 819)] // larger both ways (the macOS zoom bug's repro on a 1408 x 851 working area)
+    [InlineData(1408, 851, 1376, 819)] // exactly the working area
+    [InlineData(1500, 600, 1376, 600)] // too wide only
+    [InlineData(1000, 700, 1000, 700)] // fits
+    public void OpeningSize_ASideReachingTheWorkingArea_StaysSpacingLFromItsEdges(double w, double h, double fittedW, double fittedH) =>
+        Assert.Equal(new Size(fittedW, fittedH), StandardsWindow.FitOpeningSize(new Size(w, h), new Size(1408, 851)));
+
+    [AvaloniaFact]
+    public void OpeningSize_OnTheNativeMacOSFrame_FitsInsideTheWorkingArea()
+    {
+        var native = new StandardsWindow(nativeFrame: true) { Width = 20000, Height = 20000 };
+        var drawn = new StandardsWindow(nativeFrame: false) { Width = 20000, Height = 20000 };
+        try
+        {
+            var screen = native.Screens.ScreenFromWindow(native) ?? native.Screens.Primary;
+            Assert.NotNull(screen);
+            native.Show();
+            drawn.Show();
+            var area = screen.WorkingArea.Size.ToSize(screen.Scaling);
+            Assert.Equal(area.Width - 2 * Spacing.L, native.Width);
+            Assert.Equal(area.Height - 2 * Spacing.L, native.Height);
+            Assert.Equal(WindowState.Normal, native.WindowState);
+            // The drawn frame (Linux, Windows, headless renders) is left as asked.
+            Assert.Equal(20000, drawn.Width);
+        }
+        finally
+        {
+            native.Close();
+            drawn.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(WindowButtonStyle.TrafficLights)]
     [InlineData(WindowButtonStyle.CaptionButtons)]
     public void WindowButtons_MaximiseRestoreMinimiseAndClose(WindowButtonStyle style)
     {
         var window = Show(SampleWindow(ThemeVariant.Light, slots: false, style));
+        // The green light zooms where there is no full screen (off macOS); on macOS it enters full screen (FullScreenTests).
+        window.RunsOnMacOS = false;
         Button Button(WindowButtonKind kind) => window.GetVisualDescendants().OfType<Button>()
             .Single(b => b is TrafficLightButton t ? t.Kind == kind : b is CaptionButton c && c.Kind == kind);
 
