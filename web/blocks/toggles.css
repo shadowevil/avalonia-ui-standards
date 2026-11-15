@@ -29,6 +29,12 @@
   the knob be dragged with the pointer, setting the switch at release by where the knob is.
   Without a label the indicator stands alone. Forced states for renders and tests: data-state="hover", "pressed"
   or "focus" on the input (or hover and pressed on its label).
+
+  The state colours are public, set by the state rules on the input with no specificity, so a
+  composite can set them for a context (the DataGrid's check box on a selected row):
+  --ui-toggle-outline (the unchecked outline and the switch's off knob), --ui-toggle-background
+  (the unchecked fill), --ui-toggle-fill (the checked fill) and --ui-toggle-mark (the check, dash,
+  dot or on knob).
 */
 :where(.ui-check-box, .ui-radio-button, .ui-toggle-switch) {
   --ui-toggle-outline-width: 1px;
@@ -49,11 +55,12 @@
   --ui-toggle-switch-knob-on: 14px;
   --ui-toggle-switch-knob-stretch: 4px;
 
-  /* State colours: the unchecked outline, its fill and the off knob; the checked fill; the mark. */
-  --_outline: var(--ui-system-base-medium-color);
-  --_back: transparent;
-  --_fill: var(--ui-accent-fill-color);
-  --_mark: var(--ui-accent-button-foreground);
+  /* State colours (public, see above): the unchecked outline and the off knob, the unchecked fill,
+     the checked fill, the mark. */
+  --ui-toggle-outline: var(--ui-system-base-medium-color);
+  --ui-toggle-background: transparent;
+  --ui-toggle-fill: var(--ui-accent-fill-color);
+  --ui-toggle-mark: var(--ui-accent-button-foreground);
   --_stretch: 0px;
   /* 1 in left-to-right, -1 in right-to-left: the knob slides along the inline direction. */
   --_dir: 1;
@@ -81,8 +88,8 @@
   :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch):is(:hover, [data-state~="hover"]),
   :is(.ui-toggle, .ui-toggle-switch-label):is(:hover, [data-state~="hover"]) > :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)
 ) {
-  --_outline: var(--ui-system-base-medium-high-color);
-  --_fill: var(--ui-accent-fill-color-pointer-over);
+  --ui-toggle-outline: var(--ui-system-base-medium-high-color);
+  --ui-toggle-fill: var(--ui-accent-fill-color-pointer-over);
 }
 
 /* Pressed: Fluent's Pressed keys; the knob stretches. */
@@ -90,18 +97,18 @@
   :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch):is(:active, [data-state~="pressed"]),
   :is(.ui-toggle, .ui-toggle-switch-label):is(:active, [data-state~="pressed"]) > :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)
 ) {
-  --_outline: var(--ui-system-base-high-color);
-  --_back: var(--ui-system-base-medium-low-color);
-  --_fill: var(--ui-accent-fill-color-pressed);
+  --ui-toggle-outline: var(--ui-system-base-high-color);
+  --ui-toggle-background: var(--ui-system-base-medium-low-color);
+  --ui-toggle-fill: var(--ui-accent-fill-color-pressed);
   --_stretch: var(--ui-toggle-switch-knob-stretch);
 }
 
 /* Disabled: Fluent's Disabled keys unchecked; the disabled accent button's pair checked. */
 :where(.ui-check-box, .ui-radio-button, .ui-toggle-switch):disabled {
-  --_outline: var(--ui-system-base-medium-low-color);
-  --_back: transparent;
-  --_fill: var(--ui-system-base-low-color);
-  --_mark: var(--ui-system-base-medium-low-color);
+  --ui-toggle-outline: var(--ui-system-base-medium-low-color);
+  --ui-toggle-background: transparent;
+  --ui-toggle-fill: var(--ui-system-base-low-color);
+  --ui-toggle-mark: var(--ui-system-base-medium-low-color);
   --_stretch: 0px;
 }
 
@@ -113,8 +120,8 @@
   box-sizing: border-box;
   flex: none;
   margin: 0;
-  border: var(--ui-toggle-outline-width) solid var(--_outline);
-  background-color: var(--_back);
+  border: var(--ui-toggle-outline-width) solid var(--ui-toggle-outline);
+  background-color: var(--ui-toggle-background);
   font: inherit;
   vertical-align: middle;
   cursor: default;
@@ -135,7 +142,7 @@
   inset: calc(-1 * var(--ui-toggle-outline-width));
   border-radius: inherit;
   corner-shape: inherit;
-  background-color: var(--_fill);
+  background-color: var(--ui-toggle-fill);
   opacity: 0;
   transition:
     background-color var(--ui-motion-fast) var(--ui-motion-easing),
@@ -144,7 +151,7 @@
 
 :is(.ui-check-box, .ui-radio-button, .ui-toggle-switch)::before {
   z-index: 1;
-  background-color: var(--_mark);
+  background-color: var(--ui-toggle-mark);
   opacity: 0;
   transition:
     background-color var(--ui-motion-fast) var(--ui-motion-easing),
@@ -153,7 +160,7 @@
 
 /* Checked (and indeterminate): the outline takes the fill's colour, so no grey edge shows. */
 :is(.ui-check-box:is(:checked, :indeterminate), .ui-radio-button:checked, .ui-toggle-switch:checked) {
-  border-color: var(--_fill);
+  border-color: var(--ui-toggle-fill);
   background-color: transparent;
 }
 
@@ -212,7 +219,7 @@
   inline-size: calc(var(--_knob) + var(--_stretch));
   block-size: var(--_knob);
   border-radius: calc(var(--_knob) / 2);
-  background-color: var(--_outline);
+  background-color: var(--ui-toggle-outline);
   opacity: 1;
   transition:
     background-color var(--ui-motion-fast) var(--ui-motion-easing),
@@ -223,7 +230,7 @@
 }
 
 .ui-toggle-switch:checked::before {
-  background-color: var(--_mark);
+  background-color: var(--ui-toggle-mark);
   translate: calc(var(--_dir) * (var(--ui-toggle-switch-width) - var(--ui-toggle-switch-height))) 0;
 }
 

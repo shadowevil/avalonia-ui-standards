@@ -41,11 +41,16 @@
   The drop-down's fill, border and border width are Style tokens (colour.css), shared with the
   AutoCompleteBox; the glyph and disabled colours below are Fluent's ComboBox keys.
 */
-ui-combo-box {
+/* The field's colours, on the field too, so a composite using the field classes (the ColorPicker)
+   gets them. Fluent's ComboBoxDropDownGlyphForeground, ComboBoxForegroundDisabled and
+   ComboBoxDropDownGlyphForegroundDisabled. */
+:where(ui-combo-box, .ui-combo-box-field) {
   --ui-combo-box-drop-down-glyph-foreground: var(--ui-system-base-medium-high-color);
-  /* Fluent's ComboBoxForegroundDisabled and ComboBoxDropDownGlyphForegroundDisabled. */
   --ui-combo-box-foreground-disabled: light-dark(#A6A6A6, #6B6B6B);
   --ui-combo-box-drop-down-glyph-foreground-disabled: light-dark(#A6A6A6, #6B6B6B);
+}
+
+ui-combo-box {
   --ui-combo-box-max-drop-down-height: 504px;
   display: inline-block;
   vertical-align: middle;

@@ -19,10 +19,11 @@
 // item, else the first. Disabled items (aria-disabled="true", or disabled on a button) are skipped
 // and take no focus. The element fires `change` when the selection or the current item changes.
 
+import { isMac } from "../style/platform.js";
+
 const ITEM = ".ui-list-item";
 const TYPE_AHEAD_RESET = 500; // ms without typing before the typed text starts over (APG)
 const NAV_KEYS = new Set(["ArrowDown", "ArrowUp", "Home", "End"]);
-const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const marked = (item) => item.getAttribute("aria-selected") === "true"
   || (item.hasAttribute("aria-current") && item.getAttribute("aria-current") !== "false");

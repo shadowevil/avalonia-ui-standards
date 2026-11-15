@@ -1,0 +1,421 @@
+/*
+  DataGrid (0040): showing and editing tabular data. <ui-data-grid> holds a native <table>; the
+  table is the ARIA grid, and data-grid.js adds the behaviour (current cell, selection, sorting,
+  editing, column resizing, frozen columns):
+
+    <ui-data-grid class="ui-squircle" frozen-columns="1" can-resize-columns>
+      <table aria-label="Parts">
+        <thead>
+          <tr>
+            <th data-width="120">Name</th>                                  px, "*" / "2*" (star) or "auto"
+            <th data-width="90" data-type="number">Count</th>
+            <th data-width="100" data-type="check">In stock</th>
+            <th data-width="130" data-type="combo" data-options="Style|Blocks|Modules|Screens">Category</th>
+            <th data-width="*" data-min-width="160">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Accent</td><td>12</td>
+            <td><input type="checkbox" class="ui-check-box ui-squircle" checked></td>
+            <td>Style</td><td>The brand colour</td>
+          </tr>
+        </tbody>
+      </table>
+    </ui-data-grid>
+
+  The grid is transparent with no border, the control radius and its content clipped to that
+  squircle, and is the scroller with the overlay bars (scroll.js, no edge shadows). The table is a
+  CSS grid whose tracks are the columns (subgrid rows), so a row is one box across the full width,
+  with the empty filler track after the last column when no column is a star column.
+
+  - Rows: flat bands the list item height (32, 24 Compact); transparent, list-medium on hover, the
+    AA accent fill with white text selected (darker on hover), the disabled accent button's pair in
+    a disabled grid. Fades over MotionFast. The 1 px hairline in the border colour lies over the
+    row's bottom edge (horizontal lines, the default); vertical lines (grid-lines="vertical" or
+    "all") lie over each cell's inline-end edge, and show the header separators too.
+  - Headers: transparent, Body strong in the secondary text colour, the row height, the density
+    side padding; list-medium on hover, base-medium-low pressed; a hairline under the header row.
+    The sort caret (16 px, SpacingXS after the text) shows on the sorted column; the text is cut
+    short before it. Near a resizable edge a 4 px pill grip shows (row height less SpacingXS above
+    and below), in the scrollbar thumb's hover colour, its drag colour while resizing.
+  - Cells: Body text, the density side padding, centred vertically, cut short with an ellipsis. An
+    invalid cell (aria-invalid="true") has a 1 px danger border, and its row the danger colour at
+    0.4. Check cells centre the library CheckBox; on a selected row it inverts in white.
+  - The current cell shows the focus ring inset 2 px, the control radius, while the grid is used
+    from the keyboard (data-keyboard on the grid, set by data-grid.js); white on a selected row.
+  - Editing: the cell holds a TextInput field filling it (padding one less than the cell's side
+    padding, so the text stays put), or a ComboBox for a combo column; white border on a selected
+    row, the danger border when invalid, no ring.
+  - Frozen columns stick at the inline start; cells scrolled under them, and rows scrolled under
+    the header, are clipped (data-grid.js keeps the offsets in custom properties).
+
+  Forced states for renders and tests: data-state="hover" on a row; "hover" or "pressed" on a
+  header; "focus" on a cell or header (the ring); data-resize="start" or "end" on a header (the grip).
+*/
+:where(ui-data-grid) {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  /* The row and header height: the list item height (0024). */
+  --ui-data-grid-row-height: var(--ui-control-min-height);
+  /* Cell and header text side padding, the density's control side padding. */
+  --ui-data-grid-side-padding: var(--ui-spacing-m);
+  /* The edit field's block padding (its inline padding is the side padding less its 1 px border). */
+  --ui-data-grid-edit-padding-block: var(--ui-spacing-xs);
+  /* Grid lines: the Separator's hairline (0039). */
+  --ui-data-grid-line-color: var(--ui-system-base-low-color);
+  --ui-data-grid-line-width: 1px;
+  /* The current cell's ring, inset from the cell's edges. */
+  --ui-data-grid-ring-inset: 2px;
+  /* The sort caret: the field-button icon size at both densities (0027). */
+  --ui-data-grid-sort-icon-size: 16px;
+  /* The resize grip: the GridSplitter's grip width; its length is the header height less
+     SpacingXS above and below. */
+  --ui-data-grid-grip-width: 4px;
+  --ui-data-grid-grip-length: calc(var(--ui-data-grid-row-height) - 2 * var(--ui-spacing-xs));
+  /* Fluent's invalid row tint. */
+  --ui-data-grid-invalid-row-opacity: 0.4;
+}
+
+:root[data-density="compact"] :where(ui-data-grid) {
+  --ui-data-grid-side-padding: var(--ui-spacing-s);
+  --ui-data-grid-edit-padding-block: 2px;
+}
+
+ui-data-grid {
+  /* Kept by data-grid.js: the scroll offsets, the frozen columns' width, the header's height. */
+  --ui-data-grid-scroll-x: 0px;
+  --ui-data-grid-scroll-y: 0px;
+  --ui-data-grid-frozen-width: 0px;
+  display: block;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  color: var(--ui-system-base-high-color);
+  font-size: var(--ui-font-size-body);
+  overflow: auto;
+}
+
+/* The vertical overlay bar starts below the header row (one row high), and scrolling into view
+   keeps clear of it. */
+ui-data-grid:has(> table > thead) {
+  --ui-scroll-inset-block-start: var(--ui-data-grid-row-height);
+  scroll-padding-block-start: var(--ui-data-grid-row-height);
+}
+
+ui-data-grid > table {
+  box-sizing: border-box;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* The grid layout, once the element is defined (without script the table stays a table). */
+ui-data-grid:defined > table {
+  display: grid;
+  grid-template-columns: var(--ui-data-grid-columns, auto);
+  min-inline-size: min-content;
+}
+
+ui-data-grid:defined > table > :is(thead, tbody),
+ui-data-grid:defined > table > :is(thead, tbody) > tr {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+ui-data-grid > table > thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+
+/* Rows scrolled under the header are clipped, since nothing in the grid is opaque. */
+ui-data-grid:defined > table > tbody {
+  clip-path: inset(var(--ui-data-grid-scroll-y) 0 0 0);
+}
+
+/* Rows: the band. */
+ui-data-grid tr {
+  position: relative;
+  min-block-size: var(--ui-data-grid-row-height);
+  background-color: transparent;
+  transition: background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+ui-data-grid tbody > tr:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-system-list-medium-color);
+}
+
+ui-data-grid tbody > tr[aria-selected="true"] {
+  background-color: var(--ui-accent-fill-color);
+  color: var(--ui-accent-button-foreground);
+}
+
+ui-data-grid tbody > tr[aria-selected="true"]:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-accent-fill-color-pointer-over);
+}
+
+/* The horizontal hairline over the row's bottom edge (and under the header row, always). A border
+   on a layer, so forced colours keep it. */
+ui-data-grid tr::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-block-end: var(--ui-data-grid-line-width) solid transparent;
+  pointer-events: none;
+}
+
+ui-data-grid:is(:not([grid-lines]), [grid-lines="horizontal"], [grid-lines="all"]) tbody > tr::after,
+ui-data-grid thead > tr::after {
+  border-block-end-color: var(--ui-data-grid-line-color);
+}
+
+/* An invalid row (one holding an invalid cell): Fluent's tint, in the danger colour. */
+ui-data-grid tbody > tr::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--ui-danger-color);
+  opacity: 0;
+  pointer-events: none;
+}
+
+ui-data-grid tbody > tr:has(> td[aria-invalid="true"])::before {
+  opacity: var(--ui-data-grid-invalid-row-opacity);
+}
+
+/* Cells and headers. */
+ui-data-grid :is(th, td) {
+  position: relative;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: var(--ui-data-grid-row-height);
+  margin: 0;
+  padding: 0 var(--ui-data-grid-side-padding);
+  border: 0;
+  background: transparent;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  outline: none;
+}
+
+ui-data-grid td {
+  display: block;
+  align-content: center;
+  font-weight: inherit;
+}
+
+ui-data-grid th {
+  display: flex;
+  align-items: center;
+  color: var(--ui-system-base-medium-color);
+  font-size: var(--ui-font-size-body-strong);
+  font-weight: var(--ui-font-weight-body-strong);
+  cursor: default;
+  user-select: none;
+  transition: background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+ui-data-grid th:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-system-list-medium-color);
+}
+
+ui-data-grid th:is(:active, [data-state~="pressed"]) {
+  background-color: var(--ui-system-base-medium-low-color);
+}
+
+/* The header's label: the text, cut short first, then the sort caret. */
+.ui-data-grid-header-text {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-data-grid-sort {
+  display: none;
+  flex: none;
+  inline-size: var(--ui-data-grid-sort-icon-size);
+  block-size: var(--ui-data-grid-sort-icon-size);
+  margin-inline-start: var(--ui-spacing-xs);
+}
+
+th[aria-sort="ascending"] > .ui-data-grid-sort-ascending,
+th[aria-sort="descending"] > .ui-data-grid-sort-descending {
+  display: inline-block;
+}
+
+/* The check cell: the CheckBox centred. */
+ui-data-grid td.ui-data-grid-check-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* On the accent band the check box inverts in the selected text colour: a white outline, or a
+   white box with an accent mark (0040's one-off exception). */
+ui-data-grid:not([disabled]) tr[aria-selected="true"] > td > .ui-check-box {
+  --ui-toggle-outline: var(--ui-accent-button-foreground);
+  --ui-toggle-background: transparent;
+  --ui-toggle-fill: var(--ui-accent-button-foreground);
+  --ui-toggle-mark: var(--ui-accent-fill-color);
+}
+
+/* Vertical lines and invalid cells: a border on a layer over the cell. */
+ui-data-grid :is(th, td)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 0 solid var(--ui-data-grid-line-color);
+  pointer-events: none;
+}
+
+ui-data-grid:is([grid-lines="vertical"], [grid-lines="all"]) :is(th, td)::before {
+  border-inline-end-width: var(--ui-data-grid-line-width);
+}
+
+ui-data-grid td[aria-invalid="true"]::before {
+  border-width: var(--ui-data-grid-line-width);
+  border-color: var(--ui-danger-color);
+}
+
+/* The ring on the current cell, inset, while the grid is used from the keyboard. */
+ui-data-grid :is(th, td)::after {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  content: "";
+  position: absolute;
+  inset: var(--ui-data-grid-ring-inset);
+  border: var(--ui-focus-ring-width) solid transparent;
+  border-radius: var(--ui-squircle-drawn-radius);
+  corner-shape: var(--ui-corner-shape);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+ui-data-grid[data-keyboard] :is(th, td):is(:focus, :has(> .ui-check-box:focus))::after,
+ui-data-grid :is(th, td)[data-state~="focus"]::after {
+  border-color: var(--_ring, var(--ui-focus-ring-color));
+  visibility: visible;
+}
+
+/* On the accent band the accent ring would vanish: it takes the selected text colour. */
+ui-data-grid tr[aria-selected="true"] > td {
+  --_ring: var(--ui-accent-button-foreground);
+}
+
+/* The resize grip, at the edge that resizes a column. */
+ui-data-grid th > .ui-data-grid-grip {
+  position: absolute;
+  inset-block-start: calc(50% - var(--ui-data-grid-grip-length) / 2);
+  inset-inline-end: 0;
+  inline-size: var(--ui-data-grid-grip-width);
+  block-size: var(--ui-data-grid-grip-length);
+  border-radius: calc(var(--ui-data-grid-grip-width) / 2);
+  background-color: var(--ui-scroll-bar-thumb-hover);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--ui-motion-fast) var(--ui-motion-easing),
+    background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+ui-data-grid th[data-resize-side="start"] > .ui-data-grid-grip {
+  inset-inline: 0 auto;
+}
+
+ui-data-grid:not([disabled]) th[data-resize] > .ui-data-grid-grip {
+  opacity: 1;
+}
+
+ui-data-grid th[data-resize~="drag"] > .ui-data-grid-grip {
+  background-color: var(--ui-scroll-bar-thumb-drag);
+}
+
+ui-data-grid:not([disabled]) th[data-resize] {
+  cursor: col-resize;
+}
+
+/* Editing: the field fills the cell. */
+ui-data-grid td[data-editing] {
+  padding: 0;
+  overflow: visible;
+}
+
+ui-data-grid td[data-editing] > .ui-text-input {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 100%;
+  outline: none; /* the field shows no ring of its own (0040) */
+  padding: var(--ui-data-grid-edit-padding-block) calc(var(--ui-data-grid-side-padding) - var(--ui-text-control-border-width));
+}
+
+ui-data-grid td[data-editing] > ui-combo-box {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+ui-data-grid td[data-editing] > ui-combo-box > .ui-combo-box-field {
+  block-size: 100%;
+  outline: none; /* no ring in edit mode (0040) */
+}
+
+ui-data-grid tr[aria-selected="true"] > td[data-editing] > .ui-text-input:not([aria-invalid="true"]),
+ui-data-grid tr[aria-selected="true"] > td[data-editing] > ui-combo-box > .ui-combo-box-field {
+  border-color: var(--ui-accent-button-foreground);
+}
+
+/* Frozen columns stick at the inline start, above the cells that scroll under them; those are
+   clipped at the frozen columns' end. */
+ui-data-grid :is(th, td)[data-frozen] {
+  position: sticky;
+  inset-inline-start: var(--ui-data-grid-cell-start, 0px);
+  z-index: 1;
+}
+
+ui-data-grid[frozen-columns] :is(th, td):not([data-frozen]) {
+  --_clip: max(0px, var(--ui-data-grid-scroll-x) + var(--ui-data-grid-frozen-width) - var(--ui-data-grid-cell-start, 0px));
+  clip-path: inset(0 0 0 var(--_clip));
+}
+
+ui-data-grid[frozen-columns] :is(th, td):not([data-frozen]):dir(rtl) {
+  clip-path: inset(0 var(--_clip) 0 0);
+}
+
+/* Disabled: dimmed text and headers; no hover; the selected row in the disabled accent pair. */
+ui-data-grid[disabled] :is(th, td) {
+  color: var(--ui-system-base-medium-low-color);
+}
+
+ui-data-grid[disabled] :is(tbody > tr, th):is(:hover, :active, [data-state]) {
+  background-color: transparent;
+}
+
+ui-data-grid[disabled] tbody > tr[aria-selected="true"] {
+  background-color: var(--ui-system-base-low-color);
+}
+
+/* Forced colours: the system draws selection; lines and the ring stay visible. */
+@media (forced-colors: active) {
+  ui-data-grid tbody > tr[aria-selected="true"] {
+    background-color: SelectedItem;
+    color: SelectedItemText;
+    forced-color-adjust: none;
+  }
+
+  ui-data-grid {
+    --ui-data-grid-line-color: GrayText;
+  }
+
+  ui-data-grid :is(th, td)::after {
+    forced-color-adjust: none;
+  }
+
+  ui-data-grid tr[aria-selected="true"] > td {
+    --_ring: SelectedItemText;
+  }
+}
