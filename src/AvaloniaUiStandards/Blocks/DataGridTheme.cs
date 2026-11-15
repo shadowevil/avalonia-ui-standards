@@ -96,6 +96,7 @@ internal static class DataGridTheme
         InputElement.PointerPressedEvent.AddClassHandler<DataGrid>((grid, _) => grid.SetValue(KeyboardCursorProperty, false),
             RoutingStrategies.Tunnel, handledEventsToo: true);
         ResizeGrips.Register();
+        DataGridHeaderKeys.Register();
     }
 
     public static void ApplyDensity(IResourceDictionary resources, bool compact)
@@ -464,8 +465,8 @@ internal static class DataGridTheme
 
     /// <summary>
     /// The column header: transparent, Body strong text in the secondary colour, the list item's
-    /// hover and press fills, the sort caret after the text and the resize grips. Headers are not
-    /// focusable, so they have no ring.
+    /// hover and press fills, the sort caret after the text and the resize grips. A header takes
+    /// focus from the header keys, not from Tab, and then shows the inset focus ring.
     /// </summary>
     public static ControlTheme ColumnHeader()
     {
@@ -480,6 +481,9 @@ internal static class DataGridTheme
         theme.Setters.Add(new Setter(TemplatedControl.PaddingProperty, new DynamicResourceExtension(SidePaddingKey)));
         theme.Setters.Add(new Setter(Layoutable.MinHeightProperty, new DynamicResourceExtension(RowHeightKey)));
         theme.Setters.Add(new Setter(Control.FocusAdornerProperty, null));
+        // Focusable for the header keys (DataGridHeaderKeys) but never a Tab stop.
+        theme.Setters.Add(new Setter(InputElement.FocusableProperty, true));
+        theme.Setters.Add(new Setter(KeyboardNavigation.IsTabStopProperty, false));
         theme.Setters.Add(new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<DataGridColumnHeader>(BuildHeader)));
         theme.Children.Add(ChromeMotion());
 
@@ -502,6 +506,16 @@ internal static class DataGridTheme
             Setters = { new Setter(Visual.OpacityProperty, 1d) },
         });
         theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":dragIndicator")) { Setters = { new Setter(Visual.OpacityProperty, 0.5) } });
+
+        // The focus ring, inset inside the header, while it has keyboard focus.
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Template().OfType<SquircleBorder>().Name(RingPart))
+        {
+            Setters = { new Setter(Visual.IsVisibleProperty, false) },
+        });
+        theme.Children.Add(new Avalonia.Styling.Style(x => x.Nesting().Class(":focus-visible").Template().OfType<SquircleBorder>().Name(RingPart))
+        {
+            Setters = { new Setter(Visual.IsVisibleProperty, true) },
+        });
 
         // The sort caret: up for ascending, down for descending.
         Selector SortIcon(Selector state) => state.Template().OfType<Icon>().Name(SortIconPart);
@@ -559,9 +573,19 @@ internal static class DataGridTheme
         var left = Grip(GripLeftPart, HorizontalAlignment.Left);
         var right = Grip(GripRightPart, HorizontalAlignment.Right);
 
-        foreach (var part in new Control[] { chrome, presenter, sort, separator, left, right })
+        var ring = new SquircleBorder
+        {
+            Name = RingPart,
+            BorderThickness = new Thickness(FocusRing.Width),
+            Margin = new Thickness(RingInset),
+            IsHitTestVisible = false,
+        };
+        ring.Bind(SquircleBorder.BorderBrushProperty, Resource("SystemControlHighlightAccentBrush"));
+        ring.Bind(SquircleBorder.CornerRadiusProperty, Resource("CornerRadiusControl"));
+
+        foreach (var part in new Control[] { chrome, presenter, sort, separator, left, right, ring })
             part.RegisterInNameScope(scope);
-        return new Panel { Children = { chrome, row, left, right } };
+        return new Panel { Children = { chrome, row, left, right, ring } };
     }
 
     private static PillBorder Grip(string name, HorizontalAlignment side)

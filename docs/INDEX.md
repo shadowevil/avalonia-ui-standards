@@ -40,7 +40,7 @@
 - [0037 — ToolTip and notification cards](decisions/0037-tooltip-and-notifications.md) — the solid tooltip card, the glass notification card, its type icons and the status colours
 - [0038 — DatePicker, TimePicker, Calendar and CalendarDatePicker](decisions/0038-pickers-and-calendar.md) — the picker fields, the glass flyouts and drop-down and how their rows stay inside the corners, and the Calendar's cells, today, selection and keyboard ring
 - [0039 — Separator and GridSplitter](decisions/0039-separator-and-gridsplitter.md) — the hairline separator and the splitter's hover grip
-- [0040 — DataGrid](decisions/0040-datagrid.md) — the DataGrid package and version, row bands, grid lines, headers, sort caret, resize grip, cell focus, editing and check columns
+- [0040 — DataGrid](decisions/0040-datagrid.md) — the DataGrid package and version, row bands, grid lines, headers, sort caret, resize grip, header keys, cell focus, editing and check columns
 - [0041 — ColorPicker and ColorView](decisions/0041-colorpicker.md) — the ColorPicker package and how it is included, the picker field and its glass flyout, the ColorView's tabs and pages, the colour chip, thumb, sliders, spectrum, palette and previewer
 - [0042 — Accent flag](decisions/0042-accent-flag.md) — the SelectionOptions.AccentFlag option: the bar on a selected item's leading edge, its width, colour, corners, motion and focus ring, and which lists it reaches
 - [0043 — Toolbar band](decisions/0043-toolbar-band.md) — the ToolbarBand Module: its window slot, height and spacing, item kinds, zones, overflow into the "…" menu, keyboard, automation and window drag
@@ -50,6 +50,10 @@
 - [0047 — Status bar](decisions/0047-status-bar.md) — the StatusBar Module: its window row, height, zones and gaps, the message live region, item kinds and the clickable items' inset fill, progress, shortening then hiding by priority, keyboard and automation
 - [0048 — Web HTML standards](decisions/0048-web-html-standards.md) — which documents are the web HTML standards, and the roles, landmarks, custom element, keyboard, file, shortcut and unit choices they make
 - [0049 — Full screen and window button availability](decisions/0049-full-screen.md) — macOS full screen (green light, Ctrl+Cmd+F, the menu item, the top that hides and reveals) and how the window buttons follow CanMinimize, CanMaximize and CanResize
+- [0050 — Adopting apps](decisions/0050-adopting-apps.md) — how apps request missing components, use stand-ins, keep app-specific pieces, avoid lookalikes and local restyles, and check layouts
+
+## Guides
+- [Adopting the library in an app](guides/adopting.md) — status, requirements, how to reference the library, the names an app starts with and the reading list
 
 ## Web
 - [Web semantics](web/semantics.md) — native elements first, when a custom element is allowed, landmarks, headings, forms, language and direction
