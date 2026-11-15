@@ -38,6 +38,7 @@ The app shell (`modules/shell.css`, [decision 0022](../docs/decisions/0022-windo
 
 - Sidebar ([0034](../docs/decisions/0034-sidebar.md)): `<ui-sidebar>` in the shell's `nav.ui-shell-sidebar`, with the stages (expanded, icon rail, hidden with an overlay); `createSidebarToggle()` makes the title band's sidebar button.
 - Menu row ([0044](../docs/decisions/0044-menu-bar.md)): `createMenuRow(menu, { appMenu })` builds the app's menus from a plain definition; its `element` goes in `.ui-shell-menu-row`, below the title band.
+- Full screen ([0049](../docs/decisions/0049-full-screen.md)): `toggleFullScreen()`, `isFullScreen()` and `isFullScreenAvailable()` from the shell module; the shell that is full screen has `data-full-screen`.
 - Toolbar band ([0043](../docs/decisions/0043-toolbar-band.md)): `<ui-toolbar-band>` in the toolbar band slot, with zones, groups and a "…" menu for the items that do not fit.
 - Status bar ([0047](../docs/decisions/0047-status-bar.md)): `<ui-status-bar>` in `footer.ui-shell-status-bar`, with its zones, rows, fitting and `<ui-status-progress>`.
 

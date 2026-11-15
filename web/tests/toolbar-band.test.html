@@ -28,7 +28,18 @@ import { DEFAULTS } from "../catalog/settings.js";
 const $ = (id) => document.getElementById(id);
 const host = $("host");
 const tick = () => new Promise((r) => setTimeout(r));
-const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r)));
+// Waits for the next rendered frame (its ResizeObserver callbacks have run when this resolves).
+// test.py runs pages under headless virtual time: timers run as soon as they are due, and with
+// nothing pending virtual time jumps to the end of the page's budget, while frames come in real
+// time; a rAF wait alone could outlast the page. Virtual time stands still while a fetch is
+// pending, so small fetches let real time pass until the frame has come.
+async function frame() {
+  let rendered = false;
+  requestAnimationFrame(() => (rendered = true));
+  for (let i = 0; i < 200 && !rendered; i++) await fetch(`harness.js?frame=${i}`, { cache: "no-store" }).then((r) => r.text());
+  if (!rendered) throw new Error("no frame rendered");
+  await tick();
+}
 const rect = (el) => el.getBoundingClientRect();
 const shown = (el) => getComputedStyle(el).display !== "none";
 // A computed colour as [r, g, b] (0-255).

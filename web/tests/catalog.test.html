@@ -187,6 +187,43 @@ test("the View menu's theme and density take the band's path and show in the ban
   localStorage.removeItem(STORAGE_KEY);
 });
 
+test("View, Full screen: a check item with no gesture, following the real state, hidden where full screen is not available", async () => {
+  const f = await open();
+  const view = f.qa(".ui-menu-row .ui-menu-bar-item").find((t) => t.textContent === "View");
+  const item = () => f.qa(".ui-menu-row .ui-menu-item").find((i) => i.querySelector(".ui-menu-item-header")?.textContent === "Full screen");
+  const openView = () => {
+    view.click();
+    f.doc.querySelector(".ui-menu-row .ui-menu:popover-open")?.hidePopover();
+    view.click();
+  };
+  let element = null;
+  let enabled = true;
+  Object.defineProperty(f.doc, "fullscreenElement", { configurable: true, get: () => element });
+  Object.defineProperty(f.doc, "fullscreenEnabled", { configurable: true, get: () => enabled });
+  openView();
+  assertEqual(item().getAttribute("role"), "menuitemcheckbox");
+  assertEqual(item().getAttribute("aria-checked"), "false");
+  assert(!item().hasAttribute("aria-keyshortcuts"), "no gesture");
+  // The browser enters and leaves full screen by itself: the mark follows when the menu opens.
+  element = f.q(".ui-shell");
+  f.doc.dispatchEvent(new Event("fullscreenchange"));
+  assert(f.q(".ui-shell").hasAttribute("data-full-screen"), "shell marked");
+  openView();
+  assertEqual(item().getAttribute("aria-checked"), "true", "checked in full screen");
+  element = null;
+  f.doc.dispatchEvent(new Event("fullscreenchange"));
+  openView();
+  assertEqual(item().getAttribute("aria-checked"), "false", "unchecked after leaving");
+  // Choosing it while the browser refuses (no real gesture here) changes nothing and throws nothing.
+  item().click();
+  await frames();
+  assertEqual(f.errors.length, 0, f.errors.join("; "));
+  enabled = false;
+  openView();
+  assertEqual(item(), undefined, "hidden where not available");
+  f.close();
+});
+
 test("the motion group's icon follows the chosen value", async () => {
   const f = await open();
   const lead = () => f.group("Motion").parentElement.querySelector(":scope > svg path").getAttribute("d");

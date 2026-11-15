@@ -1,8 +1,13 @@
 // The catalog's menus (0044, 0020), as the desktop catalog's CatalogMenu: Edit acting on the
 // focused text field, View with the theme and density in step with the toolbar band and page
-// navigation, and the application menu's About item, which the menu row adds to a Help title.
-// The browser owns the window, so the desktop's File (Close window), View's full screen item and
-// Help's settings file location (the settings are in localStorage) are not here.
+// navigation and full screen, and the application menu's About item, which the menu row adds to
+// a Help title. The browser owns the window, so the desktop's File (Close window) and Help's
+// settings file location (the settings are in localStorage) are not here.
+//
+// View, Full screen (0049 Web) is a check item following the real state, so it also shows the
+// user leaving with Esc or the browser's key; it has no gesture (F11 and Ctrl+Cmd+F stay the
+// browser's) and is hidden where the page cannot go full screen.
+import { toggleFullScreen, isFullScreen, isFullScreenAvailable } from "../ui.js";
 
 const TEXT_TYPES = ["button", "checkbox", "radio", "range", "color", "file", "submit", "reset", "image"];
 const isTextField = (el) =>
@@ -74,6 +79,20 @@ export function createCatalogMenu({ settings, setSetting, movePage, appName, ver
         "-",
         { header: "_Next page", onClick: () => movePage(1) },
         { header: "_Previous page", onClick: () => movePage(-1) },
+        "-",
+        {
+          header: "_Full screen",
+          toggle: "check",
+          get checked() {
+            return isFullScreen();
+          },
+          get visible() {
+            return isFullScreenAvailable();
+          },
+          onClick() {
+            toggleFullScreen();
+          },
+        },
       ],
     },
   ];

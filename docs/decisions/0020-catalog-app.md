@@ -30,6 +30,6 @@
     - A Sidebar page, after the desktop's pages, shows the Module's stages side by side.
     - The choices are saved in `localStorage`, half a second after the last change.
     - There is no Settings page, and the status bar shows no frame rate; the ribbons pause only while the page is hidden.
-    - The menu row has Edit and View (without full screen) and the About item at the end of a Help title; the browser owns the window and the settings are in `localStorage`, so there is no File menu or settings file location. About opens a dialog in the page.
+    - The menu row has Edit, View, whose Full screen check item ([0049](0049-full-screen.md)) shows on every OS where the page can go full screen, unlike the desktop's macOS-only item, and the About item at the end of a Help title; the browser owns the window and the settings are in `localStorage`, so there is no File menu or settings file location. About opens a dialog in the page.
     - Page titles read "<Page> - Avalonia UI Standards Catalog". `?render` lays a page out for `web/tools/render.py`, which renders every page in light and dark, full height, at 1000 and 620 px.
 - **Why:** It is a place to see and try everything live, across themes and settings, while the test renders ([0009](0009-screenshots-from-tests.md)) remain the reproducible record.
