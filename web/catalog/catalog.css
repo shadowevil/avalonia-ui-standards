@@ -1,58 +1,10 @@
 /*
-  The catalog app (0020): the shell's slots filled with the page list, the theme controls and the
-  status bar, and the page layout of the desktop catalog's Ui, StateGrid and pages. Sizes are the
+  The catalog app (0020): the shell's slots filled with the Modules (sidebar, menu row, toolbar band,
+  status bar), and the page layout of the desktop catalog's Ui, StateGrid and pages. Sizes are the
   desktop catalog's.
 */
 
-/* Sidebar: the navigation ListBox, one row per page with its icon. */
-.catalog-sidebar ui-list-box {
-  padding-block: 0;
-}
-
-.catalog-nav-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Toolbar band: groups of subtle ToggleButtons; theme, accent and density lead, motion,
-   transparency and glass quality trail. It wraps onto a second row when narrow. */
-.catalog-band:not([hidden]) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ui-spacing-xs) var(--ui-spacing-l);
-  padding-block: var(--ui-spacing-xs);
-  padding-inline: var(--ui-spacing-l) var(--ui-spacing-s);
-}
-
-.catalog-band-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.catalog-band-trailing {
-  margin-inline-start: auto;
-}
-
-.catalog-band-lead {
-  display: inline-flex;
-  margin-inline-end: calc(var(--ui-spacing-s) - 2px);
-  color: var(--ui-system-base-high-color);
-}
-
-.catalog-band-caption {
-  font-size: var(--ui-font-size-caption);
-  color: var(--ui-system-base-medium-color);
-}
-
-/* An accent preset: its chip at the icon size, hairline edge and radius 4, in a square button. */
-.catalog-chip-button {
-  inline-size: var(--ui-control-min-height);
-  padding: 0;
-}
-
+/* The accent's chip: at the icon size, hairline edge and radius 4. */
 .catalog-chip {
   --ui-squircle-radius: 4px;
   box-sizing: border-box;
@@ -61,11 +13,30 @@
   border: 1px solid var(--ui-system-base-low-color);
 }
 
-/* Status bar: the page name, then the library version at the end, in the caption size. */
-.catalog-status {
-  justify-content: space-between;
-  gap: var(--ui-spacing-l);
-  font-size: var(--ui-font-size-caption);
+/* The About dialog (menu.js): a glass card with the name, the version and Close. */
+.catalog-about {
+  --ui-squircle-radius: var(--ui-corner-radius-overlay);
+  padding: var(--ui-spacing-xl);
+  border: 0;
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+}
+
+.catalog-about[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--ui-spacing-m);
+}
+
+.catalog-about > :is(h2, p) {
+  margin: 0;
+}
+
+.catalog-about > h2 {
+  font-size: var(--ui-font-size-subtitle);
+  font-weight: var(--ui-font-weight-subtitle);
 }
 
 .catalog main:focus {

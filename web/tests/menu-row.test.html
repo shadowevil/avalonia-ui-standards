@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Menu row tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/scroll.css">
+<link rel="stylesheet" href="../blocks/list-box.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<link rel="stylesheet" href="../blocks/menu.css">
+<link rel="stylesheet" href="../blocks/tooltip.css">
+<link rel="stylesheet" href="../modules/menu-row.css">
+<style>body { margin: 0; padding: 20px; } #slot { width: 900px; }</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<input id="field" type="text" value="Some text">
+<button id="before" type="button">Before</button>
+<div id="slot"></div>
+<div id="slot2" style="width: 900px"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setDensity } from "../style/index.js";
+import "../blocks/scroll.js";
+import { menuItems } from "../blocks/menu.js";
+import { createMenuRow, parseHeader, titlesThatFit, gestureMatches } from "../modules/menu-row.js";
+
+const $ = (id) => document.getElementById(id);
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+const open = (el) => el.matches(":popover-open");
+// Headless frames are not guaranteed; the timeout keeps a test going (the row folds on refresh() too).
+const frame = () => new Promise((r) => { requestAnimationFrame(() => r()); setTimeout(r, 100); });
+const tick = () => new Promise((r) => setTimeout(r));
+const header = (el) => el.querySelector(".ui-menu-item-header")?.textContent;
+const near = (a, b, label, tolerance = 1) => assert(Math.abs(a - b) <= tolerance, `${label}: expected ${b}, got ${a}`);
+
+function key(el, k, options = {}) {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+const mod = isMac ? { metaKey: true } : { ctrlKey: true };
+const keyboardClick = (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+
+const log = [];
+const state = { wrap: false, size: "small", printEnabled: false, recentVisible: true, extra: false };
+const recent = { header: "_Recent", items: [{ header: "Report.txt" }], get visible() { return state.recentVisible; } };
+const file = {
+  header: "_File",
+  items: [
+    { header: "_New", icon: "plus", gesture: "Mod+N", tooltip: "A new document", onClick: () => log.push("new") },
+    { header: "_Open…", gesture: "Shift+Mod+O", onClick: () => log.push("open") },
+    "-",
+    recent,
+    "-",
+    { header: "_Print…", gesture: "Mod+P", get enabled() { return state.printEnabled; }, onClick: () => log.push("print") },
+    { header: "Hidden", visible: false, gesture: "Mod+H", onClick: () => log.push("hidden") },
+  ],
+};
+const view = {
+  header: "_View",
+  items: [
+    "-",
+    { header: "_Word wrap", toggle: "check", get checked() { return state.wrap; }, onClick() { state.wrap = !state.wrap; } },
+    "-",
+    "-",
+    { header: "_Small icons", toggle: "radio", get checked() { return state.size === "small"; }, onClick() { state.size = "small"; } },
+    { header: "_Large icons", toggle: "radio", get checked() { return state.size === "large"; }, onClick() { state.size = "large"; } },
+    { header: "Stays", toggle: "check", checked: false, onClick: () => log.push("stays") },
+    "-",
+    { header: "Gone", visible: false },
+  ],
+};
+const help = { header: "_help", items: [{ header: "_Docs", onClick: () => log.push("docs") }] };
+const appMenu = [{ header: "_About Test", onClick: () => log.push("about") }];
+const row = createMenuRow([file, { header: "_Edit", items: [{ header: "_Undo" }] }, view, help], { appMenu, label: "Main menu" });
+$("slot").append(row.element);
+const bar = row.element;
+
+const titles = () => bar.items;
+const title = (text) => titles().find((t) => t.textContent === text);
+const menuOf = (t) => document.getElementById(t.getAttribute("aria-controls"));
+const items = (t) => menuItems(menuOf(t));
+const byHeader = (menu, h) => menuItems(menu).find((i) => header(i) === h);
+const shown = (menu) => [...menu.querySelector(".ui-flyout-content").children].filter((c) => c.matches(".ui-menu-item, .ui-menu-separator")).map((c) => (c.matches(".ui-menu-separator") ? "-" : header(c)));
+function closeAll() {
+  for (const m of document.querySelectorAll(".ui-menu")) if (open(m)) m.hidePopover();
+}
+
+test("headers: _ marks the access key, __ is an underscore", async () => {
+  await frame();
+  assertEqual(JSON.stringify(parseHeader("Cu_t")), JSON.stringify({ text: "Cut", key: "t", index: 2 }));
+  assertEqual(parseHeader("A__B _C").text, "A_B C");
+  assertEqual(parseHeader("A__B _C").key, "c");
+  assertEqual(parseHeader("Plain").key, null);
+});
+
+test("roles: a named menubar of menuitem titles with their access keys; one Tab stop", () => {
+  assertEqual(bar.localName, "ui-menu-bar");
+  assertEqual(bar.getAttribute("role"), "menubar");
+  assertEqual(bar.getAttribute("aria-label"), "Main menu");
+  assertEqual(titles().map((t) => t.textContent).join(","), "File,Edit,View,help");
+  const f = title("File");
+  assertEqual(f.getAttribute("role"), "menuitem");
+  assertEqual(f.getAttribute("aria-haspopup"), "menu");
+  assertEqual(f.getAttribute("aria-keyshortcuts"), "Alt+F");
+  assertEqual(f.querySelector(".ui-menu-row-access-key").textContent, "F");
+  assertEqual(menuOf(f).getAttribute("aria-label"), "File");
+  assertEqual(titles().filter((t) => t.tabIndex === 0).length, 1);
+  assert(!row.moreItem.isConnected, "no … while everything fits");
+});
+
+test("items: icon, gesture, tooltip, check and radio marks, submenu, disabled; hidden ones left out", () => {
+  const menu = menuOf(title("File"));
+  const n = byHeader(menu, "New");
+  assert(n.querySelector(".ui-menu-item-icon"), "icon");
+  assertEqual(n.getAttribute("aria-keyshortcuts"), isMac ? "Meta+N" : "Control+N");
+  assertEqual(n.querySelector(".ui-menu-item-gesture").textContent, isMac ? "⌘N" : "Ctrl+N");
+  const tip = document.getElementById(n.getAttribute("aria-describedby"));
+  assertEqual(tip?.textContent, "A new document");
+  assertEqual(byHeader(menu, "Print…").getAttribute("aria-disabled"), "true");
+  assertEqual(byHeader(menu, "Recent").getAttribute("aria-haspopup"), "menu");
+  assertEqual(byHeader(menu, "Hidden"), undefined);
+  const v = menuOf(title("View"));
+  assertEqual(byHeader(v, "Word wrap").getAttribute("role"), "menuitemcheckbox");
+  assertEqual(byHeader(v, "Word wrap").getAttribute("aria-checked"), "false");
+  assertEqual(byHeader(v, "Small icons").getAttribute("role"), "menuitemradio");
+  assertEqual(byHeader(v, "Small icons").getAttribute("aria-checked"), "true");
+});
+
+test("separators: never first, last or doubled, again when items show or hide", () => {
+  assertEqual(shown(menuOf(title("View"))).join(","), "Word wrap,-,Small icons,Large icons,Stays");
+  assertEqual(shown(menuOf(title("File"))).join(","), "New,Open…,-,Recent,-,Print…");
+  state.recentVisible = false;
+  row.refresh();
+  assertEqual(shown(menuOf(title("File"))).join(","), "New,Open…,-,Print…");
+  state.recentVisible = true;
+  row.refresh();
+  assertEqual(shown(menuOf(title("File"))).join(","), "New,Open…,-,Recent,-,Print…");
+});
+
+test("application menu: after a separator at the end of Help, matched without _ and case", () => {
+  assertEqual(shown(menuOf(title("help"))).join(","), "Docs,-,About Test");
+});
+
+test("application menu: without Help, a Help title holds it (no separator); the header can be set", async () => {
+  const r = createMenuRow([{ header: "_File", items: [{ header: "X" }] }], { appMenu, helpHeader: "_Hilfe" });
+  $("slot2").append(r.element);
+  await frame();
+  const t = r.element.items.at(-1);
+  assertEqual(t.textContent, "Hilfe");
+  assertEqual(shown(menuOf(t)).join(","), "About Test");
+  r.destroy();
+});
+
+test("titles: a hidden one is left out, a disabled one is aria-disabled; changes show on refresh", async () => {
+  const t = { header: "_Tools", items: [{ header: "X" }], visible: false };
+  const r = createMenuRow([{ header: "_A", items: [] }, t], {});
+  $("slot2").append(r.element);
+  assertEqual(r.element.items.map((i) => i.textContent).join(","), "A");
+  t.visible = true;
+  t.enabled = false;
+  t.header = "T_ools";
+  r.refresh();
+  const tools = r.element.items[1];
+  assertEqual(tools.textContent, "Tools");
+  assertEqual(tools.getAttribute("aria-disabled"), "true");
+  assertEqual(tools.getAttribute("aria-keyshortcuts"), "Alt+O");
+  r.destroy();
+});
+
+test("the row is hidden while there is no menu", async () => {
+  const r = createMenuRow([], {});
+  $("slot2").append(r.element);
+  assert(r.element.hidden, "hidden");
+  assertEqual(r.element.getBoundingClientRect().height, 0);
+  r.menu = [{ header: "_A", items: [] }];
+  assert(!r.element.hidden, "shown with a menu");
+  r.destroy();
+});
+
+test("choosing: onClick runs, the definition keeps the check state, focus returns to where it was", async () => {
+  $("before").focus();
+  const v = title("View");
+  v.focus();
+  keyboardClick(v);
+  assert(open(menuOf(v)), "open");
+  const stays = byHeader(menuOf(v), "Stays");
+  stays.focus();
+  keyboardClick(stays);
+  assertEqual(log.at(-1), "stays");
+  assertEqual(stays.getAttribute("aria-checked"), "false", "not checked by the row: the definition did not check it");
+  assert(!open(menuOf(v)), "closed");
+  await tick();
+  assertEqual(document.activeElement, $("before"));
+  keyboardClick(v);
+  const large = byHeader(menuOf(v), "Large icons");
+  keyboardClick(large);
+  assertEqual(state.size, "large");
+  assertEqual(large.getAttribute("aria-checked"), "true");
+  assertEqual(byHeader(menuOf(v), "Small icons").getAttribute("aria-checked"), "false");
+  await tick();
+});
+
+test("refresh in place: an open menu stays open when its items and headers change", () => {
+  const f = title("File");
+  f.focus();
+  keyboardClick(f);
+  const menu = menuOf(f);
+  assert(open(menu), "open");
+  const newItem = byHeader(menu, "New");
+  file.items.splice(1, 0, { header: "_Added" });
+  file.items[0].header = "_New window";
+  row.refresh();
+  assert(open(menu), "still open");
+  assertEqual(byHeader(menu, "New window"), newItem, "same element");
+  assertEqual(shown(menu).slice(0, 3).join(","), "New window,Added,Open…");
+  file.items.splice(1, 1);
+  file.items[0].header = "_New";
+  row.refresh();
+  assertEqual(shown(menu)[1], "Open…");
+  closeAll();
+});
+
+test("definitions are read again when a menu opens (getters)", () => {
+  state.printEnabled = true;
+  const f = title("File");
+  keyboardClick(f);
+  assertEqual(byHeader(menuOf(f), "Print…").hasAttribute("aria-disabled"), false);
+  closeAll();
+  state.printEnabled = false;
+  row.refresh();
+});
+
+test("gestures work from anywhere; not while disabled or hidden, nor on a handled key or a text field's own", () => {
+  log.length = 0;
+  assert(key(document.body, "n", { ...mod, code: "KeyN" }), "prevented");
+  assertEqual(log.join(), "new");
+  assert(key($("before"), "O", { ...mod, shiftKey: true, code: "KeyO" }), "Shift gesture");
+  assertEqual(log.at(-1), "open");
+  assert(!key(document.body, "p", { ...mod, code: "KeyP" }), "disabled: left to the browser");
+  assert(!key(document.body, "h", { ...mod, code: "KeyH" }), "hidden");
+  assertEqual(log.length, 2);
+  // A key the focused element handled.
+  const handled = new KeyboardEvent("keydown", { key: "n", code: "KeyN", bubbles: true, cancelable: true, ...mod });
+  handled.preventDefault();
+  document.body.dispatchEvent(handled);
+  assertEqual(log.length, 2);
+  // A text field keeps its editing keys; other gestures still work there.
+  file.items.push({ header: "All", gesture: "Mod+A", onClick: () => log.push("all") });
+  assert(!key($("field"), "a", { ...mod, code: "KeyA" }), "select all left to the field");
+  assert(key($("field"), "n", { ...mod, code: "KeyN" }), "Mod+N in a field");
+  assertEqual(log.join(), "new,open,new");
+  file.items.pop();
+  assert(gestureMatches("F5", new KeyboardEvent("keydown", { key: "F5" })), "function key");
+});
+
+test("Alt with an access key opens its menu on the first item and underlines the access keys", async () => {
+  $("before").focus();
+  assert(key($("before"), isMac ? "ƒ" : "f", { altKey: true, code: "KeyF" }), "prevented");
+  const f = title("File");
+  assert(open(menuOf(f)), "File open");
+  assertEqual(document.activeElement, items(f)[0]);
+  assert(bar.hasAttribute("data-access-keys"), "access keys shown");
+  assert(getComputedStyle(f.querySelector(".ui-menu-row-access-key")).textDecorationLine.includes("underline"), "underlined");
+  // Another title's access key from the open menu.
+  key(document.activeElement, "v", { altKey: true, code: "KeyV" });
+  assert(open(menuOf(title("View"))), "View open");
+  assert(!open(menuOf(f)), "File closed");
+  closeAll();
+  await tick();
+  assert(!bar.hasAttribute("data-access-keys"), "hidden once the menus close");
+  assert(!key(document.body, "q", { altKey: true, code: "KeyQ" }), "no title: left to the browser");
+  assert(!key(document.body, "Alt", { altKey: true }), "plain Alt is the browser's");
+  assert(!key(document.body, "F10"), "F10 is the browser's");
+});
+
+test("in an open menu an access key chooses its item, or opens its submenu", () => {
+  log.length = 0;
+  const f = title("File");
+  f.focus();
+  keyboardClick(f);
+  key(document.activeElement, "o", { code: "KeyO" });
+  assertEqual(log.join(), "open");
+  assert(!open(menuOf(f)), "closed");
+  keyboardClick(f);
+  key(document.activeElement, "r", { code: "KeyR" });
+  const sub = document.getElementById(byHeader(menuOf(f), "Recent").getAttribute("aria-controls"));
+  assert(open(sub), "submenu open");
+  closeAll();
+});
+
+test("folding: titles that do not fit fold from the end into …, which holds them as submenus", async () => {
+  assertEqual(titlesThatFit([50, 50, 50], 32, 150), 3);
+  assertEqual(titlesThatFit([50, 50, 50], 32, 149), 2);
+  assertEqual(titlesThatFit([50, 50, 50], 32, 100), 1);
+  const slot = $("slot");
+  const widths = titles().map((t) => t.getBoundingClientRect().width);
+  const more = 32;
+  slot.style.width = `${16 + widths[0] + widths[1] + more + 4}px`;
+  row.refresh();
+  assertEqual(titles().map((t) => t.textContent).join(","), "File,Edit,", "two titles and …");
+  const m = row.moreItem;
+  assert(m.isConnected, "… shown");
+  assertEqual(m.getAttribute("aria-label"), "More");
+  assert(m.querySelector("svg"), "dots icon");
+  near(m.getBoundingClientRect().left, titles()[1].getBoundingClientRect().right, "right after the last title");
+  near(m.getBoundingClientRect().width, 32, "square");
+  const moreMenu = menuOf(m);
+  assertEqual(shown(moreMenu).join(","), "View,help");
+  const helpItem = byHeader(moreMenu, "help");
+  const helpSub = document.getElementById(helpItem.getAttribute("aria-controls"));
+  assertEqual(shown(helpSub).join(","), "Docs,-,About Test");
+  slot.style.width = "";
+  row.refresh();
+  assertEqual(titles().length, 4);
+  assert(!m.isConnected, "… gone");
+});
+
+test("size: the titles' height (32, 24 Compact), first title inset 16 from the start, mirrored right to left", async () => {
+  near(bar.getBoundingClientRect().height, 32, "Normal");
+  near(titles()[0].getBoundingClientRect().left - bar.getBoundingClientRect().left, 16, "inset");
+  setDensity("compact");
+  await frame();
+  near(bar.getBoundingClientRect().height, 24, "Compact");
+  near(titles()[0].getBoundingClientRect().height, 24, "title height");
+  setDensity("normal");
+  document.documentElement.dir = "rtl";
+  await frame();
+  near(bar.getBoundingClientRect().right - titles()[0].getBoundingClientRect().right, 16, "inset RTL");
+  document.documentElement.dir = "ltr";
+});
+
+test("theme: the titles' text is BaseHigh in light and dark", async () => {
+  const probe = document.createElement("span");
+  probe.style.color = "var(--ui-system-base-high-color)";
+  document.body.append(probe);
+  for (const theme of ["light", "dark"]) {
+    document.documentElement.dataset.theme = theme;
+    assertEqual(getComputedStyle(titles()[0]).color, getComputedStyle(probe).color, theme);
+  }
+  probe.remove();
+  document.documentElement.dataset.theme = "light";
+});
+</script>
+</body>
+</html>

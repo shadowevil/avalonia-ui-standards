@@ -54,8 +54,9 @@ async function open(query = "", { width = 1280, height = 800 } = {}) {
   const html = doc.documentElement;
   const q = (s) => doc.querySelector(s);
   const qa = (s) => [...doc.querySelectorAll(s)];
-  const group = (label) => q(`.catalog-band [role="group"][aria-label="${label}"]`);
-  const button = (label, text) => [...group(label).querySelectorAll("button")].find((b) => (b.getAttribute("aria-label") ?? b.textContent) === text);
+  // A setting's control: its segmented control, or for the accent its menu; a choice: a segment or a menu item.
+  const group = (label) => q(`.catalog-band ui-segmented-control[aria-label="${label}"]`) ?? q(`.catalog-band .ui-menu[aria-label="${label}"]`);
+  const button = (label, text) => [...group(label).querySelectorAll(".ui-segmented-control-item, .ui-menu-item")].find((b) => b.textContent.trim() === text);
   const go = async (hash) => {
     iframe.contentWindow.location.hash = hash;
     await new Promise((r) => setTimeout(r, 20));
@@ -63,7 +64,7 @@ async function open(query = "", { width = 1280, height = 800 } = {}) {
   return { iframe, win: iframe.contentWindow, doc, html, q, qa, group, button, go, errors, close: () => iframe.remove() };
 }
 
-const pressed = (group) => [...group.querySelectorAll("button")].filter((b) => b.getAttribute("aria-pressed") === "true");
+const pressed = (group) => [...group.querySelectorAll(".ui-segmented-control-item, .ui-menu-item")].filter((b) => b.getAttribute("aria-checked") === "true");
 
 localStorage.removeItem(STORAGE_KEY);
 
@@ -127,7 +128,7 @@ test("the status bar shows the page name and the library version", async () => {
   f.close();
 });
 
-test("the theme controls set the attributes on <html>, one pressed per group", async () => {
+test("the theme controls set the attributes on <html>, one chosen per control", async () => {
   localStorage.removeItem(STORAGE_KEY);
   const f = await open();
   const h = f.html;
@@ -156,18 +157,39 @@ test("the theme controls set the attributes on <html>, one pressed per group", a
     check();
     assertEqual(pressed(f.group(group)).length, 1, `${group}: one pressed`);
     assertEqual(pressed(f.group(group))[0], b, `${group}: ${text} pressed`);
-    // A click on the pressed one keeps it pressed.
+    // A click on the chosen one keeps it chosen.
     b.click();
-    assertEqual(b.getAttribute("aria-pressed"), "true", `${group}: ${text} stays pressed`);
+    assertEqual(b.getAttribute("aria-checked"), "true", `${group}: ${text} stays chosen`);
   }
   f.close();
   await wait(SAVE_DELAY + 100);
   localStorage.removeItem(STORAGE_KEY);
 });
 
+test("the View menu's theme and density take the band's path and show in the band; the band's choice shows in the menu", async () => {
+  localStorage.removeItem(STORAGE_KEY);
+  const f = await open();
+  const item = (text) => f.qa(".ui-menu-row .ui-menu-item").find((i) => i.querySelector(".ui-menu-item-header")?.textContent.replace(/\s+/g, "") === text);
+  item("Dark").click();
+  await frames();
+  assertEqual(f.html.getAttribute("data-theme"), "dark", "theme set");
+  assertEqual(f.button("Theme", "Dark").getAttribute("aria-checked"), "true", "band shows Dark");
+  item("Compact").click();
+  await frames();
+  assertEqual(f.html.getAttribute("data-density"), "compact", "density set");
+  assertEqual(f.button("Density", "Compact").getAttribute("aria-checked"), "true", "band shows Compact");
+  f.button("Theme", "Light").click();
+  await frames();
+  assertEqual(item("Light").getAttribute("aria-checked"), "true", "menu shows the band's Light");
+  await wait(SAVE_DELAY + 100);
+  assertEqual(JSON.parse(localStorage.getItem(STORAGE_KEY)).density, "compact", "saved");
+  f.close();
+  localStorage.removeItem(STORAGE_KEY);
+});
+
 test("the motion group's icon follows the chosen value", async () => {
   const f = await open();
-  const lead = () => f.group("Motion").querySelector(".catalog-band-lead svg path").getAttribute("d");
+  const lead = () => f.group("Motion").parentElement.querySelector(":scope > svg path").getAttribute("d");
   const { icons } = await import("../blocks/icons.js");
   assertEqual(lead(), icons["motion-system"], "system");
   f.button("Motion", "Reduced").click();
@@ -206,9 +228,9 @@ test("settings are saved half a second after the last change and restored at sta
   assertEqual(g.html.getAttribute("data-reduce-transparency"), "false", "transparency restored");
   assertEqual(g.html.getAttribute("data-glass-quality"), "minimal", "glass restored");
   assertEqual(g.html.style.getPropertyValue("--ui-system-accent-color").toUpperCase(), "#7A4FD6", "accent restored");
-  assertEqual(g.button("Theme", "Dark").getAttribute("aria-pressed"), "true", "theme pressed");
-  assertEqual(g.button("Accent colour", "Purple").getAttribute("aria-pressed"), "true", "accent pressed");
-  assertEqual(g.button("Glass quality", "Minimal").getAttribute("aria-pressed"), "true", "glass pressed");
+  assertEqual(g.button("Theme", "Dark").getAttribute("aria-checked"), "true", "theme chosen");
+  assertEqual(g.button("Accent colour", "Purple").getAttribute("aria-checked"), "true", "accent chosen");
+  assertEqual(g.button("Glass quality", "Minimal").getAttribute("aria-checked"), "true", "glass chosen");
   g.close();
   localStorage.removeItem(STORAGE_KEY);
 });
@@ -217,7 +239,7 @@ test("unreadable or invalid saved settings give the defaults", async () => {
   localStorage.setItem(STORAGE_KEY, "{not json");
   const f = await open();
   assert(!f.html.hasAttribute("data-theme"), "theme default");
-  assertEqual(f.button("Theme", "System").getAttribute("aria-pressed"), "true", "System pressed");
+  assertEqual(f.button("Theme", "System").getAttribute("aria-checked"), "true", "System chosen");
   assertEqual(f.errors.length, 0, "no errors");
   f.close();
   localStorage.removeItem(STORAGE_KEY);
@@ -251,18 +273,21 @@ test("the saver writes once, after the delay since the last change", async () =>
   assert(!s.pending, "nothing pending");
 });
 
-test("keyboard: the skip link comes first, every theme control is a Tab stop, the page list is one", async () => {
+test("keyboard: the skip link comes first, every shown theme control is one Tab stop, the page list is one", async () => {
   const f = await open("#button");
-  const tabbable = f.qa("a[href], button, [tabindex]").filter((e) => e.tabIndex >= 0 && !e.disabled && !e.closest("[inert], [hidden]"));
+  const visible = (e) => e.getClientRects().length > 0;
+  const tabbable = f.qa("a[href], button, [tabindex]").filter((e) => e.tabIndex >= 0 && !e.disabled && !e.closest("[inert], [hidden], [popover]") && visible(e));
   assert(tabbable[0].classList.contains("ui-skip-link"), "skip link first");
-  const bandButtons = f.qa(".catalog-band button");
-  assertEqual(bandButtons.length, 3 + 6 + 2 + 3 + 3 + 3, "band buttons");
+  const band = f.q(".catalog-band");
+  const bandButtons = tabbable.filter((e) => band.contains(e));
+  // Each shown control is one Tab stop (a segmented control's selected segment), then "…" when shown.
+  const controls = band.items.filter(visible);
+  assertEqual(bandButtons.length, controls.length + (visible(band.moreButton) ? 1 : 0), "one Tab stop per shown control");
   for (const b of bandButtons) {
-    assert(tabbable.includes(b), `${b.getAttribute("aria-label") ?? b.textContent} is a Tab stop`);
-    assertEqual(b.type, "button", "type");
-    assert(b.textContent.trim() || b.getAttribute("aria-label"), "named");
+    const name = b.getAttribute("aria-label") ?? b.closest("[aria-label]")?.getAttribute("aria-label");
+    assert(name, "named");
     b.focus();
-    assertEqual(f.doc.activeElement, b, "takes focus");
+    assertEqual(f.doc.activeElement, b, `${name} takes focus`);
   }
   const rows = f.qa(".catalog-sidebar .ui-list-item");
   const stops = rows.filter((r) => r.tabIndex === 0);
@@ -272,8 +297,10 @@ test("keyboard: the skip link comes first, every theme control is a Tab stop, th
   const order = (a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
   assert(order(bandButtons.at(-1), stops[0]), "band before sidebar");
   assert(order(stops[0], f.q("main")), "sidebar before content");
-  // Each band group is a named group.
-  for (const g of f.qa(".catalog-band > [role=group]")) assert(g.getAttribute("aria-label"), "group named");
+  // The band is a named group; each segmented control is named.
+  assertEqual(band.getAttribute("role"), "group", "band role");
+  assert(band.getAttribute("aria-label"), "band named");
+  for (const g of f.qa(".catalog-band ui-segmented-control")) assert(g.getAttribute("aria-label"), "control named");
   f.close();
 });
 
@@ -325,23 +352,24 @@ test("navigating does not pile up theme watchers", async () => {
   f.close();
 });
 
-test("the icon rail hides the labels visually and shows them as tooltips", async () => {
+test("the icon rail fades the labels out and shows them as tooltips", async () => {
   const f = await open("#button", { width: 848, height: 600 });
   const { refreshShellStages } = await frameModule(f, "../modules/shell.js");
   refreshShellStages();
   await wait(20);
   assertEqual(f.q(".catalog").dataset.sidebarStage, "compact", "rail stage");
+  const tipOf = (a) => f.doc.getElementById(a.getAttribute("aria-describedby") ?? "")?.textContent;
   for (const a of f.qa(".catalog-sidebar .ui-list-item")) {
-    const label = a.querySelector(".catalog-nav-label");
-    assert(label.classList.contains("ui-visually-hidden"), "label hidden");
-    assertEqual(a.title, label.textContent, "tooltip");
+    const label = a.querySelector(".ui-sidebar-label");
+    assertEqual(f.win.getComputedStyle(label).opacity, "0", "label faded out");
+    assertEqual(tipOf(a), label.textContent, "tooltip");
   }
   f.iframe.width = 1280;
   refreshShellStages();
   await wait(20);
   const a = f.q(".catalog-sidebar .ui-list-item");
-  assert(!a.querySelector(".catalog-nav-label").classList.contains("ui-visually-hidden"), "label shown when expanded");
-  assert(!a.hasAttribute("title"), "no tooltip when expanded");
+  assertEqual(f.win.getComputedStyle(a.querySelector(".ui-sidebar-label")).opacity, "1", "label shown when expanded");
+  assert(!a.hasAttribute("aria-describedby"), "no tooltip when expanded");
   f.close();
 });
 

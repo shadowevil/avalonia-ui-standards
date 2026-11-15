@@ -204,3 +204,16 @@
 .ui-button.ui-hyperlink-button:is(:disabled, [aria-disabled="true"]) {
   cursor: default;
 }
+
+/* Forced colours: the chevron is a mask over the element's background, which the system would
+   force to Canvas and hide; it keeps the button text colours (GrayText when disabled). */
+@media (forced-colors: active) {
+  .ui-drop-down-button::after {
+    forced-color-adjust: none;
+    background-color: ButtonText;
+  }
+
+  .ui-drop-down-button:is(:disabled, [aria-disabled="true"])::after {
+    background-color: GrayText;
+  }
+}

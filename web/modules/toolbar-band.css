@@ -1,0 +1,128 @@
+/*
+  Toolbar band (0043): one row of commands and settings below the title band, in three zones,
+  whose items move into a trailing "…" menu when they do not fit. <ui-toolbar-band> holds Blocks
+  as written; toolbar-band.js lays them out, folds them and builds the menu.
+
+    <ui-toolbar-band class="ui-shell-toolbar-band" aria-label="Toolbar">     role="group" (0048)
+      <button type="button" class="ui-button ui-subtle ui-squircle ui-focus-ring"
+          aria-label="New">(icon)</button>                                  an icon button: square
+      <button … aria-pressed="false">(icon)</button>                        a toggle
+      <ui-segmented-control … data-zone="center">…</ui-segmented-control>   a segmented control
+      <button class="ui-button ui-subtle ui-drop-down-button …" aria-haspopup="menu"
+          aria-controls="m">(icon)</button><div id="m" class="ui-menu …">  a drop-down with its menu
+      <hr class="ui-separator" data-zone="trailing">                        a separator: upright
+      <span class="ui-toolbar-spacer"></span>                               flexible space
+      <span class="ui-toolbar-band-item" data-label="Motion">               a decorated item: a
+        (icon)<ui-segmented-control …>…</ui-segmented-control></span>       leading icon, then its control
+    </ui-toolbar-band>
+
+  Height 48 (40 Compact), as the title band; side padding SpacingL. On the window background, no
+  line. Items are icon-only with a tooltip and a name: an icon button or toggle (a ui-button whose
+  only element is a ui-icon) is square at the button height with the icon centred; an icon
+  drop-down insets its icon and chevron as far as a square button's icon, SpacingXS apart (48 x 32,
+  40 x 24 Compact). A separator in the band is 1 px wide and the icon's height. The gaps between
+  items (SpacingS, SpacingL between groups and zones) and the zones' places are set by script as
+  each item's inline-start margin. The "…" button (ui-toolbar-band-more) is the last child.
+  Overflowed items take data-overflowed and are not shown.
+  A decorated item's leading icon is SpacingS before its control, at the icon size in the subtle
+  button's text colour, and takes no focus.
+  In the "…" menu, a segmented control is a group headed by its label (ui-toolbar-band-menu-heading,
+  caption size, secondary text) in the header column.
+*/
+ui-toolbar-band {
+  --ui-toolbar-band-height: 48px;
+  --ui-toolbar-band-padding: var(--ui-spacing-l);
+  /* An icon drop-down's inset: the button height less the icon size, halved, less the 1 px border. */
+  --_inset: calc((var(--ui-control-min-height) - var(--ui-icon-size)) / 2 - var(--ui-button-border-width, 1px));
+}
+
+:root[data-density="compact"] ui-toolbar-band {
+  --ui-toolbar-band-height: 40px;
+}
+
+ui-toolbar-band {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  box-sizing: border-box;
+  block-size: var(--ui-toolbar-band-height);
+  /* Its width comes from its container, never from its items (they fold instead). */
+  contain: inline-size;
+  min-inline-size: 0;
+  padding-inline: var(--ui-toolbar-band-padding);
+}
+
+ui-toolbar-band[hidden],
+ui-toolbar-band > [data-overflowed] {
+  display: none;
+}
+
+ui-toolbar-band > * {
+  flex: none;
+}
+
+/* Square icon buttons and toggles. */
+ui-toolbar-band > .ui-button:has(> .ui-icon:only-child):not(.ui-drop-down-button) {
+  --ui-control-padding: 0;
+  min-inline-size: var(--ui-control-min-height);
+}
+
+/* Icon drop-downs: the icon and the chevron inset as a square button's icon, SpacingXS apart. */
+ui-toolbar-band > .ui-drop-down-button:has(> .ui-icon:only-child) {
+  --ui-control-padding: 0 var(--_inset);
+  --ui-button-glyph-margin: var(--ui-spacing-xs);
+}
+
+/* Upright separators, the icon's height. */
+ui-toolbar-band > .ui-separator {
+  align-self: center;
+  inline-size: var(--ui-separator-thickness);
+  block-size: var(--ui-icon-size);
+  margin-block: 0;
+}
+
+ui-toolbar-band > .ui-toolbar-spacer {
+  display: block;
+  inline-size: 0;
+}
+
+.ui-toolbar-band-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-spacing-s);
+}
+
+.ui-toolbar-band-item > .ui-icon {
+  color: var(--ui-system-base-high-color);
+  pointer-events: none;
+}
+
+/* The "…" menu's segmented groups: the group and its heading share the menu's columns. */
+.ui-toolbar-band-menu-group,
+.ui-toolbar-band-menu-heading {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+}
+
+.ui-toolbar-band-menu-heading {
+  align-items: center;
+  box-sizing: border-box;
+  min-block-size: var(--ui-control-min-height);
+  padding: var(--ui-control-padding);
+  color: var(--ui-system-base-medium-color);
+  font-size: var(--ui-font-size-caption);
+  cursor: default;
+  user-select: none;
+}
+
+.ui-toolbar-band-menu-heading > span {
+  grid-column: 3;
+  white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .ui-toolbar-band-menu-heading {
+    color: GrayText;
+  }
+}

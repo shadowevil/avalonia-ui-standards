@@ -28,6 +28,9 @@ import autoCompleteBox from "./auto-complete-box.js";
 import pickers from "./pickers.js";
 import dataGrid from "./data-grid.js";
 import colorPicker from "./color-picker.js";
+import toolbarBand from "./toolbar-band.js";
+import statusBar from "./status-bar.js";
+import sidebar from "./sidebar.js";
 
 export const pages = Object.freeze([
   colours,
@@ -56,4 +59,7 @@ export const pages = Object.freeze([
   separator,
   dataGrid,
   colorPicker,
+  toolbarBand,
+  statusBar,
+  sidebar,
 ]);

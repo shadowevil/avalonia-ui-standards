@@ -38,6 +38,15 @@ These standards are recorded in [0048](../decisions/0048-web-html-standards.md).
 - A Module's custom element holds Blocks in its light DOM as the author wrote them, adding classes and attributes in script only to wire behaviour (roving tabindex, ARIA state).
 - A Module defines layout and behaviour; its colours, spacing and radii still come from Style tokens ([theming.md](theming.md)).
 - Modules are used by Screens, which arrange them without adding styles to a Block's internals.
+- The Modules and the Blocks each uses:
+
+  | Module | Uses |
+  |---|---|
+  | shell | Style only (glass, spacing) |
+  | sidebar | icon, the list item design (list-box), tooltip |
+  | menu-row | menu, icon, tooltip, button |
+  | toolbar-band | button, segmented-control, menu, flyout, separator, icon, tooltip |
+  | status-bar | progress, button, icon, tooltip |
 
 ## Tests and renders
 

@@ -32,6 +32,17 @@ Glass ([decision 0015](../docs/decisions/0015-glass.md)) is the class `ui-glass`
 
 Accessibility classes: `ui-focus-ring` (the focus ring on the element), `ui-focus-ring-within` (the ring on a wrapper while its content has keyboard focus), `ui-visually-hidden` (hidden on screen, still read by screen readers) and `ui-skip-link` (a skip link shown at the top left only while focused). The ring is `--ui-focus-ring-width`, `--ui-focus-ring-offset` and `--ui-focus-ring-color` (the accent; the system `Highlight` colour in forced colours), for Blocks that draw it on a part.
 
+## Modules
+
+The app shell (`modules/shell.css`, [decision 0022](../docs/decisions/0022-window-layout.md)) is classes on the landmark elements, with slots for the Modules:
+
+- Sidebar ([0034](../docs/decisions/0034-sidebar.md)): `<ui-sidebar>` in the shell's `nav.ui-shell-sidebar`, with the stages (expanded, icon rail, hidden with an overlay); `createSidebarToggle()` makes the title band's sidebar button.
+- Menu row ([0044](../docs/decisions/0044-menu-bar.md)): `createMenuRow(menu, { appMenu })` builds the app's menus from a plain definition; its `element` goes in `.ui-shell-menu-row`, below the title band.
+- Toolbar band ([0043](../docs/decisions/0043-toolbar-band.md)): `<ui-toolbar-band>` in the toolbar band slot, with zones, groups and a "…" menu for the items that do not fit.
+- Status bar ([0047](../docs/decisions/0047-status-bar.md)): `<ui-status-bar>` in `footer.ui-shell-status-bar`, with its zones, rows, fitting and `<ui-status-progress>`.
+
+Each file's header comment shows its markup and attributes.
+
 ## Serve
 
     python3 -m http.server --directory web
@@ -40,10 +51,10 @@ Then open `http://localhost:8000/catalog/`.
 
 ## Catalog
 
-`catalog/index.html` is the catalog app ([decision 0020](../docs/decisions/0020-catalog-app.md)): the app shell with one sidebar row per page, the page in the glass panel, the page name and library version in the status bar, and the theme controls in the toolbar band (theme, accent, density, motion, transparency and glass quality). The choices are saved in `localStorage` half a second after the last change and restored at startup. Each page has a route, `#button`.
+`catalog/index.html` is the catalog app ([decision 0020](../docs/decisions/0020-catalog-app.md)): the app shell with one Sidebar row per page, the page in the glass panel, the page name and library version in the status bar, a menu row (Edit, View and About), and the theme controls in the toolbar band (theme, accent, density, motion, transparency and glass quality). The choices are saved in `localStorage` half a second after the last change and restored at startup. Each page has a route, `#button`.
 
 - `catalog/pages/`: one module per page; `pages/index.js` lists them in sidebar order. A page module exports `{ id, title, icon, render }`; adding a page is its module and its entry in `pages/index.js`. `pages/ui.js` and `pages/state-grid.js` hold the shared builders (headings, captions, the variants × states grid).
-- `catalog/settings.js` saves and restores the choices; `catalog/theme-band.js` builds the controls.
+- `catalog/settings.js` saves and restores the choices; `catalog/toolbar.js` builds the toolbar band's controls and `catalog/menu.js` the menus.
 - The library version shown is a constant in `catalog/catalog.js`, kept equal to `<Version>` in `src/AvaloniaUiStandards/AvaloniaUiStandards.csproj`, which the static server cannot read.
 - `?render` shows one page alone, as tall as its content, for the renders.
 

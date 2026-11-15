@@ -144,6 +144,31 @@ for (const mode of ["script", "css"]) {
     closeAll();
   });
 
+  test(`placement (${mode}): block-end-end below the anchor, end edges lined up past the shift; start-aligned with no room`, () => {
+    if (mode === "css" && !anchorCss) return;
+    setAnchorPositioning(mode === "css");
+    $("wide").style.setProperty("--ui-flyout-shift", "5px");
+    openFlyout($("wide"), { anchor: $("inner-opener"), placement: "block-end-end", focus: false });
+    let a = rect($("inner-opener")), f = rect($("wide"));
+    near(f.top, a.bottom, "below");
+    near(f.right, a.right + 5, "end edges lined up, the shift past it");
+    closeAll();
+    openFlyout($("wide"), { anchor: $("open"), placement: "block-end-end", focus: false });
+    a = rect($("open"));
+    f = rect($("wide"));
+    near(f.left, a.left - 5, "no room before the anchor: start edges lined up");
+    closeAll();
+    html.dir = "rtl";
+    openFlyout($("wide"), { anchor: $("open"), placement: "block-end-end", focus: false });
+    a = rect($("open"));
+    f = rect($("wide"));
+    near(f.left, a.left - 5, "right to left: left edges lined up");
+    closeAll();
+    html.dir = "ltr";
+    $("wide").style.removeProperty("--ui-flyout-shift");
+    delete $("wide").dataset.placement;
+  });
+
   test(`placement (${mode}): inline-end next to the anchor, tops lined up less the shift; flipped right to left`, () => {
     if (mode === "css" && !anchorCss) return;
     setAnchorPositioning(mode === "css");

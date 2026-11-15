@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Toolbar band tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/index.css">
+<link rel="stylesheet" href="../modules/toolbar-band.css">
+<style>
+  .host { inline-size: 900px; }
+  .catalog-chip { --ui-squircle-radius: 4px; box-sizing: border-box; inline-size: var(--ui-icon-size); block-size: var(--ui-icon-size); }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<div class="host" id="host"></div>
+<div class="host" id="host2"></div>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import { icon, createMenu, menuItems, tooltip } from "../blocks/index.js";
+import { UiToolbarBand, plan, place } from "../modules/toolbar-band.js";
+import { buildToolbar } from "../catalog/toolbar.js";
+import { DEFAULTS } from "../catalog/settings.js";
+
+const $ = (id) => document.getElementById(id);
+const host = $("host");
+const tick = () => new Promise((r) => setTimeout(r));
+const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r)));
+const rect = (el) => el.getBoundingClientRect();
+const shown = (el) => getComputedStyle(el).display !== "none";
+// A computed colour as [r, g, b] (0-255).
+function rgb(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)/);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(v * 255));
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)/);
+  if (m) return [+m[1], +m[2], +m[3]];
+  throw new Error(`unparsed colour ${text}`);
+}
+const near = (a, b, message, tolerance = 0.6) => assert(Math.abs(a - b) <= tolerance, `${message}: expected ${b}, got ${a}`);
+
+function el(tag, className, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  node.append(...children);
+  return node;
+}
+const iconButton = (name, attrs = {}) => {
+  const b = el("button", "ui-button ui-subtle ui-squircle ui-focus-ring", { type: "button", "aria-label": name, ...attrs }, icon("plus"));
+  return b;
+};
+const seg = (label, texts, attrs = {}) => {
+  const c = el("ui-segmented-control", "ui-squircle ui-focus-ring-within", { "aria-label": label, ...attrs },
+    ...texts.map((t, i) => el("span", "ui-segmented-control-item ui-squircle", { "data-value": t.toLowerCase(), "aria-checked": String(i === 0) }, t)));
+  return c;
+};
+
+// A band of `width` with `children`, laid out.
+function band(children, { width = 900, attrs = {} } = {}) {
+  host.replaceChildren();
+  host.style.inlineSize = `${width}px`;
+  const b = el("ui-toolbar-band", "", attrs, ...children);
+  host.append(b);
+  b.layout();
+  return b;
+}
+const x = (b, item) => rect(item).left - rect(b).left;
+const end = (b, item) => rect(item).right - rect(b).left;
+
+test("a labelled group, Toolbar unless named; the \"…\" button is named More, overridable", async () => {
+  let b = band([iconButton("New")]);
+  assertEqual(b.getAttribute("role"), "group", "role");
+  assertEqual(b.getAttribute("aria-label"), "Toolbar", "default name");
+  assert(b instanceof UiToolbarBand, "upgraded");
+  assertEqual(b.moreButton.getAttribute("aria-label"), "More", "more name");
+  assertEqual(b.moreButton.getAttribute("aria-haspopup"), "menu", "more opens a menu");
+  assert(b.moreButton.querySelector("svg.ui-icon"), "more icon");
+  b.dataset.moreLabel = "Mehr";
+  await tick();
+  assertEqual(b.moreButton.getAttribute("aria-label"), "Mehr", "more name overridden");
+  assertEqual(b.moreMenu.getAttribute("aria-label"), "Mehr", "menu name overridden");
+  b = band([iconButton("New")], { attrs: { "aria-label": "Editing" } });
+  assertEqual(b.getAttribute("aria-label"), "Editing", "app name kept");
+});
+
+test("48 high (40 Compact), SpacingL side padding; icon items square; separators upright", () => {
+  for (const [density, h, button, iconSize, dropDown] of [["normal", 48, 32, 20, 48], ["compact", 40, 24, 16, 40]]) {
+    setDensity(density);
+    const menu = createMenu([{ label: "A" }]);
+    const dd = el("button", "ui-button ui-subtle ui-drop-down-button ui-squircle ui-focus-ring", { type: "button", "aria-label": "View", "aria-haspopup": "menu", "aria-controls": menu.id }, icon("sliders-horizontal"));
+    const sep = el("hr", "ui-separator");
+    const first = iconButton("A");
+    const b = band([first, sep, iconButton("B"), dd, menu]);
+    near(rect(b).height, h, `${density} height`);
+    near(x(b, first), 16, `${density} padding`);
+    near(rect(first).width, button, `${density} square width`);
+    near(rect(first).height, button, `${density} square height`);
+    near(rect(dd).width, dropDown, `${density} drop-down width`);
+    near(rect(dd).height, button, `${density} drop-down height`);
+    near(rect(sep).width, 1, `${density} separator width`);
+    near(rect(sep).height, iconSize, `${density} separator height`);
+    near(rect(sep).top + rect(sep).height / 2, rect(b).top + h / 2, `${density} separator centred`);
+    // The drop-down's icon is inset as a square button's icon.
+    const inset = rect(dd.querySelector(".ui-icon")).left - rect(dd).left;
+    near(inset, (button - iconSize) / 2, `${density} drop-down icon inset`);
+  }
+  setDensity("normal");
+});
+
+test("gaps: SpacingS within a group, SpacingL at a group start, SpacingS each side of a separator", () => {
+  const a = iconButton("A"), c = iconButton("C", { "data-begins-group": "" }), sep = el("hr", "ui-separator"), d = iconButton("D"), e = iconButton("E", { "data-begins-group": "" });
+  const b = band([a, iconButton("B"), c, sep, d]);
+  near(x(b, c) - end(b, c.previousElementSibling), 16, "group start");
+  near(x(b, a.nextElementSibling) - end(b, a), 8, "within a group");
+  near(x(b, sep) - end(b, c), 8, "before a separator");
+  near(x(b, d) - end(b, sep), 8, "after a separator");
+  const b2 = band([iconButton("X"), el("hr", "ui-separator"), e]);
+  near(x(b2, e) - end(b2, b2.children[1]), 8, "a group start after a separator keeps SpacingS");
+});
+
+test("zones: leading at the padding, centre centred, trailing at the end", () => {
+  const lead = iconButton("L");
+  const centre = seg("Range", ["Day", "Week"], { "data-zone": "center" });
+  const trail = iconButton("T", { "data-zone": "trailing" });
+  const b = band([lead, centre, trail]);
+  near(x(b, lead), 16, "leading");
+  near((x(b, centre) + end(b, centre)) / 2, 450, "centre centred");
+  near(end(b, trail), 900 - 16, "trailing at the padding, no \"…\"");
+  assert(!shown(b.moreButton), "no \"…\" when everything fits");
+});
+
+test("the centre moves aside only as far as the leading zone needs", () => {
+  const leads = Array.from({ length: 8 }, (_, i) => iconButton(`L${i}`));
+  const centre = seg("Range", ["Day", "Week", "Month"], { "data-zone": "center" });
+  const b = band([...leads, centre], { width: 700 });
+  const leadEnd = end(b, leads.at(-1));
+  assert(x(b, centre) >= leadEnd + 16 - 0.6, "SpacingL after the leading zone");
+  assert(x(b, centre) > (700 - rect(centre).width) / 2, "moved aside");
+});
+
+test("spacers take the free room; a centre spacer spans the room between the zones", () => {
+  const a = iconButton("A"), spacer = el("span", "ui-toolbar-spacer"), c = iconButton("C");
+  const b = band([a, spacer, c]);
+  near(end(b, c), 900 - 16, "a leading spacer pushes what follows to the end");
+  const l = iconButton("L"), cs = el("span", "ui-toolbar-spacer", { "data-zone": "center" }), cc = iconButton("C", { "data-zone": "center" }), t = iconButton("T", { "data-zone": "trailing" });
+  const b2 = band([l, cs, cc, t]);
+  near(end(b2, cc), x(b2, t) - 16, "the centre spans up to the trailing zone");
+});
+
+test("overflow: highest priority first, ties from the trailing end; \"…\" at the end", () => {
+  const items = ["A", "B", "C", "D", "E"].map((n) => iconButton(n));
+  items[1].dataset.priority = "1";
+  const b = band(items, { width: 16 + 32 * 3 + 8 * 2 + 8 + 32 + 16 });
+  assertEqual(b.overflowedItems.map((i) => i.getAttribute("aria-label")).join(","), "B,E", "B (priority) then E (trailing end)");
+  for (const i of b.overflowedItems) assert(!shown(i), "folded items are not shown");
+  assert(shown(b.moreButton), "\"…\" shown");
+  near(end(b, b.moreButton), rect(b).width - 16, "\"…\" at the end padding");
+  near(x(b, b.moreButton) - end(b, items[3]), 8, "SpacingS before \"…\"");
+});
+
+test("trailing items with data-can-overflow=false and controls with no menu form stay", () => {
+  const field = el("input", "ui-text-input ui-squircle ui-focus-ring", { "aria-label": "Find" });
+  field.style.inlineSize = "200px";
+  const keep = iconButton("Keep", { "data-zone": "trailing", "data-can-overflow": "false" });
+  const b = band([iconButton("A"), field, iconButton("B"), keep], { width: 200 });
+  assert(shown(field), "a text box stays");
+  assert(shown(keep), "can-overflow false stays");
+  assertEqual(b.overflowedItems.map((i) => i.getAttribute("aria-label")).join(","), "A,B", "only menu items fold");
+});
+
+test("separators show only between two shown items of their zone", () => {
+  const a = iconButton("A"), sep = el("hr", "ui-separator"), c = iconButton("C");
+  c.dataset.priority = "5";
+  const b = band([a, sep, c], { width: 16 + 32 + 8 + 32 + 16 });
+  assert(!shown(c), "C folded");
+  assert(!shown(sep), "the separator hides with it");
+  const s2 = el("hr", "ui-separator", { "data-zone": "trailing" });
+  const b2 = band([iconButton("X"), s2, iconButton("Y", { "data-zone": "trailing" })]);
+  assert(!shown(s2), "not between two items of its own zone");
+});
+
+test("the band follows its width, before the next paint, and items added later", async () => {
+  const items = ["A", "B", "C", "D"].map((n) => iconButton(n));
+  const b = band(items, { width: 600 });
+  assertEqual(b.overflowedItems.length, 0, "all fit");
+  host.style.inlineSize = "120px";
+  await frame();
+  assert(b.overflowedItems.length > 0, "folded after a resize");
+  host.style.inlineSize = "600px";
+  await frame();
+  assertEqual(b.overflowedItems.length, 0, "back");
+  const late = iconButton("Late");
+  b.append(late);
+  await tick();
+  assertEqual(b.lastElementChild, b.moreMenu, "\"…\" and its menu stay last");
+  assert(late.compareDocumentPosition(b.moreButton) & Node.DOCUMENT_POSITION_FOLLOWING, "\"…\" after the new item");
+});
+
+test("keyboard: every item a Tab stop in DOM order, then \"…\"; folded items take no focus; focus moves to \"…\"", async () => {
+  const a = iconButton("A"), s = seg("Range", ["Day", "Week"]), t = iconButton("T", { "data-zone": "trailing" });
+  const b = band([a, s, t], { width: 600 });
+  assertEqual(a.tabIndex, 0, "button Tab stop");
+  assertEqual(s.querySelectorAll("[tabindex='0']").length, 1, "segmented: one Tab stop");
+  t.focus();
+  assertEqual(document.activeElement, t, "focused");
+  host.style.inlineSize = "150px";
+  b.layout();
+  assert(!shown(t), "folded");
+  assertEqual(document.activeElement, b.moreButton, "focus moved to \"…\"");
+  const order = (x, y) => x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING;
+  assert(order(t, b.moreButton), "\"…\" last in Tab order");
+});
+
+test("\"…\" opens its menu with Down, Enter and Space; Escape closes it back to \"…\"", async () => {
+  const items = ["A", "B", "C"].map((n) => iconButton(n));
+  const b = band(items, { width: 120 });
+  b.moreButton.focus();
+  b.moreButton.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+  await tick();
+  assert(b.moreMenu.matches(":popover-open"), "Down opens");
+  assertEqual(document.activeElement, menuItems(b.moreMenu)[0], "first item focused");
+  document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await tick();
+  assert(!b.moreMenu.matches(":popover-open"), "Escape closes");
+  assertEqual(document.activeElement, b.moreButton, "focus back on \"…\"");
+  b.moreButton.click(); // Enter and Space are a native button's click
+  await tick();
+  assert(b.moreMenu.matches(":popover-open"), "click opens");
+  b.moreMenu.hidePopover();
+});
+
+test("the menu: buttons click, toggles check, labels from data-label, tooltip or name; icons copied", async () => {
+  let clicked = "";
+  const a = iconButton("New");
+  a.addEventListener("click", () => { clicked = "New"; });
+  const toggle = iconButton("Preview", { "aria-pressed": "true" });
+  const labelled = iconButton("x", { "data-label": "Labelled" });
+  const tipped = iconButton("y");
+  const b = band([iconButton("Keep", { "data-priority": "-1" }), a, toggle, labelled, tipped], { width: 16 + 32 + 8 + 32 + 16 });
+  tooltip(tipped, "From tooltip");
+  b.moreButton.click();
+  await tick();
+  const items = menuItems(b.moreMenu);
+  assertEqual(items.map((i) => i.querySelector(".ui-menu-item-header").textContent).join(","), "New,Preview,Labelled,From tooltip", "labels");
+  assertEqual(items[1].getAttribute("role"), "menuitemcheckbox", "toggle is a check item");
+  assertEqual(items[1].getAttribute("aria-checked"), "true", "checked as the toggle");
+  assert(items[0].querySelector("svg.ui-menu-item-icon"), "icon copied into the icon column");
+  items[0].click();
+  assertEqual(clicked, "New", "the button was clicked");
+  assert(!b.moreMenu.matches(":popover-open"), "the menu closed");
+  b.moreButton.click();
+  await tick();
+  menuItems(b.moreMenu)[1].click();
+  assertEqual(toggle.getAttribute("aria-pressed"), "false", "toggle unchecked through the menu");
+});
+
+test("the menu: a segmented control is a named group with its heading and radios that follow it", async () => {
+  const s = seg("Range", ["Day", "Week", "Month"]);
+  let changes = 0;
+  s.addEventListener("change", () => changes++);
+  const b = band([iconButton("Keep", { "data-priority": "-1" }), iconButton("Before"), s, iconButton("After")], { width: 16 + 32 + 8 + 32 + 16 });
+  b.moreButton.click();
+  await tick();
+  const group = b.moreMenu.querySelector(".ui-toolbar-band-menu-group");
+  assertEqual(group.getAttribute("role"), "group", "a group");
+  assertEqual(group.getAttribute("aria-label"), "Range", "named by its label");
+  const heading = group.querySelector(".ui-toolbar-band-menu-heading");
+  assertEqual(heading.textContent, "Range", "heading");
+  assertEqual(heading.getAttribute("aria-hidden"), "true", "heading hidden (the group carries the name)");
+  const radios = [...group.querySelectorAll("[role='menuitemradio']")];
+  assertEqual(radios.length, 3, "one radio per segment");
+  assertEqual(radios[0].getAttribute("aria-checked"), "true", "selected marked");
+  // A separator on each side of the group.
+  const content = b.moreMenu.firstElementChild;
+  assert(group.previousElementSibling?.classList.contains("ui-menu-separator"), "separator before");
+  assert(group.nextElementSibling?.classList.contains("ui-menu-separator"), "separator after");
+  assertEqual([...content.children].map((c) => c.className.split(" ")[0]).filter((c) => c !== "ui-scroll-overlay").join(), "ui-menu-item,ui-menu-separator,ui-toolbar-band-menu-group,ui-menu-separator,ui-menu-item", "Before, separator, group, separator, After");
+  // The marks follow the control while open.
+  s.selectedIndex = 2;
+  await tick();
+  assertEqual(radios[2].getAttribute("aria-checked"), "true", "follows the control");
+  assertEqual(radios[0].getAttribute("aria-checked"), "false", "only one");
+  radios[1].click();
+  assertEqual(s.selectedIndex, 1, "choosing selects its segment");
+  assertEqual(changes, 1, "with a change event");
+  // The heading sits in the header column, in caption size and secondary text.
+  b.moreButton.click();
+  await tick();
+  const h = b.moreMenu.querySelector(".ui-toolbar-band-menu-heading span");
+  const header = b.moreMenu.querySelector(".ui-toolbar-band-menu-group [role='menuitemradio'] .ui-menu-item-header");
+  near(rect(h).left, rect(header).left, "heading lined up with the headers");
+  const probe = $("probe");
+  probe.style.fontSize = "var(--ui-font-size-caption)";
+  probe.style.color = "var(--ui-system-base-medium-color)";
+  assertEqual(getComputedStyle(h).fontSize, getComputedStyle(probe).fontSize, "caption size");
+  assertEqual(getComputedStyle(h.parentElement).color, getComputedStyle(probe).color, "secondary text");
+  b.moreMenu.hidePopover();
+});
+
+test("the menu: a drop-down's menu is a submenu of copies that choose the originals", async () => {
+  let chosen = "";
+  const menu = createMenu([
+    { label: "Name", type: "radio", group: "sort", checked: true, onSelect: () => { chosen = "Name"; } },
+    { label: "Date", type: "radio", group: "sort", onSelect: () => { chosen = "Date"; } },
+    "-",
+    { label: "Grid", type: "checkbox", icon: "squares-four" },
+  ], { label: "View" });
+  const dd = el("button", "ui-button ui-subtle ui-drop-down-button ui-squircle ui-focus-ring", { type: "button", "aria-label": "View", "aria-haspopup": "menu", "aria-controls": menu.id }, icon("sliders-horizontal"));
+  const b = band([iconButton("Keep", { "data-priority": "-1" }), dd, menu], { width: 16 + 32 + 8 + 32 + 16 });
+  assert(!shown(dd), "folded");
+  b.moreButton.click();
+  await tick();
+  const entry = menuItems(b.moreMenu)[0];
+  assertEqual(entry.querySelector(".ui-menu-item-header").textContent, "View", "label");
+  const sub = b.moreMenu.querySelector(`#${CSS.escape(entry.getAttribute("aria-controls"))}`);
+  assert(sub, "a submenu");
+  const copies = menuItems(sub);
+  assertEqual(copies.map((c) => c.querySelector(".ui-menu-item-header").textContent).join(","), "Name,Date,Grid", "copies");
+  assert(sub.querySelector(".ui-menu-separator"), "separator copied");
+  assert(copies[2].querySelector(".ui-menu-item-icon"), "icon copied");
+  copies[1].click();
+  assertEqual(chosen, "Date", "the original's click ran");
+  const originals = menuItems(menu);
+  assertEqual(originals[1].getAttribute("aria-checked"), "true", "the original radio checked");
+  assertEqual(originals[0].getAttribute("aria-checked"), "false", "and the rest of its group cleared");
+});
+
+test("right to left: leading at the right, \"…\" at the left", () => {
+  host.dir = "rtl";
+  const a = iconButton("A"), t = iconButton("T", { "data-zone": "trailing" });
+  const b = band([a, t], { width: 600 });
+  near(rect(b).right - rect(a).right, 16, "leading at the right padding");
+  near(rect(t).left - rect(b).left, 16, "trailing at the left padding");
+  host.dir = "";
+});
+
+test("theme: the band takes no fill or line, in light and dark; heading text passes AA", () => {
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    const b = band([iconButton("A")]);
+    const cs = getComputedStyle(b);
+    assertEqual(cs.backgroundColor, "rgba(0, 0, 0, 0)", `${theme}: no fill`);
+    assertEqual(cs.borderBottomWidth, "0px", `${theme}: no line`);
+    // Secondary text on the menu's solid fill (the reduced-transparency glass) passes AA.
+    const probe = $("probe");
+    probe.style.color = "var(--ui-system-base-medium-color)";
+    probe.style.backgroundColor = "var(--ui-system-chrome-medium-low-color)";
+    const ratio = contrastRatio(rgb(getComputedStyle(probe).color), rgb(getComputedStyle(probe).backgroundColor));
+    assert(ratio >= 4.5, `${theme}: heading contrast ${ratio.toFixed(2)}`);
+  }
+  setTheme("light");
+});
+
+test("pure layout: plan and place match the desktop rules", () => {
+  const m = { width: 300, p: 16, s: 8, l: 16, more: 32 };
+  const e = (zone, width, extra = {}) => ({ kind: "item", zone, width, present: true, priority: 0, canOverflow: true, begins: false, ...extra });
+  const entries = [e(0, 100), e(1, 100), e(2, 100)];
+  const fitted = plan(entries, m);
+  assertEqual(fitted.folded.size, 1, "one folds");
+  assert(fitted.folded.has(entries[2]), "the trailing end first");
+  const { at } = place(fitted.shown, fitted.more, m);
+  assertEqual(at.get(entries[0]), 16, "leading at the padding");
+  assertEqual(at.get(entries[1]), 132, "centre moved aside from 100 to leading end + SpacingL");
+});
+
+// The catalog's band (catalog/toolbar.js) on this Module.
+test("catalog: the band's controls, order and overflow order", async () => {
+  const changes = [];
+  host.replaceChildren();
+  host.style.inlineSize = "1000px";
+  const b = el("ui-toolbar-band");
+  host.append(b);
+  const t = buildToolbar(b, { ...DEFAULTS }, (k, v) => changes.push([k, v]));
+  b.layout();
+  for (const c of [t.theme, t.density, t.motion, t.transparency, t.glass]) assertEqual(c.getAttribute("role"), "radiogroup", `${c.getAttribute("aria-label")} segmented`);
+  assertEqual(t.button.getAttribute("aria-label"), "Accent colour", "accent named");
+  assert(t.button.classList.contains("ui-drop-down-button"), "accent is a drop-down");
+  // The order they fold as the band narrows: at every width the folded ones lead this list.
+  const expected = ["Glass quality", "Transparency", "Motion", "Density", "Accent colour", "Theme"];
+  const seen = new Set();
+  for (let w = 1600; w >= 100; w -= 5) {
+    host.style.inlineSize = `${w}px`;
+    b.layout();
+    const names = b.overflowedItems.map((item) => item.getAttribute("aria-label") ?? item.querySelector("ui-segmented-control")?.getAttribute("aria-label"));
+    assertEqual([...names].sort().join(), expected.slice(0, names.length).sort().join(), `folded at ${w}`);
+    names.forEach((n) => seen.add(n));
+  }
+  assertEqual(seen.size, 6, "every control folds at some width");
+  // Choosing in a control reports the setting.
+  host.style.inlineSize = "1600px";
+  b.layout();
+  t.theme.items[2].click();
+  t.motion.items[1].click();
+  assertEqual(JSON.stringify(changes), JSON.stringify([["theme", "dark"], ["reduceMotion", true]]), "changes");
+});
+
+test("catalog: the motion icon follows its value; the accent menu checks one preset and takes a hex", async () => {
+  const changes = [];
+  host.replaceChildren();
+  host.style.inlineSize = "1600px";
+  const b = el("ui-toolbar-band");
+  host.append(b);
+  const t = buildToolbar(b, { ...DEFAULTS }, (k, v) => changes.push([k, v]));
+  const { icons } = await import("../blocks/icons.js");
+  const motionIcon = () => t.motion.parentElement.querySelector(":scope > svg path").getAttribute("d");
+  assertEqual(motionIcon(), icons["motion-system"], "system");
+  t.motion.items[2].click();
+  assertEqual(motionIcon(), icons["motion-full"], "full");
+  t.button.click();
+  await tick();
+  assert(t.menu.matches(":popover-open"), "accent menu open");
+  assertEqual(t.presets[0].getAttribute("aria-checked"), "true", "Default checked");
+  t.presets[4].click();
+  assertEqual(changes.at(-1).join(), "accent,#7A4FD6", "Purple chosen");
+  assertEqual(t.presets.filter((p) => p.getAttribute("aria-checked") === "true").length, 1, "one checked");
+  assertEqual(t.hexInput.value, "#7A4FD6", "the hex box follows");
+  t.button.click();
+  await tick();
+  t.hexInput.value = "#12345";
+  t.hexInput.dispatchEvent(new Event("input"));
+  assertEqual(t.hexInput.getAttribute("aria-invalid"), "true", "invalid marked");
+  t.hexInput.value = "#123456";
+  t.hexInput.dispatchEvent(new Event("input"));
+  assertEqual(changes.at(-1).join(), "accent,#123456", "hex applied");
+  assertEqual(t.presets.filter((p) => p.getAttribute("aria-checked") === "true").length, 0, "no preset checked");
+  t.hexItem.click();
+  assert(t.menu.matches(":popover-open"), "a click on the hex row keeps the menu open");
+  t.menu.hidePopover();
+});
+
+test("catalog: in the \"…\" menu the accent is a submenu ending in Custom colour…, which opens the accent menu", async () => {
+  host.replaceChildren();
+  host.style.inlineSize = "300px";
+  const b = el("ui-toolbar-band");
+  host.append(b);
+  const t = buildToolbar(b, { ...DEFAULTS }, () => {});
+  b.layout();
+  assert(!shown(t.button), "accent folded");
+  b.moreButton.click();
+  await tick();
+  const entry = menuItems(b.moreMenu).find((i) => i.textContent === "Accent colour");
+  assert(entry, "accent entry");
+  const sub = b.moreMenu.querySelector(`#${CSS.escape(entry.getAttribute("aria-controls"))}`);
+  const copies = menuItems(sub);
+  assertEqual(copies.at(-1).textContent, "Custom colour…", "Custom colour last");
+  assertEqual(copies.filter((c) => c.querySelector(".catalog-chip")).length, 6, "the chips copied");
+  copies.at(-1).click();
+  await tick();
+  await tick();
+  assert(t.menu.matches(":popover-open"), "the accent menu opened");
+  t.menu.hidePopover();
+});
+</script>
+</body>
+</html>

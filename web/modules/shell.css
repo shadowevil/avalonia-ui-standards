@@ -6,7 +6,8 @@
     header.ui-shell-title-band
       .ui-shell-title       the title, in Body strong
       .ui-shell-toolbar     optional, after the title (the title band's toolbar)
-    .ui-shell-toolbar-band  optional, below the title band (0043), across the shell
+    .ui-shell-menu-row      optional, below the title band (0044): the menu row Module
+    .ui-shell-toolbar-band  optional, below the title band and menu row (0043), across the shell
     nav.ui-shell-sidebar    optional, 8 px from the inline start
     .ui-shell-panel         the glass content panel (with ui-glass ui-squircle); a wrapper,
                             since glass layers inside a scroll container would scroll away
@@ -46,9 +47,10 @@
   isolation: isolate;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   grid-template-areas:
     "title title"
+    "menu menu"
     "band band"
     "sidebar panel"
     "status status";
@@ -101,6 +103,11 @@
   margin-inline-start: var(--ui-spacing-s);
 }
 
+:where(.ui-shell-menu-row) {
+  grid-area: menu;
+  min-inline-size: 0;
+}
+
 :where(.ui-shell-toolbar-band) {
   grid-area: band;
   min-block-size: var(--ui-shell-toolbar-band-height);
@@ -150,6 +157,33 @@
   box-sizing: border-box;
 }
 
+/* A StatusBar Module (0047) lays out its own side padding. */
+:where(.ui-shell-status-bar:has(> ui-status-bar)) {
+  padding-inline: 0;
+}
+
+/* A Sidebar Module (0034) in the slot: it scrolls its own list, so the overlay and the focus rings may
+   leave the slot, which sits above the panel; the user's rail in the expanded stage narrows the slot;
+   the sidebar button in the title band shows only with a visible Sidebar. */
+.ui-shell-sidebar:has(> ui-sidebar) {
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+}
+
+.ui-shell-sidebar:has(> ui-sidebar[data-collapsed]) {
+  --ui-shell-sidebar-width: var(--ui-shell-sidebar-rail-width);
+}
+
+/* A Sidebar toggle animates the slot's width with the Sidebar's own (MotionNormal). */
+.ui-shell-sidebar:has(> ui-sidebar[data-animating]) {
+  transition: inline-size var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+.ui-shell:not(:has(.ui-shell-sidebar:not([hidden]) > ui-sidebar)) .ui-sidebar-toggle {
+  display: none;
+}
+
 /* Narrow stages: the sidebar collapses to the rail, then hides. */
 @container ui-shell (width < 1008px) {
   .ui-shell-sidebar {
@@ -160,5 +194,13 @@
 @container ui-shell (width < 640px) {
   .ui-shell-sidebar {
     display: none;
+  }
+
+  /* A Sidebar has no width and no gap here but is not display: none, so its overlay can open from it. */
+  .ui-shell-sidebar:has(> ui-sidebar) {
+    display: block;
+    --ui-shell-sidebar-width: 0px;
+    margin-inline-start: 0;
+    visibility: hidden;
   }
 }

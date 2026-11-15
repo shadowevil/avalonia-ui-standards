@@ -39,5 +39,5 @@
     - **Why:** macOS unified toolbars are part of the title bar; Windows command bars below the title bar are not drag areas. With no chrome role, an OS that extends the client area never takes input meant for the band's items.
     - "macOS" and "Windows and Linux" here mean the window's resolved layout mode ([0022](0022-window-layout.md)). The menu row above the band drags in both layouts, a deliberate exception: it is window frame, not commands ([0044](0044-menu-bar.md)).
   - Density, light and dark follow the Blocks; no new motion beyond the menu fade of [0036](0036-menus-and-flyouts.md); every focusable item shows the focus ring ([0019](0019-focus-ring.md)).
-  - Web ([0045](0045-web-library.md)): a labelled `role="group"`, not `toolbar`, since each item is its own Tab stop ([0048](0048-web-html-standards.md)).
+  - Web ([0045](0045-web-library.md)): `<ui-toolbar-band>`, a labelled `role="group"`, not `toolbar`, since each item is its own Tab stop ([0048](0048-web-html-standards.md)). Items fold into "…" before the next paint, so nothing is drawn in between; in the "…" menu a segmented control becomes a group headed by its label with one radio item per segment.
 - **Why:** One band for commands and settings that follows Fluent 2 and Apple HIG, built from the library's Blocks, and that keeps every command reachable at any window width.

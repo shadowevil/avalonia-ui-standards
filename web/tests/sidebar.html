@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidebar</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/index.css">
+<link rel="stylesheet" href="../modules/shell.css">
+<link rel="stylesheet" href="../modules/sidebar.css">
+<style>
+  /* Sample content for this page. Query options: ?footer a footer row, ?headers section headers,
+     ?flag the accent flag, ?long many rows, ?select=N the current row, ?dir=rtl, ?open the overlay opened. */
+  body { margin: 0; }
+  .sample-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sample-backdrop g { color: var(--ui-system-accent-color); }
+  .ui-shell-content h1 { margin: 6px 0 0; font-size: var(--ui-font-size-title); font-weight: var(--ui-font-weight-title); }
+  #outside { margin-block-start: 12px; }
+</style>
+</head>
+<body>
+<div class="ui-shell" id="shell">
+  <div class="ui-shell-backdrop" aria-hidden="true">
+    <svg class="sample-backdrop" viewBox="0 0 1200 800" preserveAspectRatio="none">
+      <g fill="none" stroke="currentColor">
+        <path d="M-300 300 C 0 180, 300 420, 600 300 S 1200 180, 1600 320" stroke-width="150" opacity="0.28"/>
+        <path d="M-300 520 C 0 640, 350 400, 700 520 S 1250 640, 1600 500" stroke-width="120" opacity="0.32"/>
+      </g>
+    </svg>
+  </div>
+  <header class="ui-shell-title-band">
+    <span class="ui-shell-title">Avalonia UI Standards catalog</span>
+  </header>
+  <nav class="ui-shell-sidebar" aria-label="Pages">
+    <ui-sidebar>
+      <div class="ui-sidebar-list ui-scroll"><ul role="list" id="list"></ul></div>
+    </ui-sidebar>
+  </nav>
+  <div class="ui-shell-panel ui-glass ui-squircle">
+    <main class="ui-shell-content" id="main" tabindex="-1">
+      <h1>Button</h1>
+      <p><button type="button" id="outside" class="ui-button ui-squircle ui-focus-ring">Outside</button></p>
+    </main>
+  </div>
+</div>
+<script type="module">
+import "../ui.js";
+import { icon } from "../ui.js";
+import { createSidebarToggle } from "../modules/sidebar.js";
+
+const params = new URLSearchParams(location.search);
+if (params.get("dir")) document.documentElement.dir = params.get("dir");
+const pages = [["Colours", "palette"], ["Type", "text-aa"], ["Spacing", "ruler"], ["Shape", "squares-four"], ["Glass", "drop"],
+  ["Motion", "play"], ["Button", "cursor-click"], ["ListBox", "list"], ["Icon", "bell"], ["Tabs", "tabs"], ["Search", "magnifying-glass"]];
+const more = params.has("long") ? Array.from({ length: 30 }, (_, i) => [`Page ${i + 1}`, "house"]) : [];
+const selected = Number(params.get("select") ?? 6);
+
+const row = (name, name2, current, disabled) => {
+  const a = document.createElement("a");
+  a.className = "ui-list-item ui-squircle ui-focus-ring";
+  a.href = `#${name.toLowerCase()}`;
+  const label = document.createElement("span");
+  label.className = "ui-sidebar-label";
+  label.textContent = name;
+  a.append(icon(name2), label);
+  if (current) a.setAttribute("aria-current", "page");
+  if (disabled) a.setAttribute("aria-disabled", "true");
+  const li = document.createElement("li");
+  li.append(a);
+  return li;
+};
+
+const list = document.getElementById("list");
+const header = (text) => Object.assign(document.createElement("li"), { className: "ui-sidebar-header", textContent: text });
+[...pages, ...more].forEach(([n, i], k) => {
+  if (params.has("headers") && k === 0) list.append(header("Foundations"));
+  if (params.has("headers") && k === 6) list.append(header("Controls"));
+  list.append(row(n, i, k === selected, params.has("disabled") && k === 8));
+});
+if (params.has("footer")) {
+  const ul = document.createElement("ul");
+  ul.className = "ui-sidebar-footer";
+  ul.setAttribute("role", "list");
+  ul.append(row("Settings", "gear", selected < 0));
+  document.querySelector("ui-sidebar").append(ul);
+}
+if (params.has("flag")) document.querySelector("ui-sidebar").setAttribute("accent-flag", "");
+document.querySelector(".ui-shell-title-band").prepend(createSidebarToggle());
+const size = params.get("size")?.match(/^(\d+)x(\d+)$/);
+if (size) Object.assign(document.getElementById("shell").style, { inset: "0 auto auto 0", width: `${size[1]}px`, height: `${size[2]}px` });
+if (params.has("open")) requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector("ui-sidebar").open()));
+if (params.get("state")) document.querySelector(params.get("on") ?? "ui-sidebar .ui-list-item:nth-of-type(1)").dataset.state = params.get("state");
+</script>
+</body>
+</html>

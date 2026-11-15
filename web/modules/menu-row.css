@@ -1,0 +1,56 @@
+/*
+  Menu row (0044): the app's menu titles on the menu bar Block (<ui-menu-bar>, menu.css), as a
+  row of its own in the shell's menu row slot, below the title band and above the toolbar band.
+  menu-row.js builds and drives it.
+
+    <div class="ui-shell-menu-row">
+      <ui-menu-bar class="ui-menu-row" role="menubar" aria-label="Menu">
+        <button class="ui-menu-bar-item ui-button ui-subtle ui-squircle" role="menuitem"
+            aria-haspopup="menu" aria-controls="…" aria-keyshortcuts="Alt+F">
+          <span class="ui-menu-row-access-key">F</span>ile
+        </button>
+        <div class="ui-menu ui-flyout ui-glass ui-squircle" popover role="menu">…</div>
+        …
+        <button class="ui-menu-bar-item ui-button ui-subtle ui-squircle ui-menu-row-more"
+            aria-label="More">(Icons.DotsThree)</button>
+        …
+      </ui-menu-bar>
+    </div>
+
+  - Height: the titles' own (Button's density height, 32 Normal, 24 Compact), with no padding;
+    the title band above and the toolbar band below give their 8 px.
+  - The first title is inset SpacingL (16) from the start, in line with the title band's sidebar
+    button and the toolbar band's first item. On the window background, with no line under it.
+  - Titles that do not fit are folded by menu-row.js into the "…" title, a square subtle title.
+  - Access keys are underlined while Alt is held or a menu opened with Alt and a key is open
+    (data-access-keys on the row).
+*/
+ui-menu-bar.ui-menu-row {
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  block-size: var(--ui-control-min-height);
+  min-inline-size: 0;
+  padding-inline-start: var(--ui-spacing-l);
+  overflow: clip;
+}
+
+ui-menu-bar.ui-menu-row[hidden] {
+  display: none;
+}
+
+.ui-menu-row > .ui-menu-bar-item {
+  flex: none;
+}
+
+.ui-menu-row-more.ui-button {
+  inline-size: var(--ui-control-min-height);
+  padding: 0;
+}
+
+.ui-menu-row-access-key {
+  text-decoration: none;
+}
+
+.ui-menu-row[data-access-keys] .ui-menu-row-access-key {
+  text-decoration: underline;
+}
