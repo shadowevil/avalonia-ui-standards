@@ -307,31 +307,62 @@ public class StandardsWindow : Window, IFrameTickSource
     internal const double OpeningInset = Spacing.L;
 
     /// <summary>
-    /// The size a native macOS window opens at: a side that reaches the screen's working area (<paramref name="workingArea"/>)
-    /// becomes the working area's less <see cref="OpeningInset"/> at each edge; a side that fits stays.
+    /// The size a window opens at, never larger than the screen's working area (<paramref name="workingArea"/>).
+    /// On the native macOS frame a side that reaches the working area becomes the working area's less
+    /// <see cref="OpeningInset"/> at each edge; on a drawn frame a side that exceeds it becomes the working area.
+    /// A side that fits stays.
     /// </summary>
     /// <remarks>
     /// Avalonia.Native 12.1.6 counts a native window as maximised whenever its frame equals the screen's visible frame.
     /// macOS squeezes a window that opens larger than the working area to exactly that frame, so the window started out
     /// maximised natively while reading Normal, with no frame to restore to, and maximise and restore then acted backwards.
+    /// The drawn frame has no such case, so a window as large as the working area is left as it is.
     /// </remarks>
-    internal static Size FitOpeningSize(Size requested, Size workingArea)
+    internal static Size FitOpeningSize(Size requested, Size workingArea, bool nativeMacOSFrame)
     {
-        static double Fit(double side, double area) => side >= area ? Math.Max(0, area - 2 * OpeningInset) : side;
-        return new Size(Fit(requested.Width, workingArea.Width), Fit(requested.Height, workingArea.Height));
+        if (nativeMacOSFrame)
+            return new Size(FitInset(requested.Width, workingArea.Width), FitInset(requested.Height, workingArea.Height));
+        return new Size(Math.Min(requested.Width, workingArea.Width), Math.Min(requested.Height, workingArea.Height));
     }
 
-    // On the native macOS frame, a normal window that would open at or past the working area opens inside it (see FitOpeningSize).
+    private static double FitInset(double side, double area)
+    {
+        if (side < area)
+            return side;
+        return Math.Max(0, area - 2 * OpeningInset);
+    }
+
+    // A normal window that would open larger than the working area opens inside it, and is centred again when its
+    // start location asks for it (the platform may place a window before or after this resize, so the position is set here).
     private void FitOpeningSize()
     {
-        if (!HasNativeFrame || WindowState != WindowState.Normal || (Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen)
+        if (WindowState != WindowState.Normal || (Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen)
             return;
         var requested = new Size(double.IsNaN(Width) ? ClientSize.Width : Width, double.IsNaN(Height) ? ClientSize.Height : Height);
-        var fitted = FitOpeningSize(requested, screen.WorkingArea.Size.ToSize(screen.Scaling));
+        var fitted = FitOpeningSize(requested, screen.WorkingArea.Size.ToSize(screen.Scaling), HasNativeFrame);
+        if (fitted.Width == requested.Width && fitted.Height == requested.Height)
+            return;
         if (fitted.Width != requested.Width)
             Width = Math.Max(fitted.Width, MinWidth);
         if (fitted.Height != requested.Height)
             Height = Math.Max(fitted.Height, MinHeight);
+
+        var area = screen.WorkingArea;
+        var size = new PixelSize((int)Math.Round(Width * screen.Scaling), (int)Math.Round(Height * screen.Scaling));
+        PixelRect? centreOn = WindowStartupLocation switch
+        {
+            WindowStartupLocation.CenterScreen => area,
+            WindowStartupLocation.CenterOwner when Owner is Window owner =>
+                new PixelRect(owner.Position, PixelSize.FromSize(owner.Bounds.Size, owner.RenderScaling)),
+            _ => null,
+        };
+        if (centreOn is not { } target)
+            return;
+        var x = target.X + (target.Width - size.Width) / 2;
+        var y = target.Y + (target.Height - size.Height) / 2;
+        Position = new PixelPoint(
+            Math.Clamp(x, area.X, Math.Max(area.X, area.Right - size.Width)),
+            Math.Clamp(y, area.Y, Math.Max(area.Y, area.Bottom - size.Height)));
     }
 
     /// <summary>Whether the app runs on macOS, where the window has full screen (settable for tests).</summary>

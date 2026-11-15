@@ -61,6 +61,28 @@
   --ui-combo-box-drop-down-background: var(--ui-system-chrome-medium-low-color);
   --ui-combo-box-drop-down-border-brush: light-dark(#00000024, #0000005C);
   --ui-combo-box-drop-down-border-width: 1px;
+
+  /*
+    Text control colours shared by the field Blocks and the labels beside them (0027, 0041):
+    Fluent's TextControlPlaceholderForeground and TextControlForegroundDisabled (ChromeDisabledLow,
+    which the library palette does not set).
+  */
+  --ui-text-control-placeholder-foreground: var(--ui-system-base-medium-color);
+  --ui-text-control-foreground-disabled: light-dark(#7A7A7A, #858585);
+
+  /*
+    The thumb's edge (0031): black at 12 % in both themes. The Slider thumb, the colour thumbs and
+    the colour chip's hairline (0041) use it.
+  */
+  --ui-thumb-edge-color: #0000001F;
+
+  /*
+    The colour thumb's ring (0041): white in both themes, between two thumb edges. And Fluent's
+    ColorControlCheckeredBackgroundBrush under every shown colour, as a background layer: an 8 px
+    tile, its top-left and bottom-right 4 px squares in #80808019 (Fluent's #19808080, alpha first).
+  */
+  --ui-color-thumb-ring-color: #FFFFFF;
+  --ui-color-control-checkered-background: repeating-conic-gradient(transparent 0 25%, #80808019 0 50%) 0 0 / 8px 8px;
 }
 
 /*

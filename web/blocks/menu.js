@@ -36,12 +36,12 @@
 
 import { icon } from "./icon.js";
 import { openFlyout, closeFlyout, flyoutOpener } from "./flyout.js";
+import { isMac } from "../style/platform.js";
 
 /** ms the pointer rests on an item before its submenu opens or another closes (Avalonia's MenuShowDelay). */
 export const SUBMENU_DELAY = 400;
 const TYPE_AHEAD_RESET = 500;
 const ITEM = ".ui-menu-item";
-const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 let nextId = 0;
 let hoverTimer = 0;

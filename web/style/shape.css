@@ -10,6 +10,23 @@
   --ui-corner-radius-factor: 1.18;
 }
 
+/* The thumb (0031): the Slider thumb's size by density, its soft shadow and its growth on hover
+   and press, shared by the Slider and the colour thumbs of the spectrum and colour sliders (0041).
+   The colour thumb's ring width, its opacity when disabled, and the spectrum's side (0041). */
+:root {
+  --ui-thumb-size: 20px;
+  --ui-thumb-shadow: 0 1px 3px #00000040;
+  --ui-thumb-hover-scale: 1.1;
+  --ui-thumb-pressed-scale: 1.2;
+  --ui-color-thumb-ring-width: 2px;
+  --ui-color-thumb-disabled-opacity: 0.4;
+  --ui-color-spectrum-size: 256px;
+}
+
+:root[data-density="compact"] {
+  --ui-thumb-size: 16px;
+}
+
 /* The squircle for any Block: radius from --ui-squircle-radius (the control radius unless the
    Block sets it). Set on the element itself, so it is not inherited from a squircle around it.
    Engines without corner-shape get the plain radius. */

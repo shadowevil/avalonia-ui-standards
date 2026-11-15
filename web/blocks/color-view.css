@@ -1,0 +1,230 @@
+/*
+  ColorView (0041): <ui-color-view> (color-view.js builds its parts), and the colour chip every
+  shown colour uses.
+
+  The colour chip: <span class="ui-color-chip ui-squircle" style="--ui-color-chip-color: …">, a
+  squircle over Fluent's checkerboard with a 1 px hairline edge (the Slider thumb's edge, 0031)
+  drawn over the colour. Its radius is the --ui-squircle-radius of where it sits.
+
+  The view has no surface of its own; it sits on its container (the flyout's glass, or a panel).
+  - Tabs (tabs.js): icon headers (Drop, SquaresFour, SlidersHorizontal) at the Icon density size,
+    left-aligned, with the sliding accent underline and the hairline; each named by its tooltip's
+    string. The pages sit flush with the strip's edges, SpacingM below it, each 256 high (the
+    spectrum's side); the view is the spectrum plus a vertical slider either side, SpacingM apart:
+    320 wide at Normal, 312 at Compact.
+  - Spectrum page: the value slider, the spectrum and the alpha slider, SpacingM apart.
+  - Palette page: a ListBox (padding SpacingXS) in a uniform grid of the palette's columns filling
+    the page; each cell at least 24 high (20 at Compact) holding its chip SpacingXS in, the chip's
+    radius the cell's less that inset. Hover and press are the list item fills behind the chip;
+    the selected cell has a 2 px accent ring on its edge (2 px gap to the chip), the disabled
+    accent fill when the view is disabled; keyboard focus shows the focus ring outside the cell.
+  - Components page: the colour model (segmented control) and the hex value (a field with "#" in
+    its side padding, SpacingXS before the text) side by side, SpacingM apart; then per component
+    its letter in a 16 px column, SpacingS before a 64 px number box without spin buttons, SpacingM
+    before its colour slider. Rows SpacingM apart from the top. The letters and "#" are in the
+    placeholder colour, the disabled text colour when disabled.
+  - Previewer, SpacingM below the pages: the colour as a chip (CornerRadiusControl) as high as a
+    control row (32 or 24), with two darker and two lighter square accent chips either side,
+    SpacingXS apart. No shadow.
+  Every colour keeps its full colour when disabled (0041, known for later).
+*/
+:where(ui-color-view) {
+  /* The spectrum's side (Style) plus a thumb-wide slider and SpacingM either side. */
+  --ui-color-view-width: calc(var(--ui-color-spectrum-size) + 2 * (var(--ui-thumb-size) + var(--ui-spacing-m)));
+  --ui-color-view-number-width: 64px;
+  --ui-color-view-letter-width: var(--ui-spacing-l);
+  --ui-color-view-palette-cell-min-height: 24px;
+  /* The selection ring and its gap to the chip; the chip sits SpacingXS in. */
+  --ui-color-view-palette-ring-width: 2px;
+  /* AccentButtonBackgroundDisabled, Fluent's. */
+  --ui-color-view-palette-ring-disabled: var(--ui-system-base-low-color);
+}
+
+:root[data-density="compact"] :where(ui-color-view) {
+  --ui-color-view-palette-cell-min-height: 20px;
+}
+
+/* The colour chip. */
+.ui-color-chip {
+  /* The thumb edge (Style, 0031), this Block's for forced colours; the checkerboard is Style's. */
+  --ui-color-chip-edge: var(--ui-thumb-edge-color);
+  display: block;
+  box-sizing: border-box;
+  border: 1px solid var(--ui-color-chip-edge);
+  background:
+    linear-gradient(var(--ui-color-chip-color, transparent), var(--ui-color-chip-color, transparent)) border-box,
+    var(--ui-color-control-checkered-background) border-box;
+}
+
+ui-color-view {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-m);
+  inline-size: var(--ui-color-view-width);
+  vertical-align: top;
+}
+
+/* Tabs: the pages flush with the strip, SpacingM below it, all of one height. */
+.ui-color-view-tabs {
+  --ui-tab-panel-padding: 0px;
+}
+
+.ui-color-view-tabs .ui-tab {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+}
+
+.ui-color-view-page {
+  box-sizing: border-box;
+  block-size: var(--ui-color-spectrum-size);
+  margin-block-start: var(--ui-spacing-m);
+}
+
+.ui-color-view-page[hidden] {
+  display: none;
+}
+
+/* The spectrum page. */
+.ui-color-view-spectrum-page {
+  display: flex;
+  gap: var(--ui-spacing-m);
+}
+
+.ui-color-view-spectrum-page > .ui-color-slider {
+  flex: none;
+  inline-size: 100%;
+}
+
+.ui-color-view-spectrum-page > ui-color-spectrum {
+  flex: 1 1 auto;
+  inline-size: auto;
+  block-size: 100%;
+}
+
+/* The palette page: a uniform grid filling the page. */
+.ui-color-view-palette {
+  display: grid;
+  grid-template-columns: repeat(var(--ui-color-view-palette-columns, 6), minmax(0, 1fr));
+  grid-auto-rows: minmax(var(--ui-color-view-palette-cell-min-height), 1fr);
+  block-size: 100%;
+}
+
+.ui-list-item.ui-color-view-palette-cell {
+  align-items: stretch;
+  min-block-size: var(--ui-color-view-palette-cell-min-height);
+  padding: calc(var(--ui-spacing-xs) - var(--ui-color-view-palette-ring-width));
+  border: var(--ui-color-view-palette-ring-width) solid transparent;
+}
+
+.ui-color-view-palette-cell > .ui-color-chip {
+  --ui-squircle-radius: calc(var(--ui-corner-radius-control) - var(--ui-spacing-xs));
+  flex: 1 1 auto;
+}
+
+/* Selection is the ring, not the list's accent fill; hover and press keep the list fills. */
+.ui-list-item.ui-color-view-palette-cell[aria-selected="true"] {
+  border-color: var(--ui-accent-fill-color);
+  background-color: transparent;
+}
+
+.ui-list-item.ui-color-view-palette-cell[aria-selected="true"]:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-system-list-medium-color);
+}
+
+.ui-list-item.ui-color-view-palette-cell[aria-selected="true"]:is(:active, [data-state~="pressed"]) {
+  background-color: var(--ui-system-base-medium-low-color);
+}
+
+ui-list-box[aria-disabled="true"] .ui-list-item.ui-color-view-palette-cell {
+  background-color: transparent;
+}
+
+ui-list-box[aria-disabled="true"] .ui-list-item.ui-color-view-palette-cell[aria-selected="true"] {
+  border-color: var(--ui-color-view-palette-ring-disabled);
+}
+
+/* The components page. */
+.ui-color-view-components {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-content: start;
+  align-items: center;
+  row-gap: var(--ui-spacing-m);
+}
+
+.ui-color-view-components-top {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--ui-spacing-m);
+}
+
+.ui-color-view-hex {
+  min-inline-size: 0;
+}
+
+.ui-color-view-label {
+  color: var(--ui-text-control-placeholder-foreground);
+  font-size: var(--ui-font-size-body);
+}
+
+ui-color-view:has(.ui-color-view-hex .ui-text-input:disabled) .ui-color-view-label {
+  color: var(--ui-text-control-foreground-disabled);
+}
+
+/* "#" in the text's side padding, SpacingXS before the text. */
+.ui-field-leading.ui-color-view-hash {
+  margin-inline: var(--ui-field-padding-inline) calc(var(--ui-spacing-xs) - var(--ui-field-padding-inline));
+}
+
+.ui-color-view-letter {
+  display: block;
+  inline-size: var(--ui-color-view-letter-width);
+  margin-inline-end: var(--ui-spacing-s);
+  text-align: center;
+}
+
+.ui-text-input.ui-color-view-number {
+  inline-size: var(--ui-color-view-number-width);
+  min-inline-size: 0;
+  margin-inline-end: var(--ui-spacing-m);
+  appearance: textfield;
+}
+
+.ui-color-view-number::-webkit-inner-spin-button,
+.ui-color-view-number::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+/* The previewer. */
+.ui-color-view-previewer {
+  display: flex;
+  gap: var(--ui-spacing-xs);
+  block-size: var(--ui-control-min-height);
+}
+
+.ui-color-view-previewer > .ui-color-chip {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  flex: 1 1 auto;
+}
+
+.ui-color-view-previewer > .ui-color-view-accent {
+  flex: none;
+  inline-size: var(--ui-control-min-height);
+}
+
+@media (forced-colors: active) {
+  .ui-color-chip {
+    forced-color-adjust: none;
+    --ui-color-chip-edge: CanvasText;
+  }
+
+  .ui-list-item.ui-color-view-palette-cell[aria-selected="true"] {
+    border-color: Highlight;
+    forced-color-adjust: none;
+  }
+
+  ui-color-view:has(.ui-color-view-hex .ui-text-input:disabled) .ui-color-view-label {
+    color: GrayText;
+  }
+}

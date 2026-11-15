@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en-US" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>ColorPicker tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/list-box.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+<link rel="stylesheet" href="../blocks/segmented-control.css">
+<link rel="stylesheet" href="../blocks/slider.css">
+<link rel="stylesheet" href="../blocks/tabs.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<link rel="stylesheet" href="../blocks/tooltip.css">
+<link rel="stylesheet" href="../blocks/combobox.css">
+<link rel="stylesheet" href="../blocks/color-slider.css">
+<link rel="stylesheet" href="../blocks/color-spectrum.css">
+<link rel="stylesheet" href="../blocks/color-view.css">
+<link rel="stylesheet" href="../blocks/color-picker.css">
+</head>
+<body style="padding: 40px 40px 600px">
+<pre id="results">running</pre>
+<form id="form">
+  <label for="picker" id="picker-label">Accent colour</label>
+  <ui-color-picker id="picker" value="#007CEA" name="accent"></ui-color-picker>
+  <ui-color-view id="view" value="#007cea" name="colour"></ui-color-view>
+</form>
+<ui-color-picker id="named" aria-label="Fill" value="#e1332a80"></ui-color-picker>
+<ui-color-picker id="custom" aria-label="Pen"><span id="custom-content">Pen colour</span></ui-color-picker>
+<ui-color-spectrum id="spectrum" aria-label="Spectrum"></ui-color-spectrum>
+<ui-color-spectrum id="ring" shape="ring" aria-label="Ring"></ui-color-spectrum>
+<input id="cslider" type="range" class="ui-slider ui-color-slider" min="0" max="255" value="128" aria-label="Green" style="--ui-color-slider-stops: #000000, #00FF00">
+<button id="after" type="button">After</button>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/slider.js";
+import { parseColor, formatColor, hsvToRgb, rgbToHsv, displayName, accentColor, PALETTE, STRINGS } from "../blocks/color-view.js";
+import "../blocks/color-picker.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
+const key = (target, k, options = {}) => {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  target.dispatchEvent(e);
+  return e;
+};
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+const picker = $("picker");
+const view = $("view");
+const spectrum = $("spectrum");
+const P = view.parts;
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+// A colour over a background, both computed values.
+const over = (fg, bg) => {
+  const [r, g, b, a] = rgba(fg);
+  const back = rgba(bg);
+  return [r, g, b].map((c, i) => Math.round(c * a + back[i] * (1 - a)));
+};
+const record = (target, types = ["input", "change"]) => {
+  const seen = [];
+  for (const t of types) target.addEventListener(t, () => seen.push(t));
+  return seen;
+};
+
+function reset() {
+  for (const a of ["data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  picker.close();
+  for (const el of [picker, view, spectrum]) {
+    el.removeAttribute("disabled");
+    el.removeAttribute("data-state");
+  }
+  picker.value = "#007cea";
+  view.value = "#007cea";
+  view.colorModel = "rgb";
+  view.colorName = null;
+  picker.colorName = null;
+  view.selectedIndex = 0;
+  document.activeElement?.blur();
+}
+
+// --- Colour maths -------------------------------------------------------------------------
+
+test("maths: hex parsing and value text (alpha last, as CSS)", () => {
+  assertEqual(formatColor(parseColor("#007CEA")), "#007cea");
+  assertEqual(formatColor(parseColor("007cea80")), "#007cea80");
+  assertEqual(formatColor(parseColor("#f00")), "#ff0000");
+  assertEqual(formatColor(parseColor("#f008")), "#ff000088");
+  assertEqual(parseColor("#12345"), null);
+  assertEqual(parseColor("blue"), null);
+});
+
+test("maths: HSV round trip and Fluent's accent steps (value 0.1 apart)", () => {
+  const hsv = rgbToHsv(parseColor("#007cea"));
+  assert(Math.abs(hsv.h - 208.2) < 0.1, `hue ${hsv.h}`);
+  assertEqual(formatColor(hsvToRgb(hsv)), "#007cea");
+  assertEqual(formatColor(accentColor(hsv, 1)), "#0087ff");
+  assertEqual(formatColor(accentColor(hsv, 2)), "#0087ff");
+  assertEqual(formatColor(accentColor(hsv, -1)), "#006fd1");
+});
+
+// Avalonia's ColorHelper.ToDisplayName for the palette and a few more, read from the desktop package.
+const DESKTOP_NAMES = {"#ff4343": "Light Coral", "#e74856": "Light Pink", "#0078d7": "Steel Blue", "#0099bc": "Light Blue", "#7a7574": "Tomato", "#767676": "Gray", "#d13438": "Light Pink", "#e81123": "Light Pink", "#0063b1": "Steel Blue", "#2d7d9a": "Deep Sky Blue", "#5d5a58": "Sea Shell", "#4c4a48": "Linen", "#ef6950": "Tomato", "#ea005e": "Lavender Blush", "#8e8cd8": "Lavender", "#00b7c3": "Cadet Blue", "#68768a": "Light Steel Blue", "#69797e": "Light Blue", "#da3b01": "Orange Red", "#c30052": "Hot Pink", "#6b69d6": "Midnight Blue", "#038387": "Cadet Blue", "#515c6b": "Light Steel Blue", "#4a5459": "Sky Blue", "#ca5010": "Sienna", "#e3008c": "Medium Violet Red", "#8764b8": "Medium Purple", "#00b294": "Turquoise", "#567c73": "Aquamarine", "#647c64": "Dark Sea Green", "#f7630c": "Sienna", "#bf0077": "Medium Violet Red", "#744da9": "Medium Purple", "#018574": "Turquoise", "#486860": "Aquamarine", "#525e54": "Dark Sea Green", "#ff8c00": "Dark Orange", "#c239b3": "Orchid", "#b146c2": "Medium Orchid", "#00cc6a": "Spring Green", "#498205": "Chartreuse", "#847545": "Cornsilk", "#ffb900": "Goldenrod", "#9a0089": "Orchid", "#881798": "Medium Orchid", "#10893e": "Sea Green", "#107c10": "Green", "#7e735f": "Wheat", "#00ffff": "Aqua", "#ff00ff": "Magenta", "#007cea": "Steel Blue", "#808080": "Gray", "#123456": "Slate Gray", "#f0f8ff": "Alice Blue", "#e1332a": "Firebrick", "#ff0000": "Red", "#000000": "Black"};
+
+test("maths: display names as the desktop's (the palette and samples)", () => {
+  for (const [value, name] of Object.entries(DESKTOP_NAMES)) assertEqual(displayName(parseColor(value)), name, value);
+  assertEqual(displayName(parseColor("#00000000")), "Transparent");
+});
+
+test("palette: Fluent's 48 colours, 6 columns, row by row", () => {
+  assertEqual(PALETTE.length, 48);
+  assertEqual(PALETTE[0], "#ff4343");
+  assertEqual(PALETTE[1], "#e74856");
+  assertEqual(PALETTE[2], "#0078d7");
+  assertEqual(PALETTE[6], "#d13438");
+  assertEqual(PALETTE[47], "#7e735f");
+});
+
+// --- ColorSlider --------------------------------------------------------------------------
+
+test("color slider: a native range, its row and track as thick as the thumb, the gradient from its stops", () => {
+  reset();
+  const s = $("cslider");
+  assertEqual(s.getAttribute("type"), "range");
+  assertEqual(s.getBoundingClientRect().height, 20);
+  assertEqual(style(s).getPropertyValue("--ui-slider-track-thickness").trim(), "20px");
+  assertEqual(style(s).getPropertyValue("--ui-color-slider-stops").trim(), "#000000, #00FF00");
+  html.dataset.density = "compact";
+  assertEqual(s.getBoundingClientRect().height, 16);
+});
+
+// --- ColorSpectrum ------------------------------------------------------------------------
+
+test("spectrum: a slider of the hue, its value text naming hue and saturation", () => {
+  reset();
+  spectrum.hsv = { h: 200, s: 0.5, v: 1 };
+  assertEqual(spectrum.getAttribute("role"), "slider");
+  assertEqual(spectrum.tabIndex, 0);
+  assertEqual(spectrum.getAttribute("aria-valuenow"), "200");
+  assertEqual(spectrum.getAttribute("aria-valuemax"), "360");
+  assertEqual(spectrum.getAttribute("aria-valuetext"), "Hue 200°, Saturation 50%");
+  assertEqual(spectrum.getBoundingClientRect().width, 256);
+});
+
+test("spectrum: arrows change hue and saturation, Ctrl or Cmd by 10, stopping at the ends; always handled", () => {
+  reset();
+  spectrum.hsv = { h: 100, s: 0.5, v: 1 };
+  const seen = record(spectrum);
+  assert(key(spectrum, "ArrowRight").defaultPrevented);
+  assertEqual(spectrum.hue, 101);
+  key(spectrum, "ArrowUp");
+  assertEqual(Math.round(spectrum.saturation * 100), 51);
+  key(spectrum, "ArrowLeft", isMac ? { metaKey: true } : { ctrlKey: true });
+  assertEqual(spectrum.hue, 91);
+  assertEqual(seen.join(), "input,change,input,change,input,change");
+  spectrum.hsv = { h: 360, s: 1 };
+  assert(key(spectrum, "ArrowRight").defaultPrevented, "handled at the end too");
+  key(spectrum, "ArrowUp");
+  assertEqual(spectrum.hue, 360);
+  assertEqual(spectrum.saturation, 1);
+});
+
+test("spectrum: right to left swaps Left and Right and mirrors the area and the selector", () => {
+  reset();
+  html.dir = "rtl";
+  spectrum.hsv = { h: 90, s: 1, v: 1 };
+  key(spectrum, "ArrowLeft");
+  assertEqual(spectrum.hue, 91);
+  const thumb = spectrum.querySelector(".ui-color-spectrum-thumb");
+  const r = spectrum.getBoundingClientRect();
+  const t = thumb.getBoundingClientRect();
+  assert(Math.abs((t.left + t.width / 2) - (r.right - (91 / 360) * r.width)) < 1.5, "the selector from the right");
+  assertEqual(style(spectrum.querySelector(".ui-color-spectrum-area")).scale, "-1 1");
+});
+
+test("spectrum: a press picks the point, a drag follows it, change at the end", () => {
+  reset();
+  spectrum.hsv = { h: 0, s: 0, v: 1 };
+  const seen = record(spectrum);
+  const r = spectrum.getBoundingClientRect();
+  const at = (fx, fy, type) => spectrum.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, pointerType: "mouse", clientX: r.left + fx * r.width, clientY: r.top + fy * r.height }));
+  at(0.5, 0.25, "pointerdown");
+  assert(Math.abs(spectrum.hue - 180) < 1 && Math.abs(spectrum.saturation - 0.75) < 0.01, `${spectrum.hue} ${spectrum.saturation}`);
+  assert(spectrum.hasAttribute("data-pressed"));
+  at(0.25, 0.5, "pointermove");
+  assert(Math.abs(spectrum.hue - 90) < 1);
+  at(0.25, 0.5, "pointerup");
+  assertEqual(seen.at(-1), "change");
+  assert(!spectrum.hasAttribute("data-pressed"));
+});
+
+test("spectrum: the selector is the Slider thumb's size, grows on hover and press, and shows the ring on keyboard focus", async () => {
+  reset();
+  const thumb = spectrum.querySelector(".ui-color-spectrum-thumb");
+  assertEqual(thumb.getBoundingClientRect().width / (parseFloat(style(thumb).scale) || 1), 20);
+  spectrum.dataset.state = "hover";
+  assertEqual(style(thumb).scale, "1.1");
+  spectrum.dataset.state = "pressed";
+  assertEqual(style(thumb).scale, "1.2");
+  spectrum.removeAttribute("data-state");
+  key(document.body, "Tab");
+  spectrum.focus();
+  await tick();
+  assert(spectrum.matches(":focus-visible"));
+  assertEqual(style(thumb).outlineStyle, "solid");
+  assertEqual(style(spectrum).outlineStyle, "none");
+});
+
+test("spectrum: disabled takes no focus and fades the selector to 0.4", () => {
+  reset();
+  spectrum.disabled = true;
+  assertEqual(spectrum.getAttribute("aria-disabled"), "true");
+  assert(!spectrum.hasAttribute("tabindex"));
+  assertEqual(style(spectrum.querySelector(".ui-color-spectrum-thumb")).opacity, "0.4");
+  spectrum.hsv = { h: 10 };
+  key(spectrum, "ArrowRight");
+  assertEqual(spectrum.hue, 10);
+});
+
+test("spectrum: the ring shape places hue around the circle", () => {
+  reset();
+  const ring = $("ring");
+  ring.hsv = { h: 90, s: 1, v: 1 };
+  const r = ring.getBoundingClientRect();
+  const t = ring.querySelector(".ui-color-spectrum-thumb").getBoundingClientRect();
+  assert(Math.abs(t.top + t.height / 2 - r.bottom) < 1.5, "hue 90 at the bottom");
+  assertEqual(style(ring.querySelector(".ui-color-spectrum-area")).borderTopLeftRadius, "50%");
+});
+
+// --- ColorView ----------------------------------------------------------------------------
+
+test("view: icon tabs named by their tooltips; pages of one size; 320 wide (312 Compact)", () => {
+  reset();
+  const tabs = P.strip.tabs;
+  assertEqual(tabs.length, 3);
+  assertEqual(tabs.map((t) => t.getAttribute("aria-label")).join(), "Spectrum,Palette,Components");
+  for (const t of tabs) {
+    assert(t.querySelector(".ui-icon"), "an icon header");
+    assertEqual(document.getElementById(t.getAttribute("aria-describedby")).textContent, t.getAttribute("aria-label"));
+  }
+  assertEqual(tabs[0].querySelector(".ui-icon").getBoundingClientRect().width, 20);
+  assertEqual(view.getBoundingClientRect().width, 320);
+  for (let i = 0; i < 3; i++) {
+    view.selectedIndex = i;
+    const page = P.tabs.panels[i];
+    assertEqual(page.getBoundingClientRect().height, 256);
+    assertEqual(page.getBoundingClientRect().width, 320);
+    assertEqual(page.getBoundingClientRect().top - P.strip.getBoundingClientRect().bottom, 12);
+  }
+  html.dataset.density = "compact";
+  assertEqual(view.getBoundingClientRect().width, 312);
+  assertEqual(tabs[0].querySelector(".ui-icon").getBoundingClientRect().width, 16);
+});
+
+test("view: the spectrum page is the value slider, the spectrum and the alpha slider, SpacingM apart", () => {
+  reset();
+  const [a, b, c] = [P.third, P.spectrum, P.spectrumAlpha].map((e) => e.getBoundingClientRect());
+  assertEqual(a.width, 20);
+  assertEqual(b.left - a.right, 12);
+  assertEqual(c.left - b.right, 12);
+  assertEqual(b.width, 256);
+  assertEqual(P.third.getAttribute("aria-label"), "Value");
+  assertEqual(P.spectrumAlpha.getAttribute("aria-label"), "Alpha");
+  assertEqual(P.third.value, "92");
+  assertEqual(P.spectrum.getAttribute("aria-valuetext"), "Steel Blue, Hue 208°, Saturation 100%");
+});
+
+test("view: value, input on every change, change on commit; the parts' events stay inside", async () => {
+  reset();
+  const seen = record(view);
+  let outer = 0;
+  document.addEventListener("input", (e) => { if (e.target !== view && view.contains(e.target)) outer++; });
+  P.spectrum.focus();
+  key(P.spectrum, "ArrowRight");
+  assertEqual(seen.join(), "input,change");
+  assertEqual(outer, 0);
+  assertEqual(view.value, formatColor(hsvToRgb({ h: 209, s: 1, v: 234 / 255 })));
+  // A slider drag: input while moving, change at the end.
+  seen.length = 0;
+  P.third.value = "50";
+  P.third.dispatchEvent(new Event("input", { bubbles: true }));
+  P.third.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(seen.join(), "input,change");
+  assertEqual(Math.round(view.hsv.v * 100), 50);
+});
+
+test("view: components in RGB (0-255) and HSV (hue 0-360, others 0-100), named by the model", () => {
+  reset();
+  view.selectedIndex = 2;
+  const numbers = P.rows.map((r) => r.number);
+  const letters = P.rows.map((r) => r.letter.textContent);
+  assertEqual(numbers.map((n) => n.value).join(), "0,124,234,255");
+  assertEqual(letters.join(""), "RGBA");
+  assertEqual(numbers.map((n) => n.getAttribute("aria-label")).join(), "Red,Green,Blue,Alpha");
+  assertEqual(P.rows[0].slider.max, "255");
+  assertEqual(P.hex.value, "007CEAFF");
+  assertEqual(P.model.value, "rgb");
+  // The model switch: the segmented control.
+  P.segments[1].click();
+  assertEqual(view.colorModel, "hsv");
+  assertEqual(P.rows.map((r) => r.letter.textContent).join(""), "HSVA");
+  assertEqual(numbers.map((n) => n.value).join(), "208,100,92,100");
+  assertEqual(P.rows[0].slider.max, "360");
+  assertEqual(P.rows[0].slider.getAttribute("aria-label"), "Hue");
+  assert(P.rows[0].slider.style.getPropertyValue("--ui-color-slider-stops").startsWith("#FF0000"));
+});
+
+test("view: typing a component updates the colour; the number box has no spin buttons", () => {
+  reset();
+  view.selectedIndex = 2;
+  const seen = record(view);
+  const red = P.rows[0].number;
+  red.value = "255";
+  red.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(view.value, "#ff7cea");
+  red.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(seen.join(), "input,input,change");
+  red.value = "999";
+  red.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(red.value, "255", "out of range shows the clamped value");
+  assertEqual(red.getBoundingClientRect().width, 64);
+  assertEqual(style(red).appearance, "textfield");
+});
+
+test("view: the hex box takes 3, 4, 6 or 8 digits on change and puts the text back otherwise", () => {
+  reset();
+  view.selectedIndex = 2;
+  P.hex.value = "#f00";
+  P.hex.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(view.value, "#ff0000");
+  assertEqual(P.hex.value, "FF0000FF");
+  P.hex.value = "nope";
+  P.hex.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(P.hex.value, "FF0000FF");
+  P.hex.value = "00ff0080";
+  P.hex.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(view.value, "#00ff0080");
+  assertEqual(P.hex.getAttribute("aria-label"), "Hexadecimal colour");
+  assertEqual(P.hex.maxLength, 9);
+});
+
+test("view: components layout: letter 16, SpacingS, number 64, SpacingM, slider; rows SpacingM apart", () => {
+  reset();
+  view.selectedIndex = 2;
+  const { letter, number, slider } = P.rows[0];
+  const [l, n, s] = [letter, number, slider].map((e) => e.getBoundingClientRect());
+  assertEqual(l.width, 16);
+  assertEqual(n.left - l.right, 8);
+  assertEqual(s.left - n.right, 12);
+  const top = P.model.getBoundingClientRect();
+  assertEqual(P.hexField.getBoundingClientRect().left - top.right, 12);
+  assertEqual(n.top - top.bottom, 12);
+  assertEqual(P.rows[1].number.getBoundingClientRect().top - n.bottom, 12);
+  const hash = P.hexField.querySelector(".ui-color-view-hash").getBoundingClientRect();
+  assertEqual(hash.left - P.hexField.getBoundingClientRect().left, 13, "# at the side padding inside the border");
+});
+
+test("view: palette: a ListBox grid; the colour under the keyboard is selected; edges stop; RTL swaps", async () => {
+  reset();
+  view.selectedIndex = 1;
+  view.value = PALETTE[7];
+  const items = P.palette.items;
+  assertEqual(P.palette.getAttribute("role"), "listbox");
+  assertEqual(P.palette.selectedIndex, 7);
+  assertEqual(items[0].getAttribute("aria-label"), displayName(parseColor(PALETTE[0])));
+  items[7].focus();
+  const seen = record(view);
+  assert(key(items[7], "ArrowRight").defaultPrevented);
+  assertEqual(view.value, PALETTE[8]);
+  assertEqual(document.activeElement, items[8]);
+  key(items[8], "ArrowDown");
+  assertEqual(view.value, PALETTE[14]);
+  key(items[14], "ArrowUp");
+  key(items[8], "ArrowUp");
+  assertEqual(view.value, PALETTE[2]);
+  assert(key(items[2], "ArrowUp").defaultPrevented, "handled at the edge");
+  assertEqual(view.value, PALETTE[2]);
+  key(items[2], "End");
+  assertEqual(view.value, PALETTE[47]);
+  key(items[47], "ArrowRight");
+  assertEqual(view.value, PALETTE[47], "stops at the row's end");
+  key(items[47], "Home");
+  key(items[0], "ArrowLeft");
+  assertEqual(view.value, PALETTE[0]);
+  html.dir = "rtl";
+  key(items[0], "ArrowLeft");
+  assertEqual(view.value, PALETTE[1]);
+  assertEqual(seen.filter((s) => s === "change").length, 7);
+});
+
+test("view: palette cells: the selected ring, hover fill behind the chip, the chip SpacingXS in", () => {
+  reset();
+  view.selectedIndex = 1;
+  view.value = PALETTE[7];
+  const cell = P.palette.items[7];
+  const chip = cell.querySelector(".ui-color-chip");
+  assertEqual(style(cell).borderTopWidth, "2px");
+  assertEqual(hex(style(cell).borderTopColor), "#0075DD", "AccentFillColor");
+  assertEqual(style(cell).backgroundColor, "rgba(0, 0, 0, 0)");
+  assertEqual(chip.getBoundingClientRect().left - cell.getBoundingClientRect().left, 4);
+  assertEqual(hex(style(chip).backgroundImage.match(/rgb[^)]*\)/)[0]), PALETTE[7].toUpperCase());
+  cell.dataset.state = "hover";
+  assertEqual(hex(style(cell).backgroundColor), "#D4D4D4");
+  cell.removeAttribute("data-state");
+  assertEqual(P.palette.items[0].getBoundingClientRect().height, 31, "8 rows filling the page");
+  view.disabled = true;
+  assertEqual(hex(style(cell).borderTopColor), "#D4D4D4");
+});
+
+test("view: previewer: the colour between two darker and two lighter square chips, SpacingXS apart; a click picks one", () => {
+  reset();
+  const chips = P.chips.map((c) => c.getBoundingClientRect());
+  assertEqual(chips[0].width, 32);
+  assertEqual(chips[0].height, 32);
+  assertEqual(chips[1].left - chips[0].right, 4);
+  assertEqual(chips[4].right - chips[0].left, 320);
+  assertEqual(P.previewer.getAttribute("aria-hidden"), "true");
+  const seen = record(view);
+  P.chips[1].click();
+  assertEqual(view.value, "#006fd1");
+  assertEqual(seen.join(), "input,change");
+  html.dataset.density = "compact";
+  assertEqual(P.chips[0].getBoundingClientRect().height, 24);
+});
+
+test("view: disabled: every part disabled, the colours kept, the letters in the disabled text colour", () => {
+  reset();
+  view.disabled = true;
+  assert(P.strip.tabs.every((t) => t.disabled));
+  assert(P.spectrum.hasAttribute("aria-disabled"));
+  assert(P.third.disabled && P.hex.disabled && P.rows.every((r) => r.number.disabled && r.slider.disabled));
+  assertEqual(P.model.getAttribute("aria-disabled"), "true");
+  assertEqual(P.palette.getAttribute("aria-disabled"), "true");
+  assertEqual(hex(style(P.rows[0].letter).color), "#7A7A7A");
+  assert(style(P.chips[2]).backgroundImage.includes("rgb(0, 124, 234)"), "the colour kept");
+});
+
+test("view: strings are attributes, followed when they change", () => {
+  reset();
+  view.setAttribute("red-text", "Rot");
+  view.setAttribute("red-letter", "X");
+  view.setAttribute("spectrum-text", "Spektrum");
+  assertEqual(P.rows[0].number.getAttribute("aria-label"), "Rot");
+  assertEqual(P.rows[0].letter.textContent, "X");
+  assertEqual(P.strip.tabs[0].getAttribute("aria-label"), "Spektrum");
+  assertEqual(document.getElementById(P.strip.tabs[0].getAttribute("aria-describedby")).textContent, "Spektrum");
+  for (const k of ["red-text", "red-letter", "spectrum-text"]) view.removeAttribute(k);
+  assertEqual(P.rows[0].letter.textContent, "R");
+  assertEqual(Object.keys(STRINGS).length, 21);
+});
+
+test("view: colour names are overridable (colorName), English by default", () => {
+  reset();
+  const cell = P.palette.items[2];
+  const tip = () => document.getElementById(cell.getAttribute("aria-describedby")).textContent;
+  assertEqual(cell.getAttribute("aria-label"), "Steel Blue");
+  assertEqual(tip(), "Steel Blue");
+  assertEqual(view.colorName, displayName);
+  const german = { "Steel Blue": "Stahlblau" };
+  view.colorName = (c) => german[displayName(c)] ?? displayName(c);
+  assertEqual(cell.getAttribute("aria-label"), "Stahlblau");
+  assertEqual(tip(), "Stahlblau");
+  assert(P.spectrum.getAttribute("aria-valuetext").startsWith("Stahlblau, "), P.spectrum.getAttribute("aria-valuetext"));
+  view.colorName = null;
+  assertEqual(cell.getAttribute("aria-label"), "Steel Blue");
+});
+
+test("view: the sizes and thumb values come from Style", () => {
+  reset();
+  const root = style(html);
+  assertEqual(root.getPropertyValue("--ui-color-spectrum-size").trim(), "256px");
+  assertEqual(root.getPropertyValue("--ui-thumb-hover-scale").trim(), "1.1");
+  assertEqual(root.getPropertyValue("--ui-color-thumb-ring-width").trim(), "2px");
+  assertEqual(root.getPropertyValue("--ui-color-thumb-disabled-opacity").trim(), "0.4");
+  assert(style(P.chips[2]).backgroundImage.includes("repeating-conic-gradient"));
+  assertEqual(P.spectrum.getBoundingClientRect().height, 256);
+});
+
+test("view: form value and reset to the value attribute", async () => {
+  reset();
+  view.value = "#123456";
+  assertEqual(new FormData($("form")).get("colour"), "#123456");
+  $("form").reset();
+  await tick();
+  assertEqual(view.value, "#007cea");
+  assertEqual(P.hex.value, "007CEAFF");
+});
+
+// --- ColorPicker --------------------------------------------------------------------------
+
+test("picker: the field is a button with the colour's name, the label observed", async () => {
+  reset();
+  const { field, chip, flyout } = picker.parts;
+  assertEqual(field.localName, "button");
+  assertEqual(field.getAttribute("aria-haspopup"), "dialog");
+  assertEqual(field.getAttribute("aria-expanded"), "false");
+  assertEqual(field.getAttribute("aria-controls"), flyout.id);
+  assertEqual(field.textContent.trim(), "Accent colour,");
+  assertEqual(chip.getAttribute("role"), "img");
+  assertEqual(chip.getAttribute("aria-label"), "Steel Blue, #007CEA");
+  $("picker-label").textContent = "Brand colour";
+  await tick();
+  assertEqual(field.querySelector(".ui-visually-hidden").textContent, "Brand colour, ");
+  $("picker-label").textContent = "Accent colour";
+  await tick();
+  const named = $("named");
+  assert(!named.hasAttribute("aria-label"), "the name moves to the button");
+  assertEqual(named.parts.field.querySelector(".ui-visually-hidden").textContent, "Fill, ");
+  assertEqual(named.value, "#e1332a80");
+  assertEqual(flyout.getAttribute("role"), "dialog");
+  assertEqual(flyout.getAttribute("aria-label"), "Choose a colour");
+});
+
+test("picker: the closed ComboBox field: 64 wide, density height, the chip a field button, the caret zone square", () => {
+  reset();
+  const { field, chip } = picker.parts;
+  const f = field.getBoundingClientRect();
+  const c = chip.getBoundingClientRect();
+  const caret = field.querySelector(".ui-combo-box-caret").getBoundingClientRect();
+  assertEqual(f.width, 64);
+  assertEqual(f.height, 32);
+  assertEqual(c.height, 24);
+  assertEqual(c.left - f.left, 4);
+  assertEqual(caret.width, 32);
+  assertEqual(caret.right, f.right);
+  assertEqual(c.right, caret.left);
+  assertEqual(field.querySelector(".ui-combo-box-caret .ui-icon").getBoundingClientRect().width, 16);
+  html.dataset.density = "compact";
+  assertEqual(field.getBoundingClientRect().height, 24);
+  assertEqual(chip.getBoundingClientRect().height, 20);
+  assertEqual(chip.getBoundingClientRect().left - field.getBoundingClientRect().left, 2);
+});
+
+test("picker: states: hover and pressed the same look, keyboard focus the ring, disabled keeps the chip's colour", () => {
+  reset();
+  const { field, chip } = picker.parts;
+  const rest = style(field).borderTopColor;
+  picker.dataset.state = "hover";
+  const hover = style(field).borderTopColor;
+  assert(hover !== rest);
+  picker.dataset.state = "pressed";
+  assertEqual(style(field).borderTopColor, hover);
+  picker.dataset.state = "focus";
+  assertEqual(style(field).borderTopColor, rest, "focus changes nothing but the ring");
+  picker.removeAttribute("data-state");
+  picker.disabled = true;
+  assert(field.disabled);
+  assertEqual(hex(style(field.querySelector(".ui-combo-box-caret")).color), "#A6A6A6");
+  assert(style(chip).backgroundImage.includes("rgb(0, 124, 234)"));
+});
+
+test("picker: opens the view in a glass flyout below the field, SpacingXS apart, start edges lined up; focus in and back", async () => {
+  reset();
+  const { field, flyout, view: inner } = picker.parts;
+  field.click();
+  await tick();
+  assert(picker.isOpen, "open");
+  assertEqual(field.getAttribute("aria-expanded"), "true");
+  assert(flyout.classList.contains("ui-glass"), "glass");
+  const f = field.getBoundingClientRect();
+  const o = flyout.getBoundingClientRect();
+  assertEqual(Math.round(o.top - f.bottom), 4);
+  assertEqual(Math.round(o.left), Math.round(f.left));
+  assert(flyout.contains(document.activeElement), "focus moved into the view");
+  assertEqual(document.activeElement, inner.parts.strip.tabs[0]);
+  assertEqual(inner.value, "#007cea");
+  // Escape is the popover's own light dismiss (a synthetic key does not trigger it); closing from
+  // inside returns focus to the field.
+  picker.close();
+  await tick();
+  assert(!picker.isOpen, "closed");
+  assertEqual(document.activeElement, field);
+});
+
+test("picker: input while choosing, change when the flyout closes with a new colour", async () => {
+  reset();
+  const seen = record(picker);
+  picker.open();
+  await tick();
+  const inner = picker.parts.view;
+  inner.parts.spectrum.focus();
+  key(inner.parts.spectrum, "ArrowDown");
+  key(inner.parts.spectrum, "ArrowLeft");
+  assertEqual(seen.join(), "input,input");
+  assertEqual(picker.value, inner.value);
+  assert(picker.parts.chip.style.getPropertyValue("--ui-color-chip-color").length > 0);
+  picker.close();
+  await tick();
+  assertEqual(seen.join(), "input,input,change");
+  picker.open();
+  await tick();
+  picker.close();
+  await tick();
+  assertEqual(seen.join(), "input,input,change", "no change without a new colour");
+});
+
+test("picker: focus leaving the flyout closes it; disabled never opens", async () => {
+  reset();
+  picker.open();
+  await tick();
+  $("after").focus();
+  await tick();
+  assert(!picker.isOpen);
+  picker.disabled = true;
+  picker.open();
+  assert(!picker.isOpen);
+});
+
+test("picker: form value, reset to the value attribute, form-associated", async () => {
+  reset();
+  picker.value = "#11223344";
+  assertEqual(new FormData($("form")).get("accent"), "#11223344");
+  assertEqual(picker.form, $("form"));
+  $("form").reset();
+  await tick();
+  assertEqual(picker.value, "#007cea");
+  assertEqual(picker.parts.chip.getAttribute("aria-label"), "Steel Blue, #007CEA");
+});
+
+test("picker: colorName names the colour in the button and is passed to the view", () => {
+  reset();
+  picker.colorName = (c) => `Farbe ${formatColor(c)}`;
+  assertEqual(picker.parts.chip.getAttribute("aria-label"), "Farbe #007cea, #007CEA");
+  assertEqual(picker.parts.view.colorName, picker.colorName);
+  assertEqual(picker.parts.view.parts.palette.items[0].getAttribute("aria-label"), "Farbe #ff4343");
+  picker.colorName = null;
+  assertEqual(picker.parts.chip.getAttribute("aria-label"), "Steel Blue, #007CEA");
+});
+
+test("picker: content written inside replaces the chip", () => {
+  const custom = $("custom");
+  assertEqual(custom.parts.chip, null);
+  assert(custom.parts.field.contains($("custom-content")));
+});
+
+test("picker: right to left puts the caret zone at the start and opens from the field's end", async () => {
+  reset();
+  html.dir = "rtl";
+  const { field, chip, flyout } = picker.parts;
+  const caret = field.querySelector(".ui-combo-box-caret").getBoundingClientRect();
+  assertEqual(caret.left, field.getBoundingClientRect().left);
+  assert(chip.getBoundingClientRect().left > caret.left);
+  picker.open();
+  await tick();
+  assertEqual(Math.round(flyout.getBoundingClientRect().right), Math.round(field.getBoundingClientRect().right));
+  picker.close();
+});
+
+// --- Theme and contrast -------------------------------------------------------------------
+
+test("contrast: the selection ring and the caret (3:1) and the letters (4.5:1) on the page and card, light and dark", () => {
+  const surfaces = { light: [[245, 245, 245], [255, 255, 255]], dark: [[30, 30, 30], [42, 42, 42]] };
+  for (const theme of ["light", "dark"]) {
+    reset();
+    html.dataset.theme = theme;
+    view.selectedIndex = 1;
+    view.value = PALETTE[7];
+    const ring = style(P.palette.items[7]).borderTopColor;
+    view.selectedIndex = 2;
+    const letter = style(P.rows[0].letter).color;
+    const caret = style(picker.parts.field.querySelector(".ui-combo-box-caret")).color;
+    for (const surface of surfaces[theme]) {
+      const bg = `rgb(${surface.join(", ")})`;
+      const ratio = (fg) => contrastRatio(over(fg, bg), surface);
+      assert(ratio(ring) >= 3, `${theme} ring ${ratio(ring)}`);
+      assert(ratio(caret) >= 3, `${theme} caret ${ratio(caret)}`);
+      assert(ratio(letter) >= 4.5, `${theme} letter ${ratio(letter)}`);
+    }
+  }
+});
+
+test("theme: the hairline and the checkerboard are the same in light and dark", () => {
+  reset();
+  const chip = picker.parts.chip;
+  const light = [style(chip).borderTopColor, style(chip).backgroundImage];
+  html.dataset.theme = "dark";
+  assertEqual(style(chip).borderTopColor, light[0]);
+  assertEqual(style(chip).backgroundImage, light[1]);
+  assertEqual(hex(style(chip).borderTopColor), "#000000@12%");
+});
+</script>
+</body>
+</html>
