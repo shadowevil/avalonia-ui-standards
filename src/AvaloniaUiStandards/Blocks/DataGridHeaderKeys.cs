@@ -150,9 +150,7 @@ internal static class DataGridHeaderKeys
         if (visible?.DataContext is { } item)
             grid.ScrollIntoView(item, column);
         grid.UpdateLayout();
-        var header = grid.GetVisualDescendants().OfType<DataGridColumnHeader>()
-            .FirstOrDefault(h => h.IsVisible && ReferenceEquals(DataGridColumn.GetColumnContainingElement(h), column));
-        if (header is null)
+        if (HeaderOf(grid, column) is not { } header)
             return false;
         // With no rows there is nothing to scroll a column through (the package scrolls the headers
         // only with the rows), so focus stays on the headers that start inside the grid.
