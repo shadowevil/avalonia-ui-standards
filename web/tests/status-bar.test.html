@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Status bar tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/progress.css">
+<link rel="stylesheet" href="../blocks/tooltip.css">
+<link rel="stylesheet" href="../modules/shell.css">
+<link rel="stylesheet" href="../modules/status-bar.css">
+<style>
+  .host { inline-size: 800px; display: flex; }
+</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<button type="button" id="before">Before</button>
+<footer class="ui-shell-status-bar host" id="slot">
+  <ui-status-bar id="bar" message="Ready">
+    <div class="ui-status-bar-row" id="row">
+      <span id="cursor" data-priority="2" data-short-texts='["1280, 640"]'>Cursor 1280, 640 px</span>
+      <span id="memory" data-zone="trailing">Memory 412 MB</span>
+    </div>
+    <span id="layer" data-priority="3">Layer: Background</span>
+    <button type="button" id="size" class="ui-button ui-subtle ui-squircle ui-focus-ring" data-priority="2" data-short-texts='["4000 × 3000 px"]'>4000 × 3000 px · 300 ppi</button>
+    <ui-status-progress id="progress" data-zone="center" value="42" text="42 %" cancelable></ui-status-progress>
+    <button type="button" id="mode" class="ui-button ui-subtle ui-drop-down-button ui-squircle ui-focus-ring" data-zone="trailing" data-priority="1" data-short-texts='["RGB/8"]'><svg class="ui-icon" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256"/></svg><span id="mode-text">RGB/8 · sRGB</span></button>
+    <button type="button" id="zoom" class="ui-button ui-subtle ui-drop-down-button ui-squircle ui-focus-ring" data-zone="trailing">100 %</button>
+  </ui-status-bar>
+</footer>
+<div class="host"><ui-status-bar id="plain" aria-label="Editor status"><span data-zone="trailing">Ln 1</span></ui-status-bar></div>
+<div class="host" dir="rtl"><ui-status-bar id="rtl" message="Ready"><span id="rtl-end" data-zone="trailing">End</span></ui-status-bar></div>
+<div class="host"><ui-status-bar id="ring-bar"><ui-status-progress id="ring" kind="ring" indeterminate text="Syncing" data-zone="center" cancel-label="Stop"></ui-status-progress></ui-status-bar></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import "../modules/status-bar.js";
+
+const $ = (id) => document.getElementById(id);
+// Headless Chrome under a virtual time budget renders only the first few frames, so neither
+// requestAnimationFrame nor a ResizeObserver can be waited on: tests wait on timers and call fit()
+// after resizing the bar (in a browser its ResizeObserver does).
+const frame = () => new Promise((r) => setTimeout(r, 50));
+const rect = (el) => el.getBoundingClientRect();
+const bar = $("bar");
+// Inline offset of an element from the bar's start edge.
+const x = (el, host = bar) => rect(el).left - rect(host).left;
+const end = (el, host = bar) => rect(host).right - rect(el).right;
+// A text's start (the text node's box) from the bar's start.
+function textX(el) {
+  const range = document.createRange();
+  const node = [...el.childNodes].find((n) => n.nodeType === 3) ?? [...el.querySelectorAll("*")].flatMap((c) => [...c.childNodes]).find((n) => n.nodeType === 3);
+  range.selectNodeContents(node);
+  return range.getBoundingClientRect().left - rect(bar).left;
+}
+const shown = (el) => !el.hasAttribute("data-status-bar-hidden") && getComputedStyle(el).visibility !== "hidden";
+function setWidth(px) {
+  bar.style.flex = "none";
+  bar.style.inlineSize = `${px}px`;
+  bar.fit();
+}
+async function width(px) {
+  setWidth(px);
+  await frame();
+}
+
+function rgba(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(v * 255)).concat(m[4] === undefined ? 1 : +m[4]);
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  throw new Error(`unparsed colour ${text}`);
+}
+
+test("setup: fonts loaded and laid out", async () => {
+  await document.fonts.ready;
+  await frame();
+});
+
+test("roles: a labelled group (Status by default, the page's name kept); the message alone is the polite live region", () => {
+  assertEqual(bar.getAttribute("role"), "group");
+  assertEqual(bar.getAttribute("aria-label"), "Status");
+  assertEqual($("plain").getAttribute("aria-label"), "Editor status");
+  assert(!bar.hasAttribute("aria-live"), "the bar is not live");
+  const message = bar.querySelector(":scope > .ui-status-bar-message");
+  assertEqual(message.getAttribute("role"), "status");
+  assertEqual(message.textContent, "Ready");
+  assertEqual(document.querySelectorAll("[role=status]").length, 4, "one per bar (the plain bar has one, empty)");
+  assertEqual($("plain").querySelector(".ui-status-bar-message").textContent, "");
+  assertEqual($("row").querySelector("[role=status]"), null, "a row has no message");
+});
+
+test("message: the attribute and the property set the live region's text", async () => {
+  bar.message = "Saved";
+  assertEqual(bar.querySelector(".ui-status-bar-message").textContent, "Saved");
+  assertEqual(bar.getAttribute("message"), "Saved");
+  bar.setAttribute("message", "Ready");
+  assertEqual(bar.message, "Ready");
+});
+
+test("size: each row 24 high at Normal and Compact; the slot grows with the rows", async () => {
+  for (const density of ["normal", "compact"]) {
+    setDensity(density);
+    await frame();
+    assertEqual(rect($("row")).height, 24, `row at ${density}`);
+    assertEqual(rect(bar).height, 48, `bar with one row at ${density}`);
+    assertEqual(rect($("slot")).height, 48, `slot at ${density}`);
+    assertEqual(rect($("plain")).height, 24, `plain bar at ${density}`);
+    assertEqual(rect($("mode").querySelector(".ui-icon")).width, 16, `icon at ${density}`);
+  }
+  setDensity("normal");
+});
+
+test("rows: above the main row, in markup order; hidden takes the row away", async () => {
+  assert(rect($("cursor")).bottom <= rect($("layer")).top, "the row is above the main row");
+  assertEqual(Math.round(rect($("layer")).top + rect($("layer")).height / 2 - rect(bar).top), 36, "main row centred in the bottom 24");
+  $("row").hidden = true;
+  await frame();
+  assertEqual(rect(bar).height, 24);
+  assertEqual(Math.round(rect($("layer")).top + rect($("layer")).height / 2 - rect(bar).top), 12);
+  $("row").hidden = false;
+  await frame();
+  assertEqual(rect(bar).height, 48);
+});
+
+test("clickable items: the full 24 as the hit target, a 20 px fill centred in it, text 8 into the fill, secondary text", async () => {
+  const size = $("size");
+  assertEqual(rect(size).height, 24, "hit target");
+  assertEqual(document.elementFromPoint(rect(size).left + 10, rect(bar).bottom - 1), size, "the bar's bottom pixel row hits the button");
+  assertEqual(document.elementFromPoint(rect(size).left + 10, rect(bar).top + 25), size, "the main row's top pixel row hits the button");
+  const fill = getComputedStyle(size, "::before");
+  assertEqual(fill.height, "20px");
+  assertEqual(fill.top, "2px");
+  assert(Math.abs(parseFloat(fill.width) - rect(size).width) < 0.01, "the fill spans the button");
+  assertEqual(getComputedStyle(size).backgroundClip, "text", "the button's own background stays under its text");
+  size.dataset.state = "hover";
+  await frame();
+  assert(rgba(getComputedStyle(size, "::before").backgroundColor)[3] > 0, "hover fill on the inset part");
+  size.dataset.state = "focus";
+  assertEqual(getComputedStyle(size).outlineStyle, "none", "no ring on the full height");
+  assertEqual(getComputedStyle(size, "::before").outlineStyle, "solid", "the ring follows the fill");
+  delete size.dataset.state;
+  assertEqual(Math.round(textX(size) - x(size)), 8, "text 8 into the fill");
+  assertEqual(getComputedStyle(size).fontSize, "12px");
+  const probe = document.createElement("i");
+  probe.style.color = "var(--ui-system-base-medium-color)";
+  document.body.append(probe);
+  assertEqual(getComputedStyle(size).color, getComputedStyle(probe).color);
+  size.dataset.state = "hover";
+  assertEqual(getComputedStyle(size).color, getComputedStyle(probe).color, "secondary on hover");
+  delete size.dataset.state;
+  size.disabled = true;
+  assert(getComputedStyle(size).color !== getComputedStyle(probe).color, "disabled text colour");
+  size.disabled = false;
+  probe.remove();
+  await frame();
+});
+
+test("layout: texts 16 from the edges and from each other, whichever the kind; fills 4 apart; trailing ends at the padding", () => {
+  const message = bar.querySelector(".ui-status-bar-message");
+  assertEqual(Math.round(x(message)), 16, "message at 16");
+  assertEqual(Math.round(x($("layer")) - rect(message).right + rect(bar).left), 16, "text to text");
+  assertEqual(Math.round(textX($("size")) - (rect($("layer")).right - rect(bar).left)), 16, "text to a clickable's text");
+  assertEqual(Math.round(x($("zoom")) - (rect($("mode")).right - rect(bar).left)), 4, "fill to fill");
+  assertEqual(Math.round(end($("zoom"))), 8, "the last fill 8 from the edge, its text 16");
+  assertEqual(Math.round(end($("memory"))), 16, "trailing text at 16");
+  assertEqual(Math.round(x($("cursor"))), 16, "row text at 16");
+});
+
+test("centre zone: centred in the bar, moved aside only as far as the other zones need", async () => {
+  const middle = () => x($("progress")) + rect($("progress")).width / 2;
+  await width(1100);
+  assert(Math.abs(middle() - 550) < 1, `centred at 1100 (${middle()})`);
+  await width(800);
+  const leadEnd = rect($("size")).right - rect(bar).left;
+  assert(middle() > 400, "pushed towards the end by the leading items");
+  assertEqual(Math.round(x($("progress")) - leadEnd), 8, "a fill's text and the progress 16 apart (fill end + 8)");
+});
+
+test("drop-down: icon SpacingXS before the text, the chevron SpacingXS after it and 8 from the fill's end", () => {
+  const mode = $("mode");
+  const icon = mode.querySelector(".ui-icon");
+  const text = $("mode-text");
+  assertEqual(Math.round(rect(text).left - rect(icon).right), 4);
+  const after = getComputedStyle(mode, "::after");
+  assertEqual(after.inlineSize ?? after.width, "12px");
+  assertEqual(getComputedStyle(mode).paddingRight, "8px", "the chevron 8 from the fill's end");
+  assertEqual(Math.round(parseFloat(after.marginLeft) + parseFloat(getComputedStyle(mode).columnGap)), 4);
+});
+
+test("Tab order: clickable items and the cancel button in markup order; text takes no focus", () => {
+  const stops = [...bar.querySelectorAll("*")].filter((el) => el.tabIndex >= 0 && !el.disabled && getComputedStyle(el).visibility === "visible" && el.getClientRects().length);
+  assertEqual(stops.map((el) => el.id || el.className.split(" ").at(-1)).join(), "size,ui-status-progress-cancel,mode,zoom");
+  assertEqual($("layer").tabIndex, -1);
+});
+
+// Narrows the bar 4 px at a time from 800, noting each change: an item taking a shorter text,
+// its full text again, hiding or showing.
+async function scan(ids, texts) {
+  const events = [];
+  const state = () => Object.fromEntries(ids.map((id) => [id, [shown($(id)), texts[id]?.()]]));
+  let before = state();
+  for (let px = 800; px >= 20; px -= 4) {
+    setWidth(px);
+    const now = state();
+    for (const id of ids) {
+      if (now[id][0] !== before[id][0]) events.push(`${id} ${now[id][0] ? "shown" : "hidden"}`);
+      if (now[id][1] !== before[id][1]) events.push(`${id} ${now[id][1]}`);
+    }
+    before = now;
+  }
+  return events;
+}
+
+test("fitting: shorter texts first, highest priority first, ties from the trailing end; then hiding; lengthening in the freed room", async () => {
+  await width(800);
+  assert(["layer", "size", "progress", "mode", "zoom"].every((id) => shown($(id))), "all fit at 800");
+  const events = await scan(["layer", "size", "progress", "mode", "zoom"], {
+    size: () => $("size").textContent, mode: () => $("mode-text").textContent,
+  });
+  const at = (e) => events.indexOf(e);
+  assert(at("size 4000 × 3000 px") >= 0 && at("size 4000 × 3000 px") < at("mode RGB/8"), events.join("; "));
+  assert(at("mode RGB/8") < at("layer hidden"), "shortening before hiding: " + events.join("; "));
+  const hides = events.filter((e) => e.endsWith("hidden")).map((e) => e.split(" ")[0]);
+  assertEqual(hides.join(), "layer,size,mode,zoom,progress", "hiding order");
+  assert(!events.some((e) => e.endsWith("shown")), "nothing shows again while narrowing");
+  const message = bar.querySelector(".ui-status-bar-message");
+  assert(shown(message), "the message never hides");
+  assert(rect(message).width < 1, "trimmed to nothing at 20");
+  assertEqual(getComputedStyle(message).textOverflow, "ellipsis");
+  await width(800);
+  assert(["layer", "size", "progress", "mode", "zoom"].every((id) => shown($(id))), "all back at 800");
+  assertEqual($("size").textContent, "4000 × 3000 px · 300 ppi", "the full text back");
+  assertEqual($("mode-text").textContent, "RGB/8 · sRGB");
+});
+
+test("fitting: when an item hides, a shortened item still shown takes its full text again if it fits", async () => {
+  // Between the layer hiding and the size button hiding, the room the layer left lets the
+  // shortened items lengthen again, the last shortened (mode) first.
+  const events = await scan(["layer", "size", "mode"], { size: () => $("size").textContent, mode: () => $("mode-text").textContent });
+  const hidden = events.indexOf("layer hidden");
+  assert(events.slice(hidden + 1).some((e) => e === "mode RGB/8 · sRGB" || e === "size 4000 × 3000 px · 300 ppi"), events.join("; "));
+  await width(800);
+});
+
+test("fitting: hidden items take no Tab stop; focus can't land on them", async () => {
+  await width(180);
+  $("size").focus();
+  assert(document.activeElement !== $("size"), "a hidden item takes no focus");
+  await width(800);
+});
+
+test("a text the page sets while a shorter form shows becomes the full text; the form shows again at once", async () => {
+  for (let px = 800; px > 100 && $("mode-text").textContent !== "RGB/8"; px -= 4) setWidth(px);
+  assertEqual($("mode-text").textContent, "RGB/8");
+  $("mode").dataset.shortTexts = JSON.stringify(["CMYK/8"]);
+  $("mode-text").textContent = "CMYK/8 · sRGB";
+  await Promise.resolve();
+  assertEqual($("mode-text").textContent, "CMYK/8", "never the full text in the short slot");
+  await width(800);
+  assertEqual($("mode-text").textContent, "CMYK/8 · sRGB", "the new full text when there is room");
+  $("mode").dataset.shortTexts = JSON.stringify(["RGB/8"]);
+  $("mode-text").textContent = "RGB/8 · sRGB";
+  await frame();
+});
+
+test("rows fit on their own: the stats row shortens only when it no longer fits itself", async () => {
+  const events = await scan(["cursor", "memory", "layer"], { cursor: () => $("cursor").textContent });
+  const shortAt = events.indexOf("cursor 1280, 640");
+  assert(shortAt > events.indexOf("layer hidden"), `the main row hid its items first: ${events.join("; ")}`);
+  assert(events.indexOf("cursor hidden") > shortAt, "shortened before hidden");
+  await width(800);
+  assertEqual($("cursor").textContent, "Cursor 1280, 640 px");
+});
+
+test("progress: a named <progress> bar (160) or ring (16) with its text 8 after and the cancel button 4 after that", () => {
+  const p = $("progress");
+  const progress = p.querySelector("progress:not([hidden])");
+  assert(progress.classList.contains("ui-progress-bar"));
+  assertEqual(rect(progress).width, 160);
+  assertEqual(progress.value, 42);
+  const text = p.querySelector(".ui-status-progress-text");
+  assertEqual(document.getElementById(progress.getAttribute("aria-labelledby")), text, "named by its text");
+  assertEqual(Math.round(rect(text).left - rect(progress).right), 8);
+  const cancel = p.querySelector(".ui-status-progress-cancel");
+  assertEqual(Math.round(rect(cancel).left - rect(text).right), 4);
+  assertEqual(rect(cancel).width, 20);
+  assertEqual(rect(cancel).height, 24, "the row's height as the hit target");
+  assertEqual(getComputedStyle(cancel, "::before").height, "20px", "a 20 px fill");
+  assertEqual(cancel.getAttribute("aria-label"), "Cancel");
+  const ring = $("ring").querySelector("progress:not([hidden])");
+  assert(ring.classList.contains("ui-progress-ring"));
+  assertEqual(rect(ring).width, 16);
+  assert(!ring.hasAttribute("value"), "indeterminate");
+  assert($("ring").querySelector(".ui-status-progress-cancel").hidden, "not cancelable");
+  assertEqual($("ring").querySelector(".ui-status-progress-cancel").getAttribute("aria-label"), "Stop", "cancel-label");
+});
+
+test("progress: the cancel button fires cancel; value, text and cancelable follow their properties", () => {
+  const p = $("progress");
+  let cancels = 0;
+  p.addEventListener("cancel", () => cancels++);
+  p.querySelector(".ui-status-progress-cancel").click();
+  assertEqual(cancels, 1);
+  p.value = 80;
+  p.text = "80 %";
+  assertEqual(p.querySelector("progress").value, 80);
+  assertEqual(p.querySelector(".ui-status-progress-text").textContent, "80 %");
+  p.cancelable = false;
+  assert(p.querySelector(".ui-status-progress-cancel").hidden);
+  p.cancelable = true;
+  p.indeterminate = true;
+  assert(!p.querySelector("progress").hasAttribute("value"));
+  p.indeterminate = false;
+  assertEqual(p.querySelector("progress").value, 80);
+});
+
+test("right to left: the message from the right edge, trailing items at the left", async () => {
+  const rtl = $("rtl");
+  await frame();
+  const message = rtl.querySelector(".ui-status-bar-message");
+  assertEqual(Math.round(rect(rtl).right - rect(message).right), 16);
+  assertEqual(Math.round(rect($("rtl-end")).left - rect(rtl).left), 16);
+});
+
+test("theme: the secondary text passes AA on the window background in light and dark", async () => {
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    await frame();
+    const text = rgba(getComputedStyle($("layer")).color);
+    const probe = document.createElement("i");
+    for (const key of ["--ui-backdrop-wash-start-color", "--ui-backdrop-wash-end-color"]) {
+      probe.style.color = `var(${key})`;
+      document.body.append(probe);
+      const bg = rgba(getComputedStyle(probe).color);
+      const fg = text.slice(0, 3).map((v, i) => v * text[3] + bg[i] * (1 - text[3]));
+      const ratio = contrastRatio(fg, bg.slice(0, 3));
+      assert(ratio >= 4.5, `${theme} ${key}: ${ratio.toFixed(2)}`);
+    }
+    probe.remove();
+  }
+  setTheme("light");
+});
+</script>
+</body>
+</html>

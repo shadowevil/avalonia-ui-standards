@@ -36,4 +36,5 @@
   - Motion ([0016](0016-motion.md)): a toggle animates the width over `MotionNormal`; labels and header text fade over `MotionFast`. A stage change from resizing applies at once. Under reduce motion everything is instant. The transitions are fixed theme objects.
     - **Why:** An animation during a live resize drag lags behind the pointer; NavigationView also switches display mode at once on resize and animates only the pane opening and closing.
   - A hidden sidebar takes no keyboard focus.
+  - Web ([0045](0045-web-library.md)): `<ui-sidebar>` in the shell's `nav` slot, with the stages taken from the shell's container queries at fixed widths ([0022](0022-window-layout.md)). Rows are links (`<a class="ui-list-item">`, the current one `aria-current="page"`), so the arrows move focus and Enter, Space or a click chooses a row, with the link's own navigation still happening; the overlay also closes when focus leaves it by keyboard.
 - **Why:** A sidebar that follows the window width the way both platforms do, keeps the list item design and the icon set, and never squeezes the content below a usable width.

@@ -92,7 +92,13 @@ function span(className, ...children) {
   return s;
 }
 
-function buildItem(entry, menuId) {
+/**
+ * One menu item from an entry (as for createMenu; "-" is not an entry here, see
+ * createMenuSeparator). Returns { item, submenu }: item is the <button> to place in a menu's
+ * .ui-flyout-content, and submenu, for an entry with items, is its .ui-menu, to place right after
+ * the item in the same menu (else null). menuId seeds the submenu's id.
+ */
+export function createMenuItem(entry, { menuId = `ui-menu-${nextId++}` } = {}) {
   const item = document.createElement("button");
   item.type = "button";
   item.className = "ui-menu-item ui-list-item ui-squircle";
@@ -120,7 +126,7 @@ function buildItem(entry, menuId) {
   }
   if (entry.disabled) item.setAttribute("aria-disabled", "true");
   if (entry.onSelect) item.addEventListener("click", entry.onSelect);
-  if (!entry.items) return [item];
+  if (!entry.items) return { item, submenu: null };
   const caret = icon("caret-right");
   caret.classList.add("ui-menu-item-caret");
   item.append(caret);
@@ -128,7 +134,34 @@ function buildItem(entry, menuId) {
   item.setAttribute("aria-haspopup", "menu");
   item.setAttribute("aria-expanded", "false");
   item.setAttribute("aria-controls", sub.id);
-  return [item, sub];
+  return { item, submenu: sub };
+}
+
+/** A menu separator, to place in a menu's .ui-flyout-content. */
+export function createMenuSeparator() {
+  const separator = document.createElement("div");
+  separator.className = "ui-menu-separator";
+  separator.setAttribute("role", "separator");
+  return separator;
+}
+
+/**
+ * One menu bar title from { label, items, disabled } (items as for createMenu). Returns
+ * { item, menu }: item is the title button and menu its .ui-menu, to place right after the title
+ * in a <ui-menu-bar>.
+ */
+export function createMenuBarItem(entry) {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "ui-menu-bar-item ui-button ui-subtle ui-squircle";
+  item.setAttribute("role", "menuitem");
+  item.textContent = entry.label;
+  const menu = createMenu(entry.items, { label: entry.label, placement: "block-end-start" });
+  item.setAttribute("aria-haspopup", "menu");
+  item.setAttribute("aria-expanded", "false");
+  item.setAttribute("aria-controls", menu.id);
+  if (entry.disabled) item.setAttribute("aria-disabled", "true");
+  return { item, menu };
 }
 
 /**
@@ -149,12 +182,10 @@ export function createMenu(entries, { label, id = `ui-menu-${nextId++}`, placeme
   content.className = "ui-flyout-content ui-scroll";
   for (const entry of entries) {
     if (entry === "-") {
-      const separator = document.createElement("div");
-      separator.className = "ui-menu-separator";
-      separator.setAttribute("role", "separator");
-      content.append(separator);
+      content.append(createMenuSeparator());
     } else {
-      content.append(...buildItem(entry, id));
+      const { item, submenu } = createMenuItem(entry, { menuId: id });
+      content.append(item, ...(submenu ? [submenu] : []));
     }
   }
   menu.append(content);
@@ -169,17 +200,8 @@ export function createMenuBar(menus, { label } = {}) {
   const bar = document.createElement("ui-menu-bar");
   if (label) bar.setAttribute("aria-label", label);
   for (const entry of menus) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "ui-menu-bar-item ui-button ui-subtle ui-squircle";
-    button.setAttribute("role", "menuitem");
-    button.textContent = entry.label;
-    const menu = createMenu(entry.items, { label: entry.label, placement: "block-end-start" });
-    button.setAttribute("aria-haspopup", "menu");
-    button.setAttribute("aria-expanded", "false");
-    button.setAttribute("aria-controls", menu.id);
-    if (entry.disabled) button.setAttribute("aria-disabled", "true");
-    bar.append(button, menu);
+    const { item, menu } = createMenuBarItem(entry);
+    bar.append(item, menu);
   }
   return bar;
 }

@@ -1,0 +1,177 @@
+/*
+  Status bar (0047): <ui-status-bar>, for the shell's footer slot (.ui-shell-status-bar, 0022).
+  Its main row is 24 px at every density with SpacingL at the sides; rows above it are
+  .ui-status-bar-row children, 24 px each, nothing between them, shown or hidden with `hidden`.
+
+    <footer class="ui-shell-status-bar">
+      <ui-status-bar message="Ready">                      role="group", named "Status" by default
+        <div class="ui-status-bar-row">                    optional rows, top to bottom, first in
+          <span data-short-texts='["1280, 640"]'>Cursor 1280, 640 px</span>       the markup
+          <span data-zone="trailing">60 fps</span>
+        </div>
+        <span data-priority="3">Layer: Background</span>    text item
+        <button type="button" class="ui-button ui-subtle ui-squircle ui-focus-ring"
+                data-zone="trailing">100 %</button>          clickable item
+        <ui-status-progress data-zone="center" value="42" text="42 %" cancelable></ui-status-progress>
+      </ui-status-bar>
+    </footer>
+
+  status-bar.js lays out each row: the zones (data-zone leading, center or trailing), the gaps
+  (texts 16 apart, clickable fills 4 apart, a text and a fill 8 apart), and fitting (shorter texts,
+  then hiding, by data-priority). It positions each item through --_x and the message's trimmed
+  width through --_w, and marks an item hidden by fitting with data-status-bar-hidden. Items are
+  Tab stops in markup order; write the rows first and each row's items leading, centre, trailing.
+*/
+ui-status-bar {
+  /* A clickable item's fill, centred in the row; its text 8 px into the fill; the icon size at
+     every density; the progress bar's length. */
+  --ui-status-bar-row-height: 24px;
+  --ui-status-bar-fill-height: 20px;
+  --ui-status-bar-clickable-inset: 8px;
+  --ui-status-bar-icon-size: 16px;
+  --ui-status-bar-progress-bar-length: 160px;
+
+  /* Set by status-bar.js: the grid row of the main row's items, after the shown rows (a row's
+     own items are in its row 1). */
+  --_main-row: 1;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: var(--ui-status-bar-row-height);
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  box-sizing: border-box;
+  color: var(--ui-system-base-medium-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-caption);
+  line-height: normal;
+}
+
+.ui-status-bar-row {
+  --_main-row: 1;
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--ui-status-bar-row-height);
+}
+
+.ui-status-bar-row[hidden] {
+  display: none;
+}
+
+/* Items (and the message): one cell, centred in the row, placed along it by the script. */
+:is(ui-status-bar, .ui-status-bar-row) > :not(.ui-status-bar-row, [popover], .ui-tooltip) {
+  --ui-icon-size: var(--ui-status-bar-icon-size);
+  --_x: 0px;
+  grid-row: var(--_main-row);
+  grid-column: 1;
+  align-self: center;
+  justify-self: start;
+  box-sizing: border-box;
+  inline-size: max-content;
+  margin-inline-start: var(--_x);
+  white-space: nowrap;
+}
+
+:is(ui-status-bar, .ui-status-bar-row) > [data-status-bar-hidden] {
+  visibility: hidden;
+}
+
+:is(ui-status-bar, .ui-status-bar-row) > [hidden] {
+  display: none;
+}
+
+/* Icons in text items, SpacingXS before the text. */
+:where(ui-status-bar, .ui-status-bar-row) > :where(:not(.ui-button):has(> .ui-icon)) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-spacing-xs);
+}
+
+/* The message: trimmed with an ellipsis once nothing else can go. */
+.ui-status-bar-message {
+  --_w: none;
+  max-inline-size: var(--_w);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Clickable items (status-bar.js adds ui-status-bar-clickable to the buttons it places, and to a
+   progress item's cancel button): the button spans the row's 24 px as its hit target (a button
+   clips what its children draw outside it), with its text 8 px in; the fill, its border and the
+   focus ring are drawn on ::before, inset to 20 px and centred, taking the button's state colours
+   by inheritance (the button's own background is clipped to its text, under the opaque text).
+   Secondary text in every state but disabled; an icon SpacingXS before the text; a drop-down's
+   chevron SpacingXS after it and 8 px from the fill's end. */
+.ui-status-bar-clickable.ui-button {
+  --ui-control-min-height: var(--ui-status-bar-row-height);
+  --ui-control-padding: 0 var(--ui-status-bar-clickable-inset);
+  --ui-button-foreground: var(--ui-system-base-medium-color);
+  --ui-button-foreground-pressed: var(--ui-system-base-medium-color);
+  --ui-button-gap: var(--ui-spacing-xs);
+  --ui-button-glyph-margin: var(--ui-spacing-xs);
+  position: relative;
+  isolation: isolate;
+  block-size: var(--ui-status-bar-row-height);
+  border-width: 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  font-size: var(--ui-font-size-caption);
+}
+
+.ui-status-bar-clickable.ui-button::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: calc((var(--ui-status-bar-row-height) - var(--ui-status-bar-fill-height)) / 2);
+  inset-inline: 0;
+  box-sizing: border-box;
+  border: var(--ui-button-border-width) solid;
+  border-color: inherit;
+  border-radius: inherit;
+  corner-shape: inherit;
+  background-color: inherit;
+}
+
+.ui-status-bar-clickable.ui-button.ui-focus-ring:is(:focus-visible, [data-state~="focus"]) {
+  outline: none;
+}
+
+.ui-status-bar-clickable.ui-button.ui-focus-ring:is(:focus-visible, [data-state~="focus"])::before {
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring-color);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
+/* A progress item (0047): a 160 px bar or a 16 px ring, its text SpacingS after it, and the
+   cancel button, a subtle 20 px icon button, SpacingXS after the text. */
+ui-status-progress {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ui-status-progress-bar.ui-progress-bar {
+  --ui-progress-bar-min-length: var(--ui-status-bar-progress-bar-length);
+  inline-size: var(--ui-status-bar-progress-bar-length);
+}
+
+.ui-status-progress-ring.ui-progress-ring {
+  --ui-progress-ring-size: var(--ui-status-bar-icon-size);
+}
+
+.ui-status-progress-text {
+  margin-inline-start: var(--ui-spacing-s);
+}
+
+.ui-status-progress-text:empty {
+  display: none;
+}
+
+.ui-status-progress-cancel.ui-button {
+  inline-size: var(--ui-status-bar-fill-height);
+  margin-inline-start: var(--ui-spacing-xs);
+  padding: 0;
+}
+
+:is(.ui-status-progress-cancel, .ui-status-progress-bar, .ui-status-progress-ring)[hidden] {
+  display: none;
+}

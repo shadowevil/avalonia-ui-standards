@@ -11,7 +11,7 @@ import "./slider.js";
 import "./tabs.js";
 import "./expander.js";
 export { openFlyout, closeFlyout, placeFlyout, flyoutOpener } from "./flyout.js";
-export { createMenu, createMenuBar, openMenu, closeMenu, menuItems, formatShortcut } from "./menu.js";
+export { createMenu, createMenuBar, createMenuItem, createMenuSeparator, createMenuBarItem, openMenu, closeMenu, menuItems, formatShortcut } from "./menu.js";
 export { tooltip, tooltipOf, showTooltip, hideTooltip } from "./tooltip.js";
 import "./grid-splitter.js";
 export { createComboBox } from "./combobox.js";

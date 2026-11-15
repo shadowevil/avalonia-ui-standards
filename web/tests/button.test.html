@@ -284,6 +284,25 @@ test("the drop-down chevron: 12 px, BaseMediumHigh at rest, the text colour on h
   reset();
 });
 
+test("in forced colours the drop-down chevron is ButtonText, GrayText when disabled, kept from Canvas", () => {
+  // test.py runs every page without forced colours, so the rules are checked in the stylesheet.
+  const rules = [];
+  const walk = (list) => {
+    for (const rule of list) {
+      if (rule.styleSheet) walk(rule.styleSheet.cssRules);
+      else if (rule instanceof CSSMediaRule && rule.conditionText === "(forced-colors: active)") rules.push(...rule.cssRules);
+    }
+  };
+  for (const sheet of document.styleSheets) walk(sheet.cssRules);
+  const rest = rules.find((r) => r.selectorText === ".ui-drop-down-button::after");
+  assert(rest, "no forced-colors rule for .ui-drop-down-button::after");
+  assertEqual(rest.style.backgroundColor.toLowerCase(), "buttontext");
+  assertEqual(rest.style.getPropertyValue("forced-color-adjust"), "none");
+  const disabled = rules.find((r) => r.selectorText?.startsWith(".ui-drop-down-button:is(:disabled") && r.selectorText.endsWith("::after"));
+  assert(disabled, "no forced-colors rule for a disabled chevron");
+  assertEqual(disabled.style.backgroundColor.toLowerCase(), "graytext");
+});
+
 test("a split button: outer corners only, a 1 px separator, a square chevron half", () => {
   reset();
   const p = $("split-primary"), m = $("split-menu");
