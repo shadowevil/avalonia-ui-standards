@@ -972,18 +972,7 @@ public class MenuRowTests
             Pump(window);
             AltDown(window);
             window.MouseWheel(box.TranslatePoint(new Point(40, 20), window)!.Value, new Vector(0, -1), RawInputModifiers.Alt);
-            // The platform reports the window deactivated, then active again.
-            // (These callbacks are not public API, so they are reached by reflection.)
-            var impl = window.PlatformImpl!;
-            Action? Callback(string name) => (Action?)typeof(Avalonia.Platform.IWindowBaseImpl)
-                .GetProperty(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)!
-                .GetValue(impl);
-            Callback("Deactivated")?.Invoke();
-            Pump(window);
-            Callback("Activated")?.Invoke();
-            Pump(window);
-            box.Focus();
-            Pump(window);
+            DeactivateAndReactivate(window);
             AltDown(window);
             AltUp(window);
             Assert.True(Title(window, "_File").IsSelected);
@@ -992,6 +981,42 @@ public class MenuRowTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaFact]
+    public void Alt_ReleaseAfterTheWindowWasDeactivatedDoesNotActivate()
+    {
+        var window = Show(FourMenus());
+        try
+        {
+            var box = (TextBox)window.Content!;
+            box.Focus();
+            Pump(window);
+            AltDown(window);
+            DeactivateAndReactivate(window);
+            AltUp(window);
+            Assert.False(window.MenuRow.IsOpen);
+            Assert.False(Title(window, "_File").IsSelected);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The platform reports the window deactivated, then active again. These callbacks are not accessible
+    // (IWindowBaseImpl.Deactivated does not compile), so they are reached by reflection.
+    private static void DeactivateAndReactivate(StandardsWindow window)
+    {
+        Action? Callback(string name) => (Action?)typeof(Avalonia.Platform.IWindowBaseImpl)
+            .GetProperty(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(window.PlatformImpl!);
+        Callback("Deactivated")?.Invoke();
+        Pump(window);
+        Callback("Activated")?.Invoke();
+        Pump(window);
+        ((TextBox)window.Content!).Focus();
+        Pump(window);
     }
 
     // --- Helpers ------------------------------------------------------------------------------
