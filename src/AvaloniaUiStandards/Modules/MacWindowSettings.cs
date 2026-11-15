@@ -41,13 +41,6 @@ internal static class MacWindowSettings
     private static extern void SendDouble(IntPtr receiver, IntPtr selector, double argument);
 
     /// <summary>
-    /// Makes AppKit's full screen title bar window for <paramref name="window"/> (an <c>NSWindow</c>) invisible and
-    /// transparent to the mouse: its content hidden, its alpha zero and its mouse events passed through. AppKit adds that
-    /// window (<c>NSToolbarFullScreenWindow</c>, 44 pt high) to a titled window in full screen and slides it in below the
-    /// menu bar whenever the menu bar reveals, over the library's own title band. AppKit shows it again on each reveal,
-    /// so this is called on each reveal. Returns whether it was found; fails safely to false.
-    /// </summary>
-    /// <summary>
     /// Whether a full screen strip belongs to <paramref name="window"/>: its parent is the window; or, with no parent, it is
     /// on the window's screen (never a missing one) and both are on the active Space, so another full screen window's
     /// strip in another Space is never touched.
@@ -58,6 +51,14 @@ internal static class MacWindowSettings
             ? stripParent == window
             : windowScreen != IntPtr.Zero && stripScreen == windowScreen && windowOnActiveSpace && stripOnActiveSpace;
 
+    /// <summary>
+    /// Makes AppKit's full screen title bar window for <paramref name="window"/> (an <c>NSWindow</c>) invisible and
+    /// transparent to the mouse: its content hidden, its alpha zero and its mouse events passed through. AppKit adds that
+    /// window (<c>NSToolbarFullScreenWindow</c>, 44 pt high) to a titled window in full screen and slides it in below the
+    /// menu bar whenever the menu bar reveals, over the library's own title band. AppKit shows it again on each reveal,
+    /// so this is called on entering full screen, on each reveal and every <c>StandardsWindow.StripCheckInterval</c>
+    /// while revealed. Returns whether it was found; fails safely to false.
+    /// </summary>
     public static bool HideFullScreenTitleBarWindow(IntPtr window)
     {
         if (window == IntPtr.Zero)

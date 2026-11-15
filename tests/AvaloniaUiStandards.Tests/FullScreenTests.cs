@@ -664,6 +664,45 @@ public class FullScreenTests
     }
 
     [AvaloniaFact]
+    public void SystemTitleBarStrip_OnTheNativeFrame_IsCheckedOnlyWhileRevealed()
+    {
+        var delays = new Delays();
+        var window = new StandardsWindow(nativeFrame: true) { Width = 880, Height = 560, Content = new TextBlock { Text = "Content" } };
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
+        window.RunsOnMacOS = true;
+        window.RevealDelay = delays.Add;
+        window.Show();
+        MenuRowTests.Pump(window);
+
+        window.WindowState = WindowState.FullScreen;
+        MenuRowTests.Pump(window);
+        Assert.False(window.IsStripTimerRunning);
+
+        // Revealed: the check runs. The rows hide after the delay: it stops.
+        window.MouseMove(new Point(400, 0));
+        MenuRowTests.Pump(window);
+        Assert.True(window.IsTopRevealed);
+        Assert.True(window.IsStripTimerRunning);
+        window.MouseMove(new Point(400, 400));
+        delays.RunAll();
+        Assert.False(window.IsTopRevealed);
+        Assert.False(window.IsStripTimerRunning);
+
+        // Revealed again, then leaving full screen: it stops.
+        window.MouseMove(new Point(400, 0));
+        Assert.True(window.IsStripTimerRunning);
+        window.WindowState = WindowState.Normal;
+        Assert.False(window.IsStripTimerRunning);
+
+        // Revealed in full screen, then closed: it stops.
+        window.WindowState = WindowState.FullScreen;
+        window.MouseMove(new Point(400, 0));
+        Assert.True(window.IsStripTimerRunning);
+        window.Close();
+        Assert.False(window.IsStripTimerRunning);
+    }
+
+    [AvaloniaFact]
     public void SystemTitleBarStrip_IsLeftAloneWithoutANativeWindow_AndFailsSafely()
     {
         // AppKit's full screen strip exists only on a native macOS window; without one nothing is looked up.
