@@ -1,13 +1,19 @@
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
+using Catalog.Pages;
 using Xunit;
 
 namespace AvaloniaUiStandards.Tests;
@@ -32,6 +38,39 @@ public class SegmentedControlRenderTests
                 ("Compact, icons", Enum.GetValues<SegmentState>().Select(s => Cell(sheet, theme, s, Glyphs, compact: true)).ToList()),
             ]);
         sheet.Save("m3-segmented-control.png");
+    }
+
+    /// <summary>The icon-only selection modes (New, Add, Subtract, Intersect) and selection styles (Normal, Fixed ratio, Fixed size), cropped to the controls, in light and dark.</summary>
+    [AvaloniaFact]
+    public void SelectionMode_RendersInLightAndDark()
+    {
+        foreach (var (label, variant) in ButtonRenderTests.Themes)
+        {
+            var control = new StackPanel { Spacing = 12, Children = { SegmentedControlPage.SelectionMode(), SegmentedControlPage.SelectionStyle() } };
+            var surface = new Border { Padding = new Thickness(16, 12), Child = control };
+            surface.Bind(Border.BackgroundProperty, new DynamicResourceExtension("SystemRegionColor"));
+            var window = new Window { SizeToContent = SizeToContent.WidthAndHeight, RequestedThemeVariant = variant, Content = surface };
+            window.SetRenderScaling(Sheet.Scale);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // The control with 12 px (logical) of its surface around it.
+            using var frame = Frame.Capture(window);
+            var origin = control.TranslatePoint(default, window)!.Value * Sheet.Scale;
+            var margin = (int)Math.Round(12 * Sheet.Scale);
+            var area = new PixelRect(
+                (int)origin.X - margin,
+                (int)origin.Y - margin,
+                (int)Math.Round(control.Bounds.Width * Sheet.Scale) + 2 * margin,
+                (int)Math.Round(control.Bounds.Height * Sheet.Scale) + 2 * margin);
+            using var crop = Frame.Crop(frame.Bitmap, area);
+            var dir = Path.Combine(AppContext.BaseDirectory, "screenshots");
+            Directory.CreateDirectory(dir);
+            using (var stream = File.Create(Path.Combine(dir, $"selection-mode-icons-{label.ToLowerInvariant()}.png")))
+                crop.Save(stream, new PngBitmapEncoderOptions());
+            window.Close();
+        }
     }
 
     // --- Content -------------------------------------------------------------------------
