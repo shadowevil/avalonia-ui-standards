@@ -213,6 +213,41 @@ public class StandardsWindowTests
         }
     }
 
+    // The child is too wide, so it is fitted, and tall enough to have room to move: its vertical position follows the owner.
+    [AvaloniaTheory]
+    [InlineData(false)] // owner mid-screen: the child's centre is the owner's centre
+    [InlineData(true)] // owner at the bottom edge: the clamp keeps the child inside the working area
+    public void OpeningSize_CenterOwner_CentresOnTheOwner_ClampedInsideTheWorkingArea(bool nearEdge)
+    {
+        var owner = new StandardsWindow(nativeFrame: false) { Width = 600, Height = 400 };
+        StandardsWindow? child = null;
+        try
+        {
+            owner.Show();
+            var screen = owner.Screens.ScreenFromWindow(owner) ?? owner.Screens.Primary;
+            Assert.NotNull(screen);
+            var area = screen.WorkingArea;
+            var ownerHeight = (int)Math.Round(owner.Bounds.Height * screen.Scaling);
+            owner.Position = new PixelPoint(area.X + area.Width / 3, nearEdge ? area.Bottom - ownerHeight : area.Y + (area.Height - ownerHeight) / 2);
+            Pump(owner);
+            child = new StandardsWindow(nativeFrame: false) { Width = 20000, Height = 600, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            child.Show(owner);
+            var childHeight = (int)Math.Round(child.Height * screen.Scaling);
+            Assert.True(child.Width * screen.Scaling <= area.Width + 1);
+            Assert.True(child.Position.Y >= area.Y && child.Position.Y + childHeight <= area.Bottom + 1);
+            var ownerCentreY = owner.Position.Y + ownerHeight / 2.0;
+            if (nearEdge)
+                Assert.True(Math.Abs(child.Position.Y + childHeight / 2.0 - ownerCentreY) > 1); // moved up to stay inside
+            else
+                Assert.InRange(child.Position.Y + childHeight / 2.0, ownerCentreY - 1, ownerCentreY + 1);
+        }
+        finally
+        {
+            child?.Close();
+            owner.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(WindowButtonStyle.TrafficLights)]
     [InlineData(WindowButtonStyle.CaptionButtons)]
