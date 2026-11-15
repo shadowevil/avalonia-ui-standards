@@ -671,35 +671,48 @@ public class FullScreenTests
         window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
         window.RunsOnMacOS = true;
         window.RevealDelay = delays.Add;
-        window.Show();
-        MenuRowTests.Pump(window);
+        // The machine's menu bar settings stay out of the test (and no native app is started).
+        window.MenuBarStaysInFullScreen = () => false;
+        window.MenuBarHeightSource = () => 24;
+        var closed = false;
+        try
+        {
+            window.Show();
+            MenuRowTests.Pump(window);
 
-        window.WindowState = WindowState.FullScreen;
-        MenuRowTests.Pump(window);
-        Assert.False(window.IsStripTimerRunning);
+            window.WindowState = WindowState.FullScreen;
+            MenuRowTests.Pump(window);
+            Assert.False(window.IsStripTimerRunning);
 
-        // Revealed: the check runs. The rows hide after the delay: it stops.
-        window.MouseMove(new Point(400, 0));
-        MenuRowTests.Pump(window);
-        Assert.True(window.IsTopRevealed);
-        Assert.True(window.IsStripTimerRunning);
-        window.MouseMove(new Point(400, 400));
-        delays.RunAll();
-        Assert.False(window.IsTopRevealed);
-        Assert.False(window.IsStripTimerRunning);
+            // Revealed: the check runs. The rows hide after the delay: it stops.
+            window.MouseMove(new Point(400, 0));
+            MenuRowTests.Pump(window);
+            Assert.True(window.IsTopRevealed);
+            Assert.True(window.IsStripTimerRunning);
+            window.MouseMove(new Point(400, 400));
+            delays.RunAll();
+            Assert.False(window.IsTopRevealed);
+            Assert.False(window.IsStripTimerRunning);
 
-        // Revealed again, then leaving full screen: it stops.
-        window.MouseMove(new Point(400, 0));
-        Assert.True(window.IsStripTimerRunning);
-        window.WindowState = WindowState.Normal;
-        Assert.False(window.IsStripTimerRunning);
+            // Revealed again, then leaving full screen: it stops.
+            window.MouseMove(new Point(400, 0));
+            Assert.True(window.IsStripTimerRunning);
+            window.WindowState = WindowState.Normal;
+            Assert.False(window.IsStripTimerRunning);
 
-        // Revealed in full screen, then closed: it stops.
-        window.WindowState = WindowState.FullScreen;
-        window.MouseMove(new Point(400, 0));
-        Assert.True(window.IsStripTimerRunning);
-        window.Close();
-        Assert.False(window.IsStripTimerRunning);
+            // Revealed in full screen, then closed: it stops.
+            window.WindowState = WindowState.FullScreen;
+            window.MouseMove(new Point(400, 0));
+            Assert.True(window.IsStripTimerRunning);
+            window.Close();
+            closed = true;
+            Assert.False(window.IsStripTimerRunning);
+        }
+        finally
+        {
+            if (!closed)
+                window.Close();
+        }
     }
 
     [AvaloniaFact]

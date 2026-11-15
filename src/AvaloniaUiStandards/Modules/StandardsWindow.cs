@@ -326,6 +326,12 @@ public class StandardsWindow : Window, IFrameTickSource
     /// <summary>Runs an action after a delay: the reveal's hide timer (replaceable for tests).</summary>
     internal Action<TimeSpan, Action> RevealDelay { get; set; } = (delay, action) => DispatcherTimer.RunOnce(action, delay);
 
+    /// <summary>Whether macOS keeps its menu bar shown in full screen (replaceable for tests, so they do not read the machine's setting).</summary>
+    internal Func<bool> MenuBarStaysInFullScreen { get; set; } = MacWindowSettings.MenuBarVisibleInFullScreen;
+
+    /// <summary>The menu bar's height in points, or null when unknown (replaceable for tests, so they start no native app).</summary>
+    internal Func<double?> MenuBarHeightSource { get; set; } = MacWindowSettings.MenuBarHeight;
+
     /// <summary>Whether the window can enter full screen now, or is in it: on macOS, while it can be maximised.</summary>
     internal bool IsFullScreenAvailable => RunsOnMacOS && (CanMaximize || WindowState == WindowState.FullScreen);
 
@@ -590,7 +596,7 @@ public class StandardsWindow : Window, IFrameTickSource
         if (newState == WindowState.FullScreen)
         {
             _stateBeforeFullScreen = oldState == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
-            _alwaysRevealed = HasNativeFrame && MacWindowSettings.MenuBarVisibleInFullScreen();
+            _alwaysRevealed = HasNativeFrame && MenuBarStaysInFullScreen();
             SetRevealed(_alwaysRevealed);
             // AppKit's strip already exists once full screen is entered; it is hidden now and again on each reveal.
             HideSystemFullScreenTitleBar();
@@ -724,7 +730,7 @@ public class StandardsWindow : Window, IFrameTickSource
     {
         if (!HasNativeFrame || Screens.ScreenFromWindow(this) is not { } screen || Position.Y > screen.Bounds.Y)
             return 0;
-        return MacWindowSettings.MenuBarHeight() ?? 24;
+        return MenuBarHeightSource() ?? 24;
     }
 
     private void OnPanelPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
