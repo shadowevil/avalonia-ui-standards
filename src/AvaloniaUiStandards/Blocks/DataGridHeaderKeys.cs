@@ -64,6 +64,14 @@ internal static class DataGridHeaderKeys
                 if (grid.CanUserSortColumns && column.CanUserSort)
                     column.Sort();
                 return true;
+            case Key.Home or Key.End when plain:
+                var ends = grid.Columns.Where(c => c.IsVisible).OrderBy(c => c.DisplayIndex).ToList();
+                if (ends.Count > 0)
+                    Focus(grid, e.Key == Key.Home ? ends[0] : ends[^1]);
+                return true;
+            // Other navigation keys would move the grid's current cell while a header has focus.
+            case Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.PageUp or Key.PageDown:
+                return true;
             default:
                 return false;
         }
@@ -79,8 +87,10 @@ internal static class DataGridHeaderKeys
 
     private static bool Focus(DataGrid grid, DataGridColumn column)
     {
-        if (grid.ItemsSource?.Cast<object>().FirstOrDefault() is { } first)
-            grid.ScrollIntoView(first, column);
+        // Scroll to the column only: through a row already in view, so the rows stay where they are.
+        var visible = grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.IsVisible).MinBy(r => r.Index);
+        if (visible?.DataContext is { } item)
+            grid.ScrollIntoView(item, column);
         grid.UpdateLayout();
         var header = grid.GetVisualDescendants().OfType<DataGridColumnHeader>()
             .FirstOrDefault(h => h.IsVisible && ReferenceEquals(DataGridColumn.GetColumnContainingElement(h), column));
@@ -102,7 +112,7 @@ internal static class DataGridHeaderKeys
         // As a drag: the last visible column does not resize while it is star-sized.
         if (!grid.CanUserResizeColumns || !column.CanUserResize || (column.Width.IsStar && Neighbour(grid, column, 1) is null))
             return;
-        var width = Math.Clamp(column.ActualWidth + delta, column.MinWidth, column.MaxWidth);
+        var width = Math.Min(column.MaxWidth, Math.Max(column.MinWidth, column.ActualWidth + delta));
         column.Width = new DataGridLength(width);
     }
 }

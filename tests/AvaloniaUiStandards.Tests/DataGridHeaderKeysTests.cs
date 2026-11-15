@@ -20,7 +20,8 @@ public class DataGridHeaderKeysTests
 {
     private static void Press(Window window, Key key, KeyModifiers modifiers = KeyModifiers.None)
     {
-        var raw = modifiers == KeyModifiers.Shift ? RawInputModifiers.Shift : RawInputModifiers.None;
+        var raw = (modifiers.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
+            | (modifiers.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None);
         window.KeyPress(key, raw, PhysicalKey.None, null);
         DataGridTests.Pump(window);
     }
@@ -121,6 +122,39 @@ public class DataGridHeaderKeysTests
             for (var i = 0; i < 6; i++)
                 Press(window, Key.Right);
             Assert.Same(Header(grid, 4), Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void HomeAndEnd_MoveToTheFirstAndLastHeader_AndOtherNavigationKeysDoNotReachTheCells()
+    {
+        var (window, grid) = Show();
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
+            Press(window, Key.End);
+            Assert.Same(Header(grid, 4), Focused(window));
+            Press(window, Key.Home);
+            Assert.Same(Header(grid, 0), Focused(window));
+
+            foreach (var (key, modifiers) in new[]
+            {
+                (Key.Down, KeyModifiers.Shift), (Key.Up, KeyModifiers.Shift), (Key.Down, KeyModifiers.Control),
+                (Key.Right, KeyModifiers.Control), (Key.PageDown, KeyModifiers.None), (Key.PageUp, KeyModifiers.None),
+                (Key.End, KeyModifiers.Control), (Key.Up, KeyModifiers.None),
+            })
+            {
+                Press(window, key, modifiers);
+                Assert.Same(Header(grid, 0), Focused(window));
+                Assert.Equal(0, grid.SelectedIndex);
+                Assert.Single(grid.SelectedItems);
+                Assert.Same(grid.Columns[1], grid.CurrentColumn);
+            }
         }
         finally
         {
