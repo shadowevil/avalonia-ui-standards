@@ -20,6 +20,7 @@ In general, the `ProjectReference` points at `src/AvaloniaUiStandards/AvaloniaUi
 - Windows subclass `StandardsWindow`. Its slots: [`Sidebar`](../decisions/0034-sidebar.md), [`ToolbarBand`](../decisions/0043-toolbar-band.md), [`StatusBar`](../decisions/0047-status-bar.md) (with rows) and `Backdrop`.
 - Menus are `NativeMenu`, with `FullScreenMenuItem` for full screen; `StandardsWindow.LayoutMode` sets which OS's layout shows, so an app can offer it as a setting.
 - Use the library's controls and Style resource keys, and theme through `StandardsTheme`.
+- Content that paints its whole rectangle opaquely, such as a canvas, sets `OpaqueRegion.IsOpaque` ([0017](../decisions/0017-app-usage.md)); glass and the `Backdrop` clip then leave that area out ([0015](../decisions/0015-glass.md)), except for opaque content inside the `Backdrop` slot. The visible rest is `StandardsWindow.BackdropVisibleRegion` ([0022](../decisions/0022-window-layout.md)).
 - Test helpers exist for headless tests (`StandardsTheme.CreateForTests`, `StandardsWindow.TitleIconDecoderForTests`).
 
 All of these names are specified in [0017](../decisions/0017-app-usage.md).
