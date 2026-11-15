@@ -285,27 +285,31 @@ public class StandardsWindow : Window, IFrameTickSource
     internal const double OpeningInset = Spacing.L;
 
     /// <summary>
-    /// The size a native macOS window opens at: a side that reaches the screen's working area (<paramref name="workingArea"/>)
-    /// becomes the working area's less <see cref="OpeningInset"/> at each edge; a side that fits stays.
+    /// The size a window opens at, never larger than the screen's working area (<paramref name="workingArea"/>).
+    /// On the native macOS frame a side that reaches the working area becomes the working area's less
+    /// <see cref="OpeningInset"/> at each edge; on a drawn frame a side that exceeds it becomes the working area.
+    /// A side that fits stays.
     /// </summary>
     /// <remarks>
     /// Avalonia.Native 12.1.6 counts a native window as maximised whenever its frame equals the screen's visible frame.
     /// macOS squeezes a window that opens larger than the working area to exactly that frame, so the window started out
     /// maximised natively while reading Normal, with no frame to restore to, and maximise and restore then acted backwards.
+    /// The drawn frame has no such case, so a window as large as the working area is left as it is.
     /// </remarks>
-    internal static Size FitOpeningSize(Size requested, Size workingArea)
+    internal static Size FitOpeningSize(Size requested, Size workingArea, bool nativeMacOSFrame)
     {
-        static double Fit(double side, double area) => side >= area ? Math.Max(0, area - 2 * OpeningInset) : side;
-        return new Size(Fit(requested.Width, workingArea.Width), Fit(requested.Height, workingArea.Height));
+        static double Fit(double side, double area, bool inset) =>
+            inset ? (side >= area ? Math.Max(0, area - 2 * OpeningInset) : side) : Math.Min(side, area);
+        return new Size(Fit(requested.Width, workingArea.Width, nativeMacOSFrame), Fit(requested.Height, workingArea.Height, nativeMacOSFrame));
     }
 
-    // On the native macOS frame, a normal window that would open at or past the working area opens inside it (see FitOpeningSize).
+    // A normal window that would open larger than the working area opens inside it, still centred (see FitOpeningSize).
     private void FitOpeningSize()
     {
-        if (!HasNativeFrame || WindowState != WindowState.Normal || (Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen)
+        if (WindowState != WindowState.Normal || (Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen)
             return;
         var requested = new Size(double.IsNaN(Width) ? ClientSize.Width : Width, double.IsNaN(Height) ? ClientSize.Height : Height);
-        var fitted = FitOpeningSize(requested, screen.WorkingArea.Size.ToSize(screen.Scaling));
+        var fitted = FitOpeningSize(requested, screen.WorkingArea.Size.ToSize(screen.Scaling), HasNativeFrame);
         if (fitted.Width != requested.Width)
             Width = Math.Max(fitted.Width, MinWidth);
         if (fitted.Height != requested.Height)

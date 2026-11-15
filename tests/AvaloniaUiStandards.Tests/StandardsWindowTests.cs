@@ -159,31 +159,53 @@ public class StandardsWindowTests
     [InlineData(1408, 851, 1376, 819)] // exactly the working area
     [InlineData(1500, 600, 1376, 600)] // too wide only
     [InlineData(1000, 700, 1000, 700)] // fits
-    public void OpeningSize_ASideReachingTheWorkingArea_StaysSpacingLFromItsEdges(double w, double h, double fittedW, double fittedH) =>
-        Assert.Equal(new Size(fittedW, fittedH), StandardsWindow.FitOpeningSize(new Size(w, h), new Size(1408, 851)));
+    public void OpeningSize_OnTheNativeMacOSFrame_ASideReachingTheWorkingArea_StaysSpacingLFromItsEdges(double w, double h, double fittedW, double fittedH) =>
+        Assert.Equal(new Size(fittedW, fittedH), StandardsWindow.FitOpeningSize(new Size(w, h), new Size(1408, 851), nativeMacOSFrame: true));
+
+    [Theory]
+    [InlineData(1440, 900, 1408, 851)] // larger both ways
+    [InlineData(1500, 600, 1408, 600)] // too wide only
+    [InlineData(1408, 851, 1408, 851)] // exactly the working area stays
+    [InlineData(1000, 700, 1000, 700)] // fits
+    public void OpeningSize_OnADrawnFrame_ASideLargerThanTheWorkingAreaBecomesTheWorkingArea(double w, double h, double fittedW, double fittedH) =>
+        Assert.Equal(new Size(fittedW, fittedH), StandardsWindow.FitOpeningSize(new Size(w, h), new Size(1408, 851), nativeMacOSFrame: false));
 
     [AvaloniaFact]
-    public void OpeningSize_OnTheNativeMacOSFrame_FitsInsideTheWorkingArea()
+    public void OpeningSize_FitsInsideTheWorkingArea_OnBothFrames_AndStaysCentred()
     {
-        var native = new StandardsWindow(nativeFrame: true) { Width = 20000, Height = 20000 };
-        var drawn = new StandardsWindow(nativeFrame: false) { Width = 20000, Height = 20000 };
+        var native = new StandardsWindow(nativeFrame: true) { Width = 20000, Height = 20000, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        var drawn = new StandardsWindow(nativeFrame: false) { Width = 20000, Height = 20000, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        var fits = new StandardsWindow(nativeFrame: false) { Width = 600, Height = 400 };
         try
         {
             var screen = native.Screens.ScreenFromWindow(native) ?? native.Screens.Primary;
             Assert.NotNull(screen);
             native.Show();
             drawn.Show();
+            fits.Show();
             var area = screen.WorkingArea.Size.ToSize(screen.Scaling);
+            // The native macOS frame keeps its inset (Avalonia.Native's maximised check needs it).
             Assert.Equal(area.Width - 2 * Spacing.L, native.Width);
             Assert.Equal(area.Height - 2 * Spacing.L, native.Height);
             Assert.Equal(WindowState.Normal, native.WindowState);
-            // The drawn frame (Linux, Windows, headless renders) is left as asked.
-            Assert.Equal(20000, drawn.Width);
+            // The drawn frame takes the working area.
+            Assert.Equal(area.Width, drawn.Width);
+            Assert.Equal(area.Height, drawn.Height);
+            // A window that fits is left as asked.
+            Assert.Equal(new Size(600, 400), new Size(fits.Width, fits.Height));
+            // Both fitted windows are centred in the working area.
+            foreach (var window in new[] { native, drawn })
+            {
+                var centre = new Point(window.Position.X + window.Width * screen.Scaling / 2, window.Position.Y + window.Height * screen.Scaling / 2);
+                Assert.InRange(centre.X, screen.WorkingArea.Center.X - 1, screen.WorkingArea.Center.X + 1);
+                Assert.InRange(centre.Y, screen.WorkingArea.Center.Y - 1, screen.WorkingArea.Center.Y + 1);
+            }
         }
         finally
         {
             native.Close();
             drawn.Close();
+            fits.Close();
         }
     }
 
