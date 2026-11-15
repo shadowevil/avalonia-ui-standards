@@ -21,7 +21,8 @@ public class DataGridHeaderKeysTests
     private static void Press(Window window, Key key, KeyModifiers modifiers = KeyModifiers.None)
     {
         var raw = (modifiers.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
-            | (modifiers.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None);
+            | (modifiers.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
+            | (modifiers.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.None);
         window.KeyPress(key, raw, PhysicalKey.None, null);
         DataGridTests.Pump(window);
     }
@@ -129,8 +130,11 @@ public class DataGridHeaderKeysTests
         }
     }
 
+    private static DataGridColumnHeader HeaderOf(DataGrid grid, int column) =>
+        grid.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(h => h.IsVisible && ReferenceEquals(DataGridColumn.GetColumnContainingElement(h), grid.Columns[column]));
+
     [AvaloniaFact]
-    public void HomeAndEnd_MoveToTheFirstAndLastHeader_AndOtherNavigationKeysDoNotReachTheCells()
+    public void HomeEndAndEdgeArrows_MoveBetweenHeaders()
     {
         var (window, grid) = Show();
         try
@@ -138,23 +142,102 @@ public class DataGridHeaderKeysTests
             FocusFirstRowCell(window, grid, 1);
             Press(window, Key.Up);
             Press(window, Key.End);
-            Assert.Same(Header(grid, 4), Focused(window));
+            Assert.Same(HeaderOf(grid, 4), Focused(window));
             Press(window, Key.Home);
-            Assert.Same(Header(grid, 0), Focused(window));
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+            Press(window, Key.Right, DataGridHeaderKeys.Edge);
+            Assert.Same(HeaderOf(grid, 4), Focused(window));
+            Press(window, Key.Left, DataGridHeaderKeys.Edge);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
+    [AvaloniaFact]
+    public void OtherNavigationKeys_DoNotReachTheCells_WhileAHeaderHasFocus()
+    {
+        var (window, grid) = Show();
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
             foreach (var (key, modifiers) in new[]
             {
-                (Key.Down, KeyModifiers.Shift), (Key.Up, KeyModifiers.Shift), (Key.Down, KeyModifiers.Control),
-                (Key.Right, KeyModifiers.Control), (Key.PageDown, KeyModifiers.None), (Key.PageUp, KeyModifiers.None),
-                (Key.End, KeyModifiers.Control), (Key.Up, KeyModifiers.None),
+                (Key.Down, KeyModifiers.Shift), (Key.Up, KeyModifiers.Shift), (Key.Up, KeyModifiers.None),
+                (Key.Up, DataGridHeaderKeys.Edge | KeyModifiers.Shift), (Key.PageDown, KeyModifiers.Shift),
             })
             {
                 Press(window, key, modifiers);
-                Assert.Same(Header(grid, 0), Focused(window));
+                Assert.Same(HeaderOf(grid, 1), Focused(window));
                 Assert.Equal(0, grid.SelectedIndex);
                 Assert.Single(grid.SelectedItems);
                 Assert.Same(grid.Columns[1], grid.CurrentColumn);
             }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // The grid shows three rows under the header, so a page is three rows.
+    [AvaloniaTheory]
+    [InlineData(Key.Down, false, 0, 1)]
+    [InlineData(Key.Down, true, 4, 1)]
+    [InlineData(Key.Up, true, 0, 1)]
+    [InlineData(Key.PageDown, false, 3, 1)]
+    [InlineData(Key.PageUp, false, 0, 1)]
+    [InlineData(Key.Home, true, 0, 0)]
+    [InlineData(Key.End, true, 4, 4)]
+    public void RowKeys_OnAHeader_MoveTheCurrentCell(Key key, bool edge, int row, int column)
+    {
+        var (window, grid) = Show(configure: g => g.Height = 130);
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
+            Press(window, key, edge ? DataGridHeaderKeys.Edge : KeyModifiers.None);
+            Assert.Same(grid, Focused(window));
+            Assert.Equal(row, grid.SelectedIndex);
+            Assert.Same(grid.Columns[column], grid.CurrentColumn);
+            Assert.Same(grid.SelectedItem, grid.SelectedItems[0]);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RightToLeft_SwapsLeftAndRight_IncludingTheResizeKeys()
+    {
+        var (window, grid) = Show(configure: g => g.FlowDirection = FlowDirection.RightToLeft);
+        try
+        {
+            FocusFirstRowCell(window, grid, 1);
+            Press(window, Key.Up);
+            Press(window, Key.Right);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+            Press(window, Key.Left);
+            Assert.Same(HeaderOf(grid, 1), Focused(window));
+            Press(window, Key.Right, DataGridHeaderKeys.Edge);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+            Press(window, Key.Left, DataGridHeaderKeys.Edge);
+            Assert.Same(HeaderOf(grid, 4), Focused(window));
+            Press(window, Key.Home);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+
+            Press(window, Key.Right);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+            var width = grid.Columns[0].ActualWidth;
+            Press(window, Key.Left, KeyModifiers.Shift);
+            Assert.Equal(width + 8, grid.Columns[0].ActualWidth);
+            Press(window, Key.Right, KeyModifiers.Shift);
+            Press(window, Key.Right, KeyModifiers.Shift);
+            Assert.Equal(width - 8, grid.Columns[0].ActualWidth);
         }
         finally
         {
