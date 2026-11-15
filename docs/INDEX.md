@@ -51,6 +51,9 @@
 - [0048 — Web HTML standards](decisions/0048-web-html-standards.md) — which documents are the web HTML standards, and the roles, landmarks, custom element, keyboard, file, shortcut and unit choices they make
 - [0049 — Full screen and window button availability](decisions/0049-full-screen.md) — macOS full screen (green light, Ctrl+Cmd+F, the menu item, the top that hides and reveals) and how the window buttons follow CanMinimize, CanMaximize and CanResize
 
+## Guides
+- [Adopting the library in an app](guides/adopting.md) — requirements, reference, setup, menus, usage rules, the reading list and how missing components are requested
+
 ## Web
 - [Web semantics](web/semantics.md) — native elements first, when a custom element is allowed, landmarks, headings, forms, language and direction
 - [Web accessibility](web/accessibility.md) — accessible names, roles and states, contrast, focus visibility, zoom and reflow, user preferences, hidden text, live regions
