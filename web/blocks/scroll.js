@@ -63,7 +63,7 @@ class ScrollState {
       const thumb = div("ui-scroll-thumb");
       bar.append(track, thumb);
       this.overlay.append(bar);
-      this.bars[axis] = { bar, track, thumb, closeness: 0, hover: false, max: 0, travel: 0, thumbLength: 0, endInset: 0 };
+      this.bars[axis] = { bar, track, thumb, closeness: 0, hover: false, max: 0, travel: 0, thumbLength: 0, endInset: 0, inset: 0 };
       bar.addEventListener("pointerdown", (e) => this.#onBarDown(e, axis));
       thumb.addEventListener("pointerdown", (e) => this.#onThumbDown(e, axis));
     }
@@ -133,8 +133,12 @@ class ScrollState {
       const track = getComputedStyle(b.track);
       const endInset = parseFloat(axis === "vertical" ? track.insetBlockStart : track.insetInlineStart) || 0;
       b.endInset = endInset;
-      const length = Math.max(0, client - 2 * endInset);
-      b.thumbLength = clamp(length * client / (client + max), Math.min(MIN_THUMB, length), length);
+      // The vertical bar can start below the top (--ui-scroll-inset-block-start); it then spans the
+      // part of the viewport the content scrolls in.
+      b.inset = axis === "vertical" ? Math.min(client, parseFloat(getComputedStyle(b.bar).insetBlockStart) || 0) : 0;
+      const view = client - b.inset;
+      const length = Math.max(0, view - 2 * endInset);
+      b.thumbLength = clamp(length * view / (view + max), Math.min(MIN_THUMB, length), length);
       b.travel = length - b.thumbLength;
       b.bar.style.setProperty("--ui-scroll-thumb-length", `${b.thumbLength}px`);
       b.bar.style.setProperty("--ui-scroll-thumb-travel", `${axis === "horizontal" && this.rtl ? -b.travel : b.travel}px`);
@@ -252,10 +256,10 @@ class ScrollState {
     // Along the bar from its start (the inline start for a horizontal bar), from the scroller's
     // geometry and scroll offset, not the drawn pills.
     const r = this.el.getBoundingClientRect();
-    const along = vertical ? e.clientY - r.top - this.el.clientTop
+    const along = vertical ? e.clientY - r.top - this.el.clientTop - b.inset
       : flip ? r.left + this.el.clientLeft + this.el.clientWidth - e.clientX
       : e.clientX - r.left - this.el.clientLeft;
-    const size = vertical ? this.el.clientHeight : this.el.clientWidth;
+    const size = vertical ? this.el.clientHeight - b.inset : this.el.clientWidth;
     if (along < b.endInset || along > size - b.endInset) return;
     capture(b.bar, e.pointerId);
     const step = () => {

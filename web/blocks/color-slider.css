@@ -1,0 +1,94 @@
+/*
+  ColorSlider (0041): a native <input type="range"> wearing the Slider (slider.css, 0031) with a
+  colour track, so the browser gives it the slider role, the value, the arrow, Page and Home/End
+  keys and form behaviour.
+
+    <input type="range" class="ui-slider ui-color-slider" min="0" max="255" value="124"
+           aria-label="Green" style="--ui-color-slider-stops: #000000, #00FF00">
+      + ui-vertical                                     vertical, the minimum at the bottom
+
+  The track is a full pill as thick as the thumb, showing the gradient over Fluent's checkerboard
+  with a 1 px hairline edge (the Slider thumb's edge); the thumb runs along it. The gradient is
+  --ui-color-slider-stops (colour stops from the minimum to the maximum), which the owner sets:
+  the ColorView (color-view.js) sets it from the colour. The thumb is the colour thumb: the Slider
+  thumb's size, shadow, edge and hover and press growth, drawn as a white ring 2 px wide between
+  two 1 px hairline edges with an open centre; disabled, the same ring at opacity 0.4. The focus
+  ring goes around the thumb (slider.css). The gradient keeps its full colour when disabled
+  (0041, known for later). Right to left reverses a horizontal slider, as the browser does, and
+  the gradient with it. Forced states: data-state="hover", "pressed" or "focus", as the Slider.
+*/
+.ui-slider.ui-color-slider {
+  /* The colour thumb's ring colour (Style), its own here for forced colours; the ring width,
+     disabled opacity and checkerboard are Style's, the edge, shadow, size and growth the
+     Slider thumb's (0031). */
+  --ui-color-slider-ring: var(--ui-color-thumb-ring-color);
+  --_ui-color-slider-direction: to right;
+  --ui-slider-row: var(--ui-slider-thumb-size);
+  --ui-slider-track-thickness: var(--ui-slider-thumb-size);
+}
+
+.ui-slider.ui-color-slider:dir(rtl) {
+  --_ui-color-slider-direction: to left;
+}
+
+.ui-slider.ui-color-slider.ui-vertical {
+  --_ui-color-slider-direction: to top;
+}
+
+/* The track: the gradient over the checkerboard, the hairline drawn over both. */
+.ui-slider.ui-color-slider::-webkit-slider-runnable-track {
+  border-radius: calc(var(--ui-slider-thumb-size) / 2);
+  background:
+    linear-gradient(var(--_ui-color-slider-direction), var(--ui-color-slider-stops, transparent, transparent)) border-box,
+    var(--ui-color-control-checkered-background) border-box;
+  box-shadow: inset 0 0 0 1px var(--ui-slider-thumb-edge);
+}
+
+.ui-slider.ui-color-slider::-moz-range-track {
+  border-radius: calc(var(--ui-slider-thumb-size) / 2);
+  background:
+    linear-gradient(var(--_ui-color-slider-direction), var(--ui-color-slider-stops, transparent, transparent)) border-box,
+    var(--ui-color-control-checkered-background) border-box;
+  box-shadow: inset 0 0 0 1px var(--ui-slider-thumb-edge);
+}
+
+.ui-slider.ui-color-slider::-moz-range-progress {
+  background: transparent;
+}
+
+/* The colour thumb: the ring between two hairlines, the centre open. */
+.ui-slider.ui-color-slider::-webkit-slider-thumb {
+  border-color: var(--ui-slider-thumb-edge);
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 var(--ui-color-thumb-ring-width) var(--ui-color-slider-ring),
+    inset 0 0 0 calc(var(--ui-color-thumb-ring-width) + 1px) var(--ui-slider-thumb-edge),
+    var(--ui-slider-thumb-shadow);
+  transition: scale var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-slider.ui-color-slider::-moz-range-thumb {
+  border-color: var(--ui-slider-thumb-edge);
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 var(--ui-color-thumb-ring-width) var(--ui-color-slider-ring),
+    inset 0 0 0 calc(var(--ui-color-thumb-ring-width) + 1px) var(--ui-slider-thumb-edge),
+    var(--ui-slider-thumb-shadow);
+  transition: scale var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-slider.ui-color-slider:disabled::-webkit-slider-thumb {
+  opacity: var(--ui-color-thumb-disabled-opacity);
+}
+
+.ui-slider.ui-color-slider:disabled::-moz-range-thumb {
+  opacity: var(--ui-color-thumb-disabled-opacity);
+}
+
+/* Forced colours: the gradient is the information and stays; the edges take the slider's thumb
+   edge (slider.css: ButtonText, GrayText when disabled). */
+@media (forced-colors: active) {
+  .ui-slider.ui-color-slider {
+    --ui-color-slider-ring: ButtonFace;
+  }
+}

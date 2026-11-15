@@ -37,9 +37,8 @@
   --ui-text-control-border-brush-focused: var(--ui-system-accent-color);
   --ui-text-control-border-brush-disabled: var(--ui-system-base-low-color);
   --ui-text-control-foreground: var(--ui-system-base-high-color);
-  /* Fluent's ChromeDisabledLow, which the library palette does not set. */
-  --ui-text-control-foreground-disabled: light-dark(#7A7A7A, #858585);
-  --ui-text-control-placeholder-foreground: var(--ui-system-base-medium-color);
+  /* --ui-text-control-placeholder-foreground and --ui-text-control-foreground-disabled are Style
+     tokens (colour.css), also read beside the fields. */
   --ui-text-control-button-foreground: var(--ui-system-base-medium-high-color);
   /* Fluent's TextControlThemeMinWidth and TextControlBorderThemeThickness. */
   --ui-text-control-theme-min-width: 64px;

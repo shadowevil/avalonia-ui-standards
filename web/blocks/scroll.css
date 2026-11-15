@@ -14,6 +14,10 @@
     18 px thick at the scroller's edge (8 gap + 8 pill + 2); the pills sit 8 px in and stop short of
     the ends by max(SpacingS, CornerRadiusOverlay / 2). data-scrollbar-auto-hide="false" keeps the
     thumb shown.
+  - Inset: --ui-scroll-inset-block-start on the scroller (0 by default) starts the vertical bar that
+    far below the viewport's top, for content that stays over the top while the rest scrolls under
+    it (a sticky header, as the DataGrid's); the track, thumb, end zones and paging use the shorter
+    bar. scroll-padding is not read for this, since scrollers use it to keep focus rings clear.
 */
 .ui-scroll {
   --ui-scroll-shadow-size: 12px;
@@ -159,7 +163,7 @@
 }
 
 .ui-scroll-bar[data-orientation="vertical"] {
-  inset-block: 0;
+  inset-block: var(--ui-scroll-inset-block-start, 0px) 0;
   inset-inline-end: 0;
   inline-size: calc(var(--ui-scroll-bar-edge-gap) + var(--ui-scroll-bar-full-width) + var(--ui-scroll-bar-inner-gap));
 }

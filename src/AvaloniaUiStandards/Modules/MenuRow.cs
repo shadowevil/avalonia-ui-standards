@@ -228,6 +228,7 @@ internal sealed class MenuRow : Menu
         WindowDecorationProperties.SetElementRole(added, WindowDecorationsElementRole.DecorationsElement);
         foreach (var item in AppTail(null)(parent))
             added.Items.Add(item);
+        KeepSeparatorsApart(added, parent);
         return added;
     }
 
@@ -259,9 +260,11 @@ internal sealed class MenuRow : Menu
         node.Subs.Add(menuItem.Bind(HeaderedSelectingItemsControl.HeaderProperty, native.GetObservable(NativeMenuItem.HeaderProperty)));
         node.Subs.Add(menuItem.Bind(IsEnabledProperty, native.GetObservable(NativeMenuItem.IsEnabledProperty)));
         // A title's visibility belongs to the folding; a hidden title is left out of the row instead.
+        // A separator's visibility is worked out from its neighbours (KeepSeparatorsApart).
         if (!isTitle)
         {
-            node.Subs.Add(menuItem.Bind(IsVisibleProperty, native.GetObservable(NativeMenuItem.IsVisibleProperty)));
+            if (native is not NativeMenuItemSeparator)
+                node.Subs.Add(menuItem.Bind(IsVisibleProperty, native.GetObservable(NativeMenuItem.IsVisibleProperty)));
             node.Subs.Add(menuItem.Bind(MenuItem.ToggleTypeProperty, native.GetObservable(NativeMenuItem.ToggleTypeProperty)));
             node.Subs.Add(menuItem.Bind(MenuItem.IsCheckedProperty, native.GetObservable(NativeMenuItem.IsCheckedProperty)));
             node.Subs.Add(menuItem.Bind(MenuItem.InputGestureProperty, native.GetObservable(NativeMenuItem.GestureProperty)));
@@ -288,8 +291,11 @@ internal sealed class MenuRow : Menu
             if (native.Menu is { } menu)
                 Fill(menuItem, menu, submenu, tail);
             else if (tail is not null)
+            {
                 foreach (var item in tail(submenu))
                     menuItem.Items.Add(item);
+                KeepSeparatorsApart(menuItem, submenu);
+            }
         }
         FillSubmenu();
         node.Subs.Add(native.GetObservable(NativeMenuItem.MenuProperty).Skip1(FillSubmenu));
@@ -309,9 +315,44 @@ internal sealed class MenuRow : Menu
             if (tail is not null)
                 foreach (var item in tail(level))
                     target.Items.Add(item);
+            KeepSeparatorsApart(target, level);
         }
         Refill();
         owner.Subs.Add(Observe(menu.Items, Refill));
+    }
+
+    /// <summary>
+    /// Shows a separator only between two shown items, never first, last or next to another shown separator, as native
+    /// menus do, and again whenever an item is shown or hidden. The subscriptions belong to <paramref name="owner"/>.
+    /// </summary>
+    private void KeepSeparatorsApart(ItemsControl target, Node owner)
+    {
+        NativeMenuItem? SeparatorOf(Control c) =>
+            c is MenuItem item && _natives.TryGetValue(item, out var native) && native is NativeMenuItemSeparator ? native : null;
+        bool IsSeparator(Control c) => c is Separator || SeparatorOf(c) is not null;
+        void Update()
+        {
+            var items = target.Items.OfType<Control>().ToList();
+            var last = items.FindLastIndex(c => !IsSeparator(c) && c.IsVisible);
+            var seen = false;
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (IsSeparator(items[i]))
+                {
+                    var shown = seen && i < last && (SeparatorOf(items[i])?.IsVisible ?? true);
+                    items[i].IsVisible = shown;
+                    if (shown)
+                        seen = false;
+                }
+                else if (items[i].IsVisible)
+                    seen = true;
+            }
+        }
+        foreach (var item in target.Items.OfType<MenuItem>())
+            owner.Subs.Add(SeparatorOf(item) is { } separator
+                ? separator.GetObservable(NativeMenuItem.IsVisibleProperty).Skip1(Update)
+                : item.GetObservable(IsVisibleProperty).Skip1(Update));
+        Update();
     }
 
     /// <summary>

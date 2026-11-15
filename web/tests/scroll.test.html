@@ -19,13 +19,14 @@
 <div id="rtl" class="viewer ui-scroll" dir="rtl"><div class="wide"></div></div>
 <div id="short" class="viewer ui-scroll"><div class="line">One line</div></div>
 <div id="live" class="viewer ui-scroll"></div>
+<div id="inset" class="viewer ui-scroll" style="height: 150px; --ui-scroll-inset-block-start: 30px"></div>
 <script type="module">
 import { test, assert, assertEqual } from "./harness.js";
 import { setTheme, setAccent } from "../style/index.js";
 import { refreshScroll, forceScrollbarState } from "../blocks/scroll.js";
 
 const $ = (id) => document.getElementById(id);
-for (const id of ["v", "live"]) $(id).innerHTML = Array.from({ length: 20 }, (_, i) => `<div class="line">Line ${i + 1}</div>`).join("");
+for (const id of ["v", "live", "inset"]) $(id).innerHTML = Array.from({ length: 20 }, (_, i) => `<div class="line">Line ${i + 1}</div>`).join("");
 const frame = () => new Promise((r) => { requestAnimationFrame(() => r()); setTimeout(r, 100); });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const overlay = (el) => el.querySelector(":scope > .ui-scroll-overlay");
@@ -304,6 +305,32 @@ test("a press on the track pages towards it; the end zones do not page", () => {
   assertEqual(el.scrollTop, 110, "end zone");
   press(r.top + 9);
   assertEqual(el.scrollTop, 0, "one page up");
+});
+
+test("--ui-scroll-inset-block-start starts the vertical bar lower; track, thumb and paging use the shorter bar", () => {
+  const el = $("inset");
+  el.scrollTop = 0;
+  refreshScroll(el);
+  const r = overlay(el).getBoundingClientRect();
+  const b = bar(el, "vertical").getBoundingClientRect();
+  assertEqual(Math.round(b.top - r.top), 30, "below the inset");
+  assertEqual(Math.round(r.bottom - b.bottom), 0, "to the bottom");
+  const track = part(el, "vertical", "track").getBoundingClientRect();
+  assertEqual(Math.round(track.top - r.top), 38, "end inset below the inset");
+  assertEqual(Math.round(r.bottom - track.bottom), 8);
+  // 120 px of viewport under the inset, 350 more: a 104 px track gives 104 * 120 / 470.
+  const thumb = part(el, "vertical", "thumb").getBoundingClientRect().height;
+  assert(Math.abs(thumb - 104 * 120 / 470) < 0.25, `thumb length ${thumb}`);
+  const press = (y) => {
+    bar(el, "vertical").dispatchEvent(new PointerEvent("pointerdown", { clientX: r.right - 9, clientY: y, button: 0, bubbles: true, cancelable: true, pointerId: 9, pointerType: "mouse" }));
+    bar(el, "vertical").dispatchEvent(new PointerEvent("pointerup", { clientX: r.right - 9, clientY: y, bubbles: true, pointerId: 9, pointerType: "mouse" }));
+  };
+  press(r.top + 34);
+  assertEqual(el.scrollTop, 0, "the end zone under the inset does not page");
+  press(r.bottom - 20);
+  assertEqual(el.scrollTop, 120, "a page is the viewport under the inset");
+  assertEqual(getComputedStyle($("v")).getPropertyValue("--ui-scroll-inset-block-start"), "", "other scrollers keep no inset");
+  el.scrollTop = 0;
 });
 
 test("motion: fades and widening over MotionFast once live; instant under reduce motion", async () => {

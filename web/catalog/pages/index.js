@@ -26,6 +26,8 @@ import treeView from "./tree-view.js";
 import numericUpDown from "./numeric-up-down.js";
 import autoCompleteBox from "./auto-complete-box.js";
 import pickers from "./pickers.js";
+import dataGrid from "./data-grid.js";
+import colorPicker from "./color-picker.js";
 
 export const pages = Object.freeze([
   colours,
@@ -52,4 +54,6 @@ export const pages = Object.freeze([
   tooltipNotification,
   pickers,
   separator,
+  dataGrid,
+  colorPicker,
 ]);

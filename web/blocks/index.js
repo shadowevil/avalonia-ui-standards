@@ -23,3 +23,7 @@ import "./calendar.js";
 import "./date-picker.js";
 import "./time-picker.js";
 import "./calendar-date-picker.js";
+import "./data-grid.js";
+import "./color-spectrum.js";
+export { parseColor, formatColor, displayName } from "./color-view.js";
+import "./color-picker.js";

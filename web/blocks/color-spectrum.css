@@ -1,0 +1,123 @@
+/*
+  ColorSpectrum (0041): <ui-color-spectrum>, the two-dimensional hue and saturation area of the
+  ColorView. color-spectrum.js builds its parts and wires the role, the keys and the pointer:
+
+    <ui-color-spectrum aria-label="Spectrum"></ui-color-spectrum>          shape="ring" for the ring
+
+  The box is a squircle with CornerRadiusControl and a 1 px hairline edge (the Slider thumb's
+  edge, 0031); the ring keeps Fluent's ellipse with the same edge. Hue runs along the box (around
+  the ring) and saturation up it (out from the ring's centre), drawn at full value, as Fluent's
+  spectrum shows it (the value is the ColorView's slider beside it). The selector is the colour thumb (as on the ColorSlider):
+  the Slider thumb's size, shadow, edge and hover and press growth, a white ring 2 px wide between
+  two 1 px hairlines with an open centre, never clipped; 48 px under a touch press (Fluent's large
+  selector); the same ring at opacity 0.4 when disabled. Keyboard focus shows the focus ring around
+  the selector. The area keeps its full colour when disabled (0041, known for later). Right to
+  left mirrors the area. Forced states: data-state="hover", "pressed" or "focus".
+*/
+:where(ui-color-spectrum) {
+  /* The colour thumb (0041): size, shadow, growth, ring width, disabled opacity and the
+     spectrum's side are Style's (shape.css); the edge and ring colours are this Block's, from
+     Style, so forced colours can replace them here. Fluent's large touch selector is 48. */
+  --ui-color-spectrum-large-thumb-size: 48px;
+  --ui-color-spectrum-edge: var(--ui-thumb-edge-color);
+  --ui-color-spectrum-ring: var(--ui-color-thumb-ring-color);
+}
+
+ui-color-spectrum {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  --_scale: 1;
+  --_hue-stops: #FF0000, #FFFF00, #00FF00, #00FFFF, #0000FF, #FF00FF, #FF0000;
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  inline-size: var(--ui-color-spectrum-size);
+  block-size: var(--ui-color-spectrum-size);
+  vertical-align: middle;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+  cursor: default;
+}
+
+/* The area: white (saturation) over the hues, at full value, as Fluent's. */
+.ui-color-spectrum-area {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--ui-color-spectrum-edge);
+  background:
+    linear-gradient(to top, #FFFFFF, #FFFFFF00) border-box,
+    linear-gradient(to right, var(--_hue-stops)) border-box;
+}
+
+ui-color-spectrum[shape="ring"] .ui-color-spectrum-area {
+  border-radius: 50%;
+  corner-shape: round;
+  background:
+    radial-gradient(closest-side, #FFFFFF, #FFFFFF00) border-box,
+    conic-gradient(from 90deg, var(--_hue-stops)) border-box;
+}
+
+ui-color-spectrum:dir(rtl) .ui-color-spectrum-area {
+  scale: -1 1;
+}
+
+/* The selector: centred on the colour's point, placed by color-spectrum.js (--_x, --_y, 0 to 1
+   from the physical left and top; the script mirrors x right to left, as the area is mirrored). */
+.ui-color-spectrum-thumb {
+  position: absolute;
+  inset-block-start: calc(var(--_y, 0) * 100%);
+  left: calc(var(--_x, 0) * 100%);
+  box-sizing: border-box;
+  inline-size: var(--ui-thumb-size);
+  block-size: var(--ui-thumb-size);
+  border: 1px solid var(--ui-color-spectrum-edge);
+  border-radius: 50%;
+  corner-shape: round;
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 var(--ui-color-thumb-ring-width) var(--ui-color-spectrum-ring),
+    inset 0 0 0 calc(var(--ui-color-thumb-ring-width) + 1px) var(--ui-color-spectrum-edge),
+    var(--ui-thumb-shadow);
+  translate: -50% -50%;
+  scale: var(--_scale);
+  pointer-events: none;
+  transition:
+    scale var(--ui-motion-fast) var(--ui-motion-easing),
+    inline-size var(--ui-motion-fast) var(--ui-motion-easing),
+    block-size var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+ui-color-spectrum:is(:hover, [data-state~="hover"]):not([aria-disabled="true"]) {
+  --_scale: var(--ui-thumb-hover-scale);
+}
+
+ui-color-spectrum:is([data-pressed], [data-state~="pressed"]):not([aria-disabled="true"]) {
+  --_scale: var(--ui-thumb-pressed-scale);
+}
+
+ui-color-spectrum[data-large] .ui-color-spectrum-thumb {
+  inline-size: var(--ui-color-spectrum-large-thumb-size);
+  block-size: var(--ui-color-spectrum-large-thumb-size);
+}
+
+ui-color-spectrum:is(:focus-visible, [data-state~="focus"]) .ui-color-spectrum-thumb {
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring-color);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
+ui-color-spectrum[aria-disabled="true"] .ui-color-spectrum-thumb {
+  opacity: var(--ui-color-thumb-disabled-opacity);
+}
+
+@media (forced-colors: active) {
+  ui-color-spectrum {
+    forced-color-adjust: none;
+    --ui-color-spectrum-edge: CanvasText;
+    --ui-color-spectrum-ring: Canvas;
+  }
+
+  ui-color-spectrum[aria-disabled="true"] {
+    --ui-color-spectrum-edge: GrayText;
+  }
+}

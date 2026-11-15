@@ -1,0 +1,48 @@
+/*
+  ColorPicker (0041): <ui-color-picker> (color-picker.js builds its parts and has the markup).
+  The field is the closed ComboBox field (combobox.css, 0028): the ui-field chrome, density height,
+  1 px border, the ComboBox colours with no pressed look, keyboard focus showing the ring and
+  pointer focus nothing, and the square caret zone with caret-down. The colour chip (color-view.css)
+  fills the rest, sized and inset as a field button (0027: 24 px, 20 at Compact, the field-button
+  inset from the outer edge) with the field button's radius, so it is concentric with the field.
+  Fluent's minimum width 64 is the field's. Disabled, the field, border and caret take their
+  disabled looks and the chip keeps its colour (0041, known for later).
+  The flyout is the library's glass flyout (flyout.css, 0036: its radius, padding, top layer and
+  fade) holding the ColorView, below the field, start edges lined up, SpacingXS apart; flipped
+  above when there is no room.
+*/
+ui-color-picker {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.ui-color-picker-field {
+  inline-size: 100%;
+}
+
+/* The chip, or the content that replaces it, fills the field up to the caret zone. */
+.ui-color-picker-field > :is(.ui-color-picker-chip, .ui-color-picker-content) {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  margin-inline-start: calc(var(--ui-field-button-inset) - var(--ui-text-control-border-width));
+}
+
+.ui-color-picker-chip {
+  --ui-squircle-radius: var(--ui-field-button-radius);
+  block-size: var(--ui-field-button-size);
+}
+
+.ui-color-picker-content {
+  display: flex;
+  align-items: center;
+}
+
+/* Pressed keeps the hover look (no pressed look, as the ComboBox field). */
+button.ui-color-picker-field:is(:hover, :active, [data-state~="hover"]):not(:disabled) {
+  background-color: var(--ui-text-control-background-pointer-over);
+  border-color: var(--ui-text-control-border-brush-pointer-over);
+}
+
+.ui-flyout.ui-color-picker-flyout {
+  --ui-flyout-offset: var(--ui-spacing-xs);
+}

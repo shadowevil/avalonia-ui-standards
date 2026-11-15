@@ -159,31 +159,92 @@ public class StandardsWindowTests
     [InlineData(1408, 851, 1376, 819)] // exactly the working area
     [InlineData(1500, 600, 1376, 600)] // too wide only
     [InlineData(1000, 700, 1000, 700)] // fits
-    public void OpeningSize_ASideReachingTheWorkingArea_StaysSpacingLFromItsEdges(double w, double h, double fittedW, double fittedH) =>
-        Assert.Equal(new Size(fittedW, fittedH), StandardsWindow.FitOpeningSize(new Size(w, h), new Size(1408, 851)));
+    public void OpeningSize_OnTheNativeMacOSFrame_ASideReachingTheWorkingArea_StaysSpacingLFromItsEdges(double w, double h, double fittedW, double fittedH) =>
+        Assert.Equal(new Size(fittedW, fittedH), StandardsWindow.FitOpeningSize(new Size(w, h), new Size(1408, 851), nativeMacOSFrame: true));
+
+    [Theory]
+    [InlineData(1440, 900, 1408, 851)] // larger both ways
+    [InlineData(1500, 600, 1408, 600)] // too wide only
+    [InlineData(1408, 851, 1408, 851)] // exactly the working area stays
+    [InlineData(1000, 700, 1000, 700)] // fits
+    public void OpeningSize_OnADrawnFrame_ASideLargerThanTheWorkingAreaBecomesTheWorkingArea(double w, double h, double fittedW, double fittedH) =>
+        Assert.Equal(new Size(fittedW, fittedH), StandardsWindow.FitOpeningSize(new Size(w, h), new Size(1408, 851), nativeMacOSFrame: false));
 
     [AvaloniaFact]
-    public void OpeningSize_OnTheNativeMacOSFrame_FitsInsideTheWorkingArea()
+    public void OpeningSize_FitsInsideTheWorkingArea_OnBothFrames_AndStaysCentred()
     {
-        var native = new StandardsWindow(nativeFrame: true) { Width = 20000, Height = 20000 };
-        var drawn = new StandardsWindow(nativeFrame: false) { Width = 20000, Height = 20000 };
+        var native = new StandardsWindow(nativeFrame: true) { Width = 20000, Height = 20000, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        var drawn = new StandardsWindow(nativeFrame: false) { Width = 20000, Height = 20000, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        var fits = new StandardsWindow(nativeFrame: false) { Width = 600, Height = 400 };
         try
         {
             var screen = native.Screens.ScreenFromWindow(native) ?? native.Screens.Primary;
             Assert.NotNull(screen);
             native.Show();
             drawn.Show();
+            fits.Show();
             var area = screen.WorkingArea.Size.ToSize(screen.Scaling);
+            // The native macOS frame keeps its inset (Avalonia.Native's maximised check needs it).
             Assert.Equal(area.Width - 2 * Spacing.L, native.Width);
             Assert.Equal(area.Height - 2 * Spacing.L, native.Height);
             Assert.Equal(WindowState.Normal, native.WindowState);
-            // The drawn frame (Linux, Windows, headless renders) is left as asked.
-            Assert.Equal(20000, drawn.Width);
+            // The drawn frame takes the working area.
+            Assert.Equal(area.Width, drawn.Width);
+            Assert.Equal(area.Height, drawn.Height);
+            // A window that fits is left as asked.
+            Assert.Equal(new Size(600, 400), new Size(fits.Width, fits.Height));
+            // Both fitted windows are centred in the working area.
+            foreach (var window in new[] { native, drawn })
+            {
+                var centre = new Point(window.Position.X + window.Width * screen.Scaling / 2, window.Position.Y + window.Height * screen.Scaling / 2);
+                Assert.InRange(centre.X, screen.WorkingArea.Center.X - 1, screen.WorkingArea.Center.X + 1);
+                Assert.InRange(centre.Y, screen.WorkingArea.Center.Y - 1, screen.WorkingArea.Center.Y + 1);
+                // ... and inside it.
+                Assert.True(window.Position.X >= screen.WorkingArea.X && window.Position.Y >= screen.WorkingArea.Y);
+                Assert.True(window.Position.X + window.Width * screen.Scaling <= screen.WorkingArea.Right + 1);
+                Assert.True(window.Position.Y + window.Height * screen.Scaling <= screen.WorkingArea.Bottom + 1);
+            }
         }
         finally
         {
             native.Close();
             drawn.Close();
+            fits.Close();
+        }
+    }
+
+    // The child is too wide, so it is fitted, and tall enough to have room to move: its vertical position follows the owner.
+    [AvaloniaTheory]
+    [InlineData(false)] // owner mid-screen: the child's centre is the owner's centre
+    [InlineData(true)] // owner at the bottom edge: the clamp keeps the child inside the working area
+    public void OpeningSize_CenterOwner_CentresOnTheOwner_ClampedInsideTheWorkingArea(bool nearEdge)
+    {
+        var owner = new StandardsWindow(nativeFrame: false) { Width = 600, Height = 400 };
+        StandardsWindow? child = null;
+        try
+        {
+            owner.Show();
+            var screen = owner.Screens.ScreenFromWindow(owner) ?? owner.Screens.Primary;
+            Assert.NotNull(screen);
+            var area = screen.WorkingArea;
+            var ownerHeight = (int)Math.Round(owner.Bounds.Height * screen.Scaling);
+            owner.Position = new PixelPoint(area.X + area.Width / 3, nearEdge ? area.Bottom - ownerHeight : area.Y + (area.Height - ownerHeight) / 2);
+            Pump(owner);
+            child = new StandardsWindow(nativeFrame: false) { Width = 20000, Height = 600, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            child.Show(owner);
+            var childHeight = (int)Math.Round(child.Height * screen.Scaling);
+            Assert.True(child.Width * screen.Scaling <= area.Width + 1);
+            Assert.True(child.Position.Y >= area.Y && child.Position.Y + childHeight <= area.Bottom + 1);
+            var ownerCentreY = owner.Position.Y + ownerHeight / 2.0;
+            if (nearEdge)
+                Assert.True(Math.Abs(child.Position.Y + childHeight / 2.0 - ownerCentreY) > 1); // moved up to stay inside
+            else
+                Assert.InRange(child.Position.Y + childHeight / 2.0, ownerCentreY - 1, ownerCentreY + 1);
+        }
+        finally
+        {
+            child?.Close();
+            owner.Close();
         }
     }
 

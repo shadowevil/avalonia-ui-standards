@@ -39,7 +39,7 @@
 :where(.ui-slider) {
   /* The row across the track (height, or width when vertical): the button heights. */
   --ui-slider-row: var(--ui-control-min-height);
-  --ui-slider-thumb-size: 20px;
+  --ui-slider-thumb-size: var(--ui-thumb-size);
   --ui-slider-track-thickness: 4px;
   --ui-slider-tick-length: var(--ui-spacing-xs);
   --ui-slider-tick-gap: var(--ui-spacing-xs);
@@ -47,20 +47,16 @@
   --ui-slider-value-fill: var(--ui-accent-fill-color);
   --ui-slider-rest-fill: var(--ui-system-base-medium-low-color);
   --ui-slider-tick-fill: var(--ui-system-base-medium-low-color);
-  /* The thumb's design (0031): white in both themes, a black 12 % edge, a soft shadow. */
+  /* The thumb's design (0031): white in both themes, the thumb edge and shadow (Style). */
   --ui-slider-thumb-fill: #FFFFFF;
-  --ui-slider-thumb-edge: #0000001F;
-  --ui-slider-thumb-shadow: 0 1px 3px #00000040;
+  --ui-slider-thumb-edge: var(--ui-thumb-edge-color);
+  --ui-slider-thumb-shadow: var(--ui-thumb-shadow);
   --ui-slider-thumb-scale: 1;
-  --ui-slider-hover-scale: 1.1;
-  --ui-slider-pressed-scale: 1.2;
+  --ui-slider-hover-scale: var(--ui-thumb-hover-scale);
+  --ui-slider-pressed-scale: var(--ui-thumb-pressed-scale);
   /* Fluent's SliderTrackFillDisabled and SystemControlErrorTextForegroundBrush. */
   --ui-slider-track-fill-disabled: light-dark(#CCCCCC, #333333);
   --ui-slider-thumb-fill-error: light-dark(#C50500, #FFF000);
-}
-
-:root[data-density="compact"] :where(.ui-slider) {
-  --ui-slider-thumb-size: 16px;
 }
 
 .ui-slider {
