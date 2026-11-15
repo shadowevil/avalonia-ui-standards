@@ -71,6 +71,9 @@ public class StandardsWindow : Window, IFrameTickSource
     public static readonly DirectProperty<StandardsWindow, Rect> ContentPanelBoundsProperty =
         AvaloniaProperty.RegisterDirect<StandardsWindow, Rect>(nameof(ContentPanelBounds), w => w.ContentPanelBounds);
 
+    public static readonly DirectProperty<StandardsWindow, BackdropRegion> BackdropVisibleRegionProperty =
+        AvaloniaProperty.RegisterDirect<StandardsWindow, BackdropRegion>(nameof(BackdropVisibleRegion), w => w.BackdropVisibleRegion);
+
     private WindowButtons? _buttons;
     private Image? _titleIcon;
     private WindowLayoutMode _resolvedLayoutMode = WindowLayout.Resolve(WindowLayoutMode.Automatic, OperatingSystem.IsMacOS());
@@ -97,6 +100,9 @@ public class StandardsWindow : Window, IFrameTickSource
     // The panel and its containers up to the frame's layer panel: any of them moving moves the panel.
     private List<Visual> _panelChain = [];
     private Rect _contentPanelBounds;
+    private BackdropRegion _backdropVisibleRegion = BackdropRegion.Empty;
+    private Control? _backdrop;
+    private IDisposable? _regionsListener;
     private readonly FrameTicker _ticker;
     private EventHandler<FrameTickEventArgs>? _frameTick;
 
@@ -220,6 +226,22 @@ public class StandardsWindow : Window, IFrameTickSource
     {
         get => _contentPanelBounds;
         private set => SetAndRaise(ContentPanelBoundsProperty, ref _contentPanelBounds, value);
+    }
+
+    /// <summary>
+    /// The part of the <see cref="Backdrop"/> that can be seen or that glass reads, in the backdrop's coordinates: the
+    /// frame's interior less the opaque regions above the backdrop (<see cref="OpaqueRegion"/>, and solid glass with an
+    /// opaque tint), each shrunk by how far glass reads beyond what it shows. The backdrop is clipped to it. Updated,
+    /// with a property change, when it changes, so an animated backdrop can skip work that cannot be seen.
+    /// </summary>
+    public BackdropRegion BackdropVisibleRegion
+    {
+        get => _backdropVisibleRegion;
+        private set
+        {
+            if (!value.Equals(_backdropVisibleRegion))
+                SetAndRaise(BackdropVisibleRegionProperty, ref _backdropVisibleRegion, value);
+        }
     }
 
     /// <summary>
@@ -389,6 +411,8 @@ public class StandardsWindow : Window, IFrameTickSource
         if (_buttons is not null)
             _buttons.Clicked += OnWindowButton;
         _frame = e.NameScope.Find<SquircleBorder>(StandardsWindowTheme.FramePart);
+        _backdrop = e.NameScope.Find<Control>(StandardsWindowTheme.BackdropPart);
+        ListenToRegions();
         ReleaseTitleIcon();
         _titleIcon = e.NameScope.Find<Image>(StandardsWindowTheme.TitleIconPart);
         UpdateTitleIcon();
@@ -737,6 +761,61 @@ public class StandardsWindow : Window, IFrameTickSource
     {
         if (e.Property == BoundsProperty)
             UpdateContentPanelBounds();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        ListenToRegions();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _regionsListener?.Dispose();
+        _regionsListener = null;
+    }
+
+    private void ListenToRegions()
+    {
+        _regionsListener?.Dispose();
+        _regionsListener = _backdrop is not null && BackdropRegions.For(this) is { } regions
+            ? regions.Listen(() => UpdateBackdropRegion(regions))
+            : null;
+    }
+
+    // The frame's interior less the opaque regions drawn above the backdrop, each shrunk by the glass read reach, and
+    // the backdrop clipped to it.
+    private void UpdateBackdropRegion(BackdropRegions regions)
+    {
+        if (_backdrop is not { } backdrop || _frame?.Child is not Visual layers)
+            return;
+        var reach = regions.Reach;
+        var holes = regions.OpaqueIn(layers, s => s != backdrop && !backdrop.IsVisualAncestorOf(s))
+            .Select(r => r.Deflate(reach));
+        var area = new Rect(layers.Bounds.Size);
+        var region = BackdropRegion.Create(area, holes);
+        if (region.Equals(BackdropVisibleRegion))
+            return;
+        BackdropVisibleRegion = region;
+        backdrop.Clip = region.Rects.Count == 1 && region.Rects[0] == area ? null : BackdropClip(region);
+    }
+
+    private static Avalonia.Media.Geometry BackdropClip(BackdropRegion region)
+    {
+        var geometry = new Avalonia.Media.StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            foreach (var r in region.Rects)
+            {
+                c.BeginFigure(r.TopLeft, true);
+                c.LineTo(r.TopRight);
+                c.LineTo(r.BottomRight);
+                c.LineTo(r.BottomLeft);
+                c.EndFigure(true);
+            }
+        }
+        return geometry;
     }
 
     // The backdrop fills the frame's layer panel from its origin, so the panel's position in

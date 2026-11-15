@@ -11,6 +11,7 @@
     - **Why:** Settings with a few options read best as segmented controls ([0032](0032-segmented-control.md)); the band gives them a row of their own and keeps every setting reachable at any width. Motion and transparency share their options, so the icons tell them apart. The accent has more choices than fit in a band, so the band shows the current colour and the choices open as a menu; the chevron shows the button opens one. A check mark rather than the radio dot marks the chosen preset: it shows the chosen colour without a selection fill.
   - Every control page shows its variants × states side by side (rest, hover, pressed, disabled, focused) next to a live row.
   - Style pages show the actual theme values.
+  - The Glass page also shows an opaque card in the window's glass panel (marked with `OpaqueRegion.IsOpaque`, with a switch to unmark it) and a live readout of the window's `BackdropVisibleRegion`: its number of rectangles and the share of the frame they cover ([0015](0015-glass.md), [0022](0022-window-layout.md)).
   - It uses the library as apps do ([0017](0017-app-usage.md)).
   - It uses only library controls once they exist. It moves into the window of [0022](0022-window-layout.md) once the window frame, title band, content panel and status bar are done; its sidebar is the `Sidebar` Module ([0034](0034-sidebar.md)), one row per page with an icon from `Icons`.
   - The test project renders every catalog page (full height) to PNG, in light and dark.

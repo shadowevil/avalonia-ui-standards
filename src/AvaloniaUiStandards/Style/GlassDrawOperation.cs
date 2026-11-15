@@ -8,9 +8,10 @@ using SkiaSharp;
 namespace AvaloniaUiStandards.Style;
 
 /// <summary>
-/// Draws the glass fill in one Skia backdrop layer clipped to the squircle path. Its filter
-/// refracts and blurs the backdrop, then lays the tint over it. Without runtime effects
-/// refraction is skipped; without Skia it falls back to a solid fill.
+/// Draws the glass fill in one Skia backdrop layer clipped to the squircle path, less the opaque
+/// regions of the glass's content. Its filter refracts and blurs the backdrop, then lays the tint
+/// over it. Without runtime effects refraction is skipped; without Skia it falls back to a solid
+/// fill. Glass that reads the shared backdrop sample draws with <see cref="GlassSharedFillOperation"/>.
 /// </summary>
 internal sealed class GlassDrawOperation : ICustomDrawOperation
 {
@@ -30,17 +31,24 @@ internal sealed class GlassDrawOperation : ICustomDrawOperation
     }
 
     private readonly Parameters _p;
+    private readonly Rect[] _skip;
     private SKPath? _path;
     private SKImageFilter? _backdrop;
     private double _deviceScale;
 
-    public GlassDrawOperation(Parameters parameters) => _p = parameters;
+    /// <param name="parameters">The fill.</param>
+    /// <param name="skip">Opaque regions of the glass's content, in its coordinates, which the fill leaves out.</param>
+    public GlassDrawOperation(Parameters parameters, Rect[]? skip = null)
+    {
+        _p = parameters;
+        _skip = skip ?? [];
+    }
 
     public Rect Bounds => _p.Rect;
 
     public bool HitTest(Point p) => _p.Rect.Contains(p);
 
-    public bool Equals(ICustomDrawOperation? other) => other is GlassDrawOperation o && o._p == _p;
+    public bool Equals(ICustomDrawOperation? other) => other is GlassDrawOperation o && o._p == _p && o._skip.AsSpan().SequenceEqual(_skip);
 
     public override bool Equals(object? obj) => obj is ICustomDrawOperation o && Equals(o);
 
@@ -73,6 +81,8 @@ internal sealed class GlassDrawOperation : ICustomDrawOperation
 
         canvas.Save();
         canvas.ClipPath(_path, SKClipOperation.Intersect, true);
+        foreach (var r in _skip)
+            canvas.ClipRect(ToSkRect(r), SKClipOperation.Difference);
 
         using var layerPaint = new SKPaint { Color = SKColors.White.WithAlpha(ToByte(opacity)) };
         var layer = new SKCanvasSaveLayerRec

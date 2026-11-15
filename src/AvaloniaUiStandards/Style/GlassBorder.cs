@@ -22,6 +22,10 @@ namespace AvaloniaUiStandards.Style;
 /// The 1 px border is counted in layout, so the child sits inside it, and is drawn above the
 /// child, so a child with a background does not cover it at the corners.
 /// The decorator manages its own <see cref="Visual.Clip"/>.
+/// The fill leaves out the opaque regions of its content (<see cref="OpaqueRegion"/>). First-level
+/// glass in a window that takes a shared backdrop sample (<c>StandardsWindow</c>) reads that one
+/// blurred sample instead of blurring the backdrop itself; the solid fallback with an opaque tint
+/// counts as an opaque region.
 /// </remarks>
 public class GlassBorder : Decorator
 {
@@ -133,6 +137,8 @@ public class GlassBorder : Decorator
     internal const double MinimalBelow = 64;
 
     private readonly BorderOverlay _borderOverlay;
+    private BackdropRegions? _regions;
+    private bool _isSource;
     private ShapeKey? _shapeKey;
     private Geometry? _fill;
     private Geometry? _stroke;
@@ -302,6 +308,54 @@ public class GlassBorder : Decorator
         {
             UpdateNestedGlass();
         }
+        if (change.Property == TintColorProperty || change.Property == BlurSigmaProperty || change.Property == RefractionStrengthProperty
+            || change.Property == ChromaticDispersionProperty || change.Property == BackdropScaleProperty)
+            UpdateRegions();
+    }
+
+    /// <summary>The scale refraction and blur run at (<see cref="DefaultBackdropScale"/>).</summary>
+    internal double BackdropScale => GetValue(BackdropScaleProperty);
+
+    /// <summary>How far, in px, refraction displaces the backdrop inward at most; 0 for minimal and solid glass.</summary>
+    internal double RefractionReach => IsSolid || IsMinimal ? 0 : RefractionStrength * (1 + Math.Max(0, ChromaticDispersion));
+
+    /// <summary>How far, in px, the fill reads the backdrop beyond a pixel it draws: three blur sigmas plus <see cref="RefractionReach"/>.</summary>
+    internal double ReadReach => IsSolid ? 0 : 3 * BlurSigma + RefractionReach;
+
+    /// <summary>Whether the glass draws the solid fallback with an opaque tint, so it counts as an opaque region.</summary>
+    internal bool IsOpaqueFill => IsSolid && TintColor.A == 255;
+
+    /// <summary>The opaque regions of the glass's content, in its coordinates, which its fill leaves out.</summary>
+    internal Rect[] Skip { get; private set; } = [];
+
+    /// <summary>The shared backdrop sampler of the plane the glass sits on, or null (it then blurs the backdrop itself).</summary>
+    internal GlassBackdropSampler? Sampler { get; private set; }
+
+    /// <summary>Whether the fill reads the shared backdrop sample.</summary>
+    internal bool ReadsSharedSample => Sampler?.Accepts(this) == true;
+
+    internal void SetSkip(Rect[] skip)
+    {
+        if (skip.AsSpan().SequenceEqual(Skip))
+            return;
+        Skip = skip;
+        InvalidateVisual();
+    }
+
+    // Keeps the glass's place among the opaque regions and samplers in step with how it draws.
+    private void UpdateRegions()
+    {
+        if (_regions is null)
+            return;
+        if (IsOpaqueFill != _isSource)
+        {
+            _isSource = IsOpaqueFill;
+            if (_isSource)
+                BackdropRegions.AddSource(this);
+            else
+                BackdropRegions.RemoveSource(this);
+        }
+        _regions.Refresh();
     }
 
     /// <summary>The number of glass levels drawn as glass; a glass inside that many glass ancestors is solid.</summary>
@@ -343,9 +397,14 @@ public class GlassBorder : Decorator
         if (Nested != wasNested)
             InvalidateVisual();
         if (IsSolid == wasSolid)
+        {
+            if (Nested != wasNested)
+                UpdateRegions();
             return;
+        }
         InvalidateVisual();
         _borderOverlay.InvalidateVisual();
+        UpdateRegions();
         UpdateInnerGlass();
     }
 
@@ -370,6 +429,7 @@ public class GlassBorder : Decorator
             _inPopupWindow = value;
             InvalidateVisual();
             _borderOverlay.InvalidateVisual();
+            UpdateRegions();
             UpdateInnerGlass();
         }
     }
@@ -379,8 +439,24 @@ public class GlassBorder : Decorator
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        Sampler = BackdropPlane.SamplerFor(this);
+        _regions = BackdropRegions.For(this);
+        _regions?.AddGlass(this);
         InPopupWindow = IsPopupWindow(TopLevel.GetTopLevel(this));
         UpdateNestedGlass();
+        UpdateRegions();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (_isSource)
+            BackdropRegions.RemoveSource(this, e.RootVisual);
+        _isSource = false;
+        _regions?.RemoveGlass(this);
+        _regions = null;
+        Sampler = null;
+        Skip = [];
     }
 
     /// <summary>True for a popup's own OS window; false for a window, and for the overlay layer, which is part of its window.</summary>
@@ -400,9 +476,14 @@ public class GlassBorder : Decorator
         }
         else
         {
-            context.Custom(new GlassDrawOperation(new GlassDrawOperation.Parameters(
+            var parameters = new GlassDrawOperation.Parameters(
                 new Rect(size), CornerRadius, GetValue(SmoothingProperty), TintColor, TintOpacity, BlurSigma,
-                IsMinimal ? 0 : RefractionStrength, RefractionEdge, IsMinimal ? 0 : ChromaticDispersion, GetValue(BackdropScaleProperty))));
+                IsMinimal ? 0 : RefractionStrength, RefractionEdge, IsMinimal ? 0 : ChromaticDispersion, BackdropScale);
+            if (Sampler is { } sampler && sampler.Accepts(this))
+                context.Custom(new GlassSharedFillOperation(sampler.Sample,
+                    new SampleConsumer(this, Skip), parameters, Skip));
+            else
+                context.Custom(new GlassDrawOperation(parameters, Skip));
         }
     }
 

@@ -42,6 +42,7 @@ internal static class StandardsWindowTheme
     public const string ContentPanelPart = "PART_ContentPanel";
     public const string ContentScrollViewerPart = "PART_ContentScrollViewer";
     public const string BackdropPart = "PART_Backdrop";
+    public const string BackdropSamplerPart = "PART_BackdropSampler";
     public const string StatusBarPart = "PART_StatusBar";
     public const string ResizeGripsPart = "PART_ResizeGrips";
     public const string TopPart = "PART_Top";
@@ -315,29 +316,29 @@ internal static class StandardsWindowTheme
         });
         var panel = Named(new GlassBorder { Child = scroller }, ContentPanelPart);
 
-        // Frame (the backdrop behind everything in it), shadow and resize grips.
+        // Frame (the backdrop behind everything in it), shadow and resize grips. The sampler right after the backdrop
+        // takes the shared backdrop sample that first-level glass on the window's layers reads; the top (with the full
+        // screen reveal sheet, drawn over the content) takes its own.
         var backdrop = Named(Slot(StandardsWindow.BackdropProperty), BackdropPart);
-        var frame = Named(new SquircleBorder
+        var sampler = new GlassBackdropSampler { Name = BackdropSamplerPart };
+        sampler.Bind(GlassBackdropSampler.BlurSigmaProperty, new DynamicResourceExtension("GlassBlurSigma"));
+        var layers = new DockPanel
         {
-            Child = new Panel
+            Children =
             {
-                Children =
+                top,
+                new Grid
                 {
-                    backdrop,
-                    new DockPanel
-                    {
-                        Children =
-                        {
-                            top,
-                            new Grid
-                            {
-                                RowDefinitions = new RowDefinitions("*,Auto"),
-                                Children = { new DockPanel { Children = { sidebar, panel } }, statusBar },
-                            },
-                        },
-                    },
+                    RowDefinitions = new RowDefinitions("*,Auto"),
+                    Children = { new DockPanel { Children = { sidebar, panel } }, statusBar },
                 },
             },
+        };
+        BackdropPlane.SetPlane(layers, sampler.Plane);
+        BackdropPlane.SetPlane(top, BackdropPlane.Excluded);
+        var frame = Named(new SquircleBorder
+        {
+            Child = new Panel { Children = { backdrop, sampler, layers } },
         }, FramePart);
         frame.Bind(SquircleBorder.BackgroundProperty, new DynamicResourceExtension("BackdropWash"));
         frame.Bind(SquircleBorder.BorderBrushProperty, new DynamicResourceExtension("SystemControlForegroundBaseLowBrush"));
