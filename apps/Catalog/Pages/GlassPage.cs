@@ -3,13 +3,15 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using AvaloniaUiStandards.Modules;
 using AvaloniaUiStandards.Style;
 
 namespace Catalog.Pages;
 
 /// <summary>
 /// Glass panels over a colourful backdrop. The backdrop scrolls (wheel, scrollbars or dragging it),
-/// so the refraction and blur change as it moves under the panels.
+/// so the refraction and blur change as it moves under the panels. Below, an opaque card in the
+/// window's glass panel, with a live readout of the window's visible backdrop region.
 /// </summary>
 internal sealed class GlassPage : UserControl
 {
@@ -42,7 +44,61 @@ internal sealed class GlassPage : UserControl
         var clipped = new Border { ClipToBounds = true, Child = stage };
         Content = Ui.Page("Glass",
             Ui.Section("Over a backdrop", clipped),
-            Ui.Caption("Scroll or drag the backdrop. Reduce transparency in the toolbar band draws the panels solid."));
+            Ui.Caption("Scroll or drag the backdrop. Reduce transparency in the toolbar band draws the panels solid."),
+            Ui.Section("Opaque regions", OpaqueDemo()),
+            Ui.Caption("Marked opaque, the card is left out of the panel's glass fill, and the window's backdrop is clipped around it, " +
+                "shrunk by how far glass reads beyond what it shows. Scroll the page to see the region follow the card."));
+    }
+
+    // An opaque card the glass panel skips, a switch to mark it, and the window's visible backdrop region, live.
+    private static Control OpaqueDemo()
+    {
+        var readout = Ui.Body("");
+        readout.TextWrapping = TextWrapping.Wrap;
+        var mark = new ToggleSwitch { Content = "Marked opaque", IsChecked = true };
+        var card = new Border
+        {
+            Height = 220,
+            Padding = new Thickness(16),
+            CornerRadius = new CornerRadius(8),
+            Child = new StackPanel { Spacing = 12, Children = { mark, readout } },
+        };
+        card.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SystemControlBackgroundAltHighBrush"));
+        OpaqueRegion.SetIsOpaque(card, true);
+        mark.IsCheckedChanged += (_, _) => OpaqueRegion.SetIsOpaque(card, mark.IsChecked == true);
+
+        StandardsWindow? window = null;
+        void Show()
+        {
+            if (window is null)
+                return;
+            var region = window.BackdropVisibleRegion;
+            var total = region.Bounds.Width * region.Bounds.Height;
+            var visible = region.Rects.Sum(r => r.Width * r.Height);
+            readout.Text = region.IsEmpty
+                ? "Visible backdrop: none"
+                : $"Visible backdrop: {region.Rects.Count} rectangle{(region.Rects.Count == 1 ? "" : "s")}, " +
+                  $"{100 * visible / Math.Max(1, total):F0} % of the frame";
+        }
+        void OnWindowChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == StandardsWindow.BackdropVisibleRegionProperty)
+                Show();
+        }
+        card.AttachedToVisualTree += (_, _) =>
+        {
+            window = TopLevel.GetTopLevel(card) as StandardsWindow;
+            if (window is not null)
+                window.PropertyChanged += OnWindowChanged;
+            Show();
+        };
+        card.DetachedFromVisualTree += (_, _) =>
+        {
+            if (window is not null)
+                window.PropertyChanged -= OnWindowChanged;
+            window = null;
+        };
+        return card;
     }
 
     private static Control Panel(double width, double height, string text) => new GlassBorder
