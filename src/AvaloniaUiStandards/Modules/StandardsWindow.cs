@@ -476,6 +476,8 @@ public class StandardsWindow : Window, IFrameTickSource
     protected override void OnClosed(EventArgs e)
     {
         _ticker.Stop();
+        _stripTimer?.Stop();
+        _stripTimer = null;
         _closed = true;
         // The menus outlive the window (the Application's for the whole app): let go of them.
         _menuRowPart?.Children.Remove(_menuRow);
@@ -636,6 +638,7 @@ public class StandardsWindow : Window, IFrameTickSource
             HideSystemFullScreenTitleBar();
         }
         _top.Reveal = revealed ? 1 : 0;
+        UpdateStripTimer();
     }
 
     // On macOS in full screen, AppKit's own title bar strip slides in below the menu bar with each reveal, over the title
@@ -645,6 +648,32 @@ public class StandardsWindow : Window, IFrameTickSource
         if (HasNativeFrame && WindowState == WindowState.FullScreen && TryGetPlatformHandle() is { HandleDescriptor: "NSWindow" } handle)
             MacWindowSettings.HideFullScreenTitleBarWindow(handle.Handle);
     }
+
+    /// <summary>How often the strip is hidden again while the rows are revealed (AppKit shows it again with the menu bar).</summary>
+    internal static readonly TimeSpan StripCheckInterval = TimeSpan.FromMilliseconds(250);
+
+    private DispatcherTimer? _stripTimer;
+
+    // While revealed on the native macOS frame, AppKit may show its strip again when the pointer goes onto the menu bar,
+    // where the window sees no pointer moves; a light timer hides it again until the rows hide or full screen ends.
+    private void UpdateStripTimer()
+    {
+        var run = _revealed && HasNativeFrame && WindowState == WindowState.FullScreen;
+        if (run && _stripTimer is null)
+        {
+            _stripTimer = new DispatcherTimer { Interval = StripCheckInterval };
+            _stripTimer.Tick += (_, _) => HideSystemFullScreenTitleBar();
+            _stripTimer.Start();
+        }
+        else if (!run && _stripTimer is not null)
+        {
+            _stripTimer.Stop();
+            _stripTimer = null;
+        }
+    }
+
+    /// <summary>Whether the strip timer runs (for tests).</summary>
+    internal bool IsStripTimerRunning => _stripTimer is not null;
 
     // Hides the rows after HideDelay, unless the pointer comes back first; it waits on while they are in use.
     private void ScheduleHide()

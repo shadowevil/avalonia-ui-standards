@@ -47,6 +47,17 @@ internal static class MacWindowSettings
     /// menu bar whenever the menu bar reveals, over the library's own title band. AppKit shows it again on each reveal,
     /// so this is called on each reveal. Returns whether it was found; fails safely to false.
     /// </summary>
+    /// <summary>
+    /// Whether a full screen strip belongs to <paramref name="window"/>: its parent is the window; or, with no parent, it is
+    /// on the window's screen (never a missing one) and both are on the active Space, so another full screen window's
+    /// strip in another Space is never touched.
+    /// </summary>
+    internal static bool IsOwnStrip(IntPtr window, IntPtr stripParent, IntPtr windowScreen, IntPtr stripScreen,
+        bool windowOnActiveSpace, bool stripOnActiveSpace) =>
+        stripParent != IntPtr.Zero
+            ? stripParent == window
+            : windowScreen != IntPtr.Zero && stripScreen == windowScreen && windowOnActiveSpace && stripOnActiveSpace;
+
     public static bool HideFullScreenTitleBarWindow(IntPtr window)
     {
         if (window == IntPtr.Zero)
@@ -69,9 +80,11 @@ internal static class MacWindowSettings
                 var name = Send(Send(candidate, sel_registerName("className")), sel_registerName("UTF8String"));
                 if (name == IntPtr.Zero || Marshal.PtrToStringUTF8(name) != "NSToolbarFullScreenWindow")
                     continue;
-                // The strip belongs to this window: its parent, or (with no parent) the window on its screen.
                 var parent = Send(candidate, sel_registerName("parentWindow"));
-                if (parent != window && (parent != IntPtr.Zero || Send(candidate, sel_registerName("screen")) != screen))
+                var onActiveSpace = sel_registerName("isOnActiveSpace");
+                if (!IsOwnStrip(window, parent, screen, Send(candidate, sel_registerName("screen")),
+                        parent == IntPtr.Zero && (Send(window, onActiveSpace) & 0xFF) != 0,
+                        parent == IntPtr.Zero && (Send(candidate, onActiveSpace) & 0xFF) != 0))
                     continue;
                 SendBool(candidate, sel_registerName("setIgnoresMouseEvents:"), 1);
                 SendDouble(candidate, sel_registerName("setAlphaValue:"), 0);

@@ -648,6 +648,21 @@ public class FullScreenTests
         }
     }
 
+    [Fact]
+    public void SystemTitleBarStrip_MatchesOnlyThisWindowsStrip()
+    {
+        IntPtr window = 1, other = 2, screen = 10, otherScreen = 11;
+        // With a parent: only this window's.
+        Assert.True(MacWindowSettings.IsOwnStrip(window, window, screen, screen, false, false));
+        Assert.False(MacWindowSettings.IsOwnStrip(window, other, screen, screen, true, true));
+        // Without one: same screen (never a missing one) and both on the active Space.
+        Assert.True(MacWindowSettings.IsOwnStrip(window, IntPtr.Zero, screen, screen, true, true));
+        Assert.False(MacWindowSettings.IsOwnStrip(window, IntPtr.Zero, screen, otherScreen, true, true));
+        Assert.False(MacWindowSettings.IsOwnStrip(window, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, true, true));
+        Assert.False(MacWindowSettings.IsOwnStrip(window, IntPtr.Zero, screen, screen, true, false));
+        Assert.False(MacWindowSettings.IsOwnStrip(window, IntPtr.Zero, screen, screen, false, true));
+    }
+
     [AvaloniaFact]
     public void SystemTitleBarStrip_IsLeftAloneWithoutANativeWindow_AndFailsSafely()
     {
@@ -660,6 +675,8 @@ public class FullScreenTests
             window.MouseMove(new Point(400, 0));
             MenuRowTests.Pump(window);
             Assert.True(window.IsTopRevealed);
+            // The strip check runs only on the native macOS frame.
+            Assert.False(window.IsStripTimerRunning);
         }
         finally
         {
