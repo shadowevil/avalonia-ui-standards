@@ -6,13 +6,14 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
+using AvaloniaUiStandards.Modules;
 
 namespace Catalog;
 
 /// <summary>
 /// The catalog window's menus (File, Edit, View, Help), defined once as a <see cref="NativeMenu"/>: macOS shows them in
-/// the system menu bar, the Windows layout in the window's menu row. The application menu's About item joins the end of
-/// Help in the menu row.
+/// the system menu bar, the Windows layout in the window's menu row. View ends with the library's full screen item
+/// (macOS). The application menu's About item joins the end of Help in the menu row.
 /// </summary>
 internal sealed class CatalogMenu
 {
@@ -54,6 +55,8 @@ internal sealed class CatalogMenu
         NextPage.Click += (_, _) => MovePage(1);
         PreviousPage = new NativeMenuItem("_Previous page") { Gesture = new KeyGesture(Key.PageUp, command) };
         PreviousPage.Click += (_, _) => MovePage(-1);
+        // Full screen (macOS only; the item hides itself elsewhere).
+        FullScreen = new FullScreenMenuItem();
         var view = new NativeMenuItem("_View")
         {
             Menu = new NativeMenu
@@ -63,6 +66,8 @@ internal sealed class CatalogMenu
                 new NativeMenuItemSeparator(),
                 NextPage,
                 PreviousPage,
+                new NativeMenuItemSeparator(),
+                FullScreen,
             },
         };
 
@@ -103,6 +108,9 @@ internal sealed class CatalogMenu
     public NativeMenuItem NextPage { get; }
 
     public NativeMenuItem PreviousPage { get; }
+
+    /// <summary>View: Enter Full Screen / Exit Full Screen (macOS).</summary>
+    public FullScreenMenuItem FullScreen { get; }
 
     private static NativeMenu MenuOf(IEnumerable<NativeMenuItem> items)
     {
