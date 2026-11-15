@@ -70,15 +70,16 @@ internal static class DataGridHeaderKeys
         switch (key)
         {
             case Key.Left or Key.Right when !shift && (plain || edge):
-                var target = edge ? (key == Key.Right ? columns[^1] : columns[0]) : columns.ElementAtOrDefault(at + (key == Key.Right ? 1 : -1));
+                var forward = key == Key.Right;
+                var target = edge ? (forward ? columns[^1] : columns[0]) : columns.ElementAtOrDefault(at + (forward ? 1 : -1));
                 if (target is not null)
-                    Focus(grid, target);
+                    Focus(grid, edge ? InViewWithoutRows(grid, columns, target, forward ? 1 : -1) : target);
                 return true;
             case Key.Left or Key.Right when shift && plain:
                 Resize(grid, column, columns, key == Key.Right ? ResizeStep : -ResizeStep);
                 return true;
             case Key.Home or Key.End when plain:
-                Focus(grid, key == Key.Home ? columns[0] : columns[^1]);
+                Focus(grid, key == Key.Home ? InViewWithoutRows(grid, columns, columns[0], -1) : InViewWithoutRows(grid, columns, columns[^1], 1));
                 return true;
             case Key.Down when plain:
             case Key.Up when edge:
@@ -125,6 +126,23 @@ internal static class DataGridHeaderKeys
         return row is null ? 1 : Math.Max(1, (int)Math.Floor((grid.Bounds.Height - header.Bounds.Height) / row.Bounds.Height));
     }
 
+    // With no rows the package cannot scroll the headers, so a jump to an end stops at the nearest
+    // header in view; <paramref name="step"/> is the direction of the jump (+1 towards the last column).
+    private static DataGridColumn InViewWithoutRows(DataGrid grid, List<DataGridColumn> columns, DataGridColumn target, int step)
+    {
+        if (grid.GetVisualDescendants().OfType<DataGridRow>().Any(r => r.IsVisible))
+            return target;
+        for (var i = columns.IndexOf(target); i >= 0 && i < columns.Count; i -= step)
+            if (HeaderOf(grid, columns[i]) is { } h && h.TranslatePoint(default, grid) is { } origin
+                && origin.X < grid.Bounds.Width && origin.X + h.Bounds.Width > 0)
+                return columns[i];
+        return target;
+    }
+
+    private static DataGridColumnHeader? HeaderOf(DataGrid grid, DataGridColumn column) =>
+        grid.GetVisualDescendants().OfType<DataGridColumnHeader>()
+            .FirstOrDefault(h => h.IsVisible && ReferenceEquals(DataGridColumn.GetColumnContainingElement(h), column));
+
     private static bool Focus(DataGrid grid, DataGridColumn column)
     {
         // Scroll to the column only: through a row already in view, so the rows stay where they are.
@@ -156,13 +174,20 @@ internal static class DataGridHeaderKeys
         if (count == 0)
             return;
         var index = Math.Clamp(row(count), 0, count - 1);
-        var anchor = grid.GetValue(AnchorProperty);
-        if (anchor is null || !grid.SelectedItems.Contains(anchor))
-            anchor = grid.SelectedItem;
-        var items = Items(grid).ToList();
-        var anchorIndex = anchor is null ? -1 : items.IndexOf(anchor);
+        object? anchor = null;
+        List<object>? items = null;
+        var anchorIndex = -1;
+        if (extend && grid.SelectionMode == DataGridSelectionMode.Extended)
+        {
+            // Found before the selection changes.
+            anchor = grid.GetValue(AnchorProperty);
+            if (anchor is null || !grid.SelectedItems.Contains(anchor))
+                anchor = grid.SelectedItem;
+            items = Items(grid).ToList();
+            anchorIndex = anchor is null ? -1 : items.IndexOf(anchor);
+        }
         grid.SelectedIndex = index;
-        if (extend && grid.SelectionMode == DataGridSelectionMode.Extended && anchorIndex >= 0)
+        if (items is not null && anchorIndex >= 0)
         {
             var (from, to) = (Math.Min(anchorIndex, index), Math.Max(anchorIndex, index));
             grid.SelectedItems.Clear();

@@ -279,6 +279,16 @@ public class DataGridHeaderKeysTests
             Assert.Same(HeaderOf(grid, 1), Focused(window));
             Press(window, Key.Left);
             Assert.Same(HeaderOf(grid, 0), Focused(window));
+
+            // Jumps to an end stop at the nearest header in view: header 1 on the right, header 0 on the left.
+            Press(window, Key.Right, DataGridHeaderKeys.Edge);
+            Assert.Same(HeaderOf(grid, 1), Focused(window));
+            Press(window, Key.Left, DataGridHeaderKeys.Edge);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
+            Press(window, Key.End);
+            Assert.Same(HeaderOf(grid, 1), Focused(window));
+            Press(window, Key.Home);
+            Assert.Same(HeaderOf(grid, 0), Focused(window));
         }
         finally
         {
