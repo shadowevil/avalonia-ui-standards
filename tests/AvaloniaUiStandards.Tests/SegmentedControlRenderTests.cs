@@ -5,7 +5,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -14,6 +13,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaUiStandards.Blocks;
 using AvaloniaUiStandards.Style;
+using Catalog.Pages;
 using Xunit;
 
 namespace AvaloniaUiStandards.Tests;
@@ -46,7 +46,7 @@ public class SegmentedControlRenderTests
     {
         foreach (var (label, variant) in ButtonRenderTests.Themes)
         {
-            var control = new StackPanel { Spacing = 12, Children = { SelectionMode(), SelectionStyle() } };
+            var control = new StackPanel { Spacing = 12, Children = { SegmentedControlPage.SelectionMode(), SegmentedControlPage.SelectionStyle() } };
             var surface = new Border { Padding = new Thickness(16, 12), Child = control };
             surface.Bind(Border.BackgroundProperty, new DynamicResourceExtension("SystemRegionColor"));
             var window = new Window { SizeToContent = SizeToContent.WidthAndHeight, RequestedThemeVariant = variant, Content = surface };
@@ -58,7 +58,7 @@ public class SegmentedControlRenderTests
             // The control with 12 px (logical) of its surface around it.
             using var frame = Frame.Capture(window);
             var origin = control.TranslatePoint(default, window)!.Value * Sheet.Scale;
-            const int margin = 12;
+            var margin = (int)Math.Round(12 * Sheet.Scale);
             var area = new PixelRect(
                 (int)origin.X - margin,
                 (int)origin.Y - margin,
@@ -85,43 +85,6 @@ public class SegmentedControlRenderTests
     {
         var control = new SegmentedControl { SelectedIndex = 0 };
         foreach (var (name, data) in new[] { ("List", Icons.ListBullets), ("Grid", Icons.SquaresFour), ("Columns", Icons.SidebarSimple), ("Gallery", Icons.Eye) })
-        {
-            var item = new SegmentedControlItem { Content = new Icon { Data = data } };
-            ToolTip.SetTip(item, name);
-            Avalonia.Automation.AutomationProperties.SetName(item, name);
-            control.Items.Add(item);
-        }
-        return control;
-    }
-
-    internal static SegmentedControl SelectionMode()
-    {
-        var control = new SegmentedControl { SelectedIndex = 0 };
-        foreach (var (name, data) in new[]
-        {
-            ("New selection", Icons.Square),
-            ("Add to selection", Icons.UniteSquare),
-            ("Subtract from selection", Icons.SubtractSquare),
-            ("Intersect with selection", Icons.IntersectSquare),
-        })
-        {
-            var item = new SegmentedControlItem { Content = new Icon { Data = data } };
-            ToolTip.SetTip(item, name);
-            Avalonia.Automation.AutomationProperties.SetName(item, name);
-            control.Items.Add(item);
-        }
-        return control;
-    }
-
-    internal static SegmentedControl SelectionStyle()
-    {
-        var control = new SegmentedControl { SelectedIndex = 0 };
-        foreach (var (name, data) in new[]
-        {
-            ("Normal selection", Icons.Selection),
-            ("Fixed ratio", Icons.FrameCorners),
-            ("Fixed size", Icons.Ruler),
-        })
         {
             var item = new SegmentedControlItem { Content = new Icon { Data = data } };
             ToolTip.SetTip(item, name);

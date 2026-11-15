@@ -49,7 +49,7 @@ internal sealed class SegmentedControlPage : UserControl
     }
 
     // Icon-only selection modes: New, Add, Subtract and Intersect.
-    private static SegmentedControl SelectionMode()
+    internal static SegmentedControl SelectionMode()
     {
         var control = new SegmentedControl();
         foreach (var (name, data) in new[]
@@ -70,7 +70,7 @@ internal sealed class SegmentedControlPage : UserControl
     }
 
     // Icon-only selection styles: Normal, Fixed ratio and Fixed size.
-    private static SegmentedControl SelectionStyle()
+    internal static SegmentedControl SelectionStyle()
     {
         var control = new SegmentedControl();
         foreach (var (name, data) in new[]
