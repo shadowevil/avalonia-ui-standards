@@ -38,4 +38,5 @@
     - **Why:** The 2 px inset leaves no room for a ring with its 2 px gap around a single segment; with selection following focus the pill already shows which segment is focused.
   - Content: segments are text or icons, preferably not mixed in one control, with nouns or short phrases in title case, and about five to seven segments at most. Icon-only segments carry a `ToolTip` and an automation name (`AutomationProperties.Name`).
     - **Why:** Apple HIG guidance; an icon alone does not name the option for a pointer user or a screen reader.
+  - Web ([0045](0045-web-library.md)): the custom element `<ui-segmented-control>` (no native element fits): a `radiogroup` of `radio` segments with `aria-checked`, one Tab stop with a roving tabindex; Left and Right swap under `dir="rtl"`. It is form-associated: with `name` it submits the selected segment's `data-value`.
 - **Why:** A segmented control built on the list keeps Fluent's selection and accessibility, and the shared shape, density, motion and focus ring make it one family with the buttons and lists.

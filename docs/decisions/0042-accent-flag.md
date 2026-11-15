@@ -25,5 +25,5 @@
     - Not now: DataGrid (its rows are square bands; the flag there is a later step) and menus (they show highlight, not selection). Controls built on `ListBoxItem` with their own item design (the segmented control, the picker columns, the colour palette) do not show the flag.
   - The catalog's TreeView page has an accent flag switch on its live tree. The catalog's own sidebar keeps the default (off).
     - **Why:** The catalog shows the library's defaults as apps get them ([0020](0020-catalog-app.md)), and in its icon rail the flag makes the pill around each icon square on one side, off-centre on the icon the rail is built around ([0034](0034-sidebar.md)).
-  - Web ([0045](0045-web-library.md)): the `accent-flag` attribute on `<ui-list-box>`, and `data-accent-flag` on an item.
+  - Web ([0045](0045-web-library.md)): the `accent-flag` attribute on `ui-list-box`, `ui-combo-box`, `ui-auto-complete-box` and `ui-tree-view`, and `data-accent-flag="true"` or `"false"` on an item for itself and what is nested in it. The setting travels as the inherited number `--ui-accent-flag` (1 on, 0 off) from `colour.css`, so the nearest setting wins.
 - **Why:** Apps that follow Windows 11 can mark the selection the Windows way, on the same list item design, with one setting.

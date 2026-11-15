@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>ComboBox tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/scroll.css">
+<link rel="stylesheet" href="../blocks/list-box.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<link rel="stylesheet" href="../blocks/combobox.css">
+<style>body { margin: 0; padding: 24px; } ui-combo-box { width: 200px; }</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<form id="form"><div id="host"></div></form>
+<button id="after" type="button">After</button>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio } from "../style/colour.js";
+import { createComboBox } from "../blocks/combobox.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const tick = () => new Promise((r) => setTimeout(r, 20));
+const FOLDERS = [{ text: "Documents", value: "docs" }, "Downloads", { text: "Pictures", value: "pics" }, { text: "Disabled one", disabled: true }, "Music"];
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+const over = (top, bottom) => top.slice(0, 3).map((c, i) => Math.round(c * top[3] + bottom[i] * (1 - top[3])));
+function colour(cssValue) {
+  $("probe").style.color = cssValue;
+  return rgba(style($("probe")).color);
+}
+const key = (el, k, init = {}) => {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...init });
+  el.dispatchEvent(e);
+  return e;
+};
+
+let box, ed, placeholder;
+const fieldOf = (b) => b.querySelector(".ui-combo-box-field");
+const controlOf = (b) => b.editable ? b.querySelector("input") : fieldOf(b);
+const popupOf = (b) => b.querySelector(".ui-combo-box-popup");
+const listOf = (b) => b.querySelector("ui-list-box");
+const itemsOf = (b) => [...b.querySelectorAll(".ui-list-item")];
+
+function reset() {
+  for (const a of ["data-theme", "data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  html.dataset.reduceMotion = "true";
+  for (const b of [box, ed, placeholder]) if (b?.open) popupOf(b).hidePopover();
+  $("host").replaceChildren();
+  box = createComboBox(FOLDERS, { label: "Folder", name: "folder", selected: 1 });
+  ed = createComboBox(FOLDERS, { label: "Editable folder", name: "edfolder", editable: true, selected: 2 });
+  placeholder = createComboBox(FOLDERS, { label: "Empty folder", placeholder: "Choose a folder" });
+  box.id = "box"; ed.id = "ed"; placeholder.id = "placeholder";
+  $("host").append(box, ed, placeholder);
+  document.activeElement?.blur();
+}
+function closeAll() {
+  for (const b of [box, ed, placeholder]) if (b.open) b.hide();
+}
+reset();
+
+test("roles and states: the control is a combobox with a popup list; the list is a labelled listbox", () => {
+  for (const b of [box, ed]) {
+    const c = controlOf(b), list = listOf(b);
+    assertEqual(c.getAttribute("role"), "combobox");
+    assertEqual(c.getAttribute("aria-haspopup"), "listbox");
+    assertEqual(c.getAttribute("aria-expanded"), "false");
+    assertEqual(c.getAttribute("aria-controls"), list.id);
+    assertEqual(list.getAttribute("role"), "listbox");
+    assertEqual(list.getAttribute("aria-label"), b === box ? "Folder" : "Editable folder");
+    assertEqual(c.getAttribute("aria-label"), b === box ? "Folder" : "Editable folder");
+    assertEqual(c.tabIndex, 0);
+  }
+  assertEqual(box.querySelector("button").localName, "button");
+  assertEqual(ed.querySelector("input").getAttribute("aria-autocomplete"), "list");
+  assertEqual(ed.querySelector(".ui-combo-box-caret").getAttribute("aria-hidden"), "true");
+  assertEqual(fieldOf(ed).tabIndex, -1, "the editable ComboBox's field is not a tab stop");
+  assert(popupOf(box).hasAttribute("popover"), "popover");
+});
+
+test("the field shows the selection or the placeholder; the editable input shows the text and the placeholder", () => {
+  reset();
+  assertEqual(fieldOf(box).querySelector(".ui-combo-box-value").textContent, "Downloads");
+  assert(!fieldOf(box).querySelector(".ui-combo-box-value").hasAttribute("data-placeholder"));
+  const v = fieldOf(placeholder).querySelector(".ui-combo-box-value");
+  assertEqual(v.textContent, "Choose a folder");
+  assert(v.hasAttribute("data-placeholder"), "placeholder look");
+  assertEqual(ed.querySelector("input").value, "Pictures");
+  const e2 = createComboBox(FOLDERS, { editable: true, placeholder: "Type or choose", label: "x" });
+  $("host").append(e2);
+  assertEqual(e2.querySelector("input").placeholder, "Type or choose");
+  e2.remove();
+});
+
+// The desktop theme's resolved ComboBox values per state: [background, border, text].
+const EXPECTED = {
+  rest: { light: ["#FFFFFF@40%", "#686868", "#1A1A1A"], dark: ["#000000@40%", "#9E9E9E", "#F2F2F2"] },
+  hover: { light: ["#FFFFFF@60%", "#404040", "#1A1A1A"], dark: ["#000000@60%", "#D9D9D9", "#F2F2F2"] },
+  error: { light: ["#FFFFFF@40%", "#E1332A", "#1A1A1A"], dark: ["#000000@40%", "#E1332A", "#F2F2F2"] },
+  disabled: { light: ["#D4D4D4", "#D4D4D4", "#A6A6A6"], dark: ["#454545", "#454545", "#6B6B6B"] },
+};
+
+test("not editable: Fluent's ComboBox colours at rest, hover, error and disabled, light and dark; pressed keeps the hover look", () => {
+  for (const theme of ["light", "dark"]) {
+    for (const [state, looks] of Object.entries(EXPECTED)) {
+      reset();
+      html.dataset.theme = theme;
+      const f = fieldOf(box);
+      if (state === "hover") f.dataset.state = "hover";
+      if (state === "error") f.setAttribute("aria-invalid", "true");
+      if (state === "disabled") box.disabled = true;
+      const [bg, border, fg] = looks[theme];
+      assertEqual(hex(style(f).backgroundColor), bg, `${theme} ${state} background`);
+      assertEqual(hex(style(f).borderTopColor), border, `${theme} ${state} border`);
+      assertEqual(hex(style(f).color), fg, `${theme} ${state} text`);
+      assertEqual(style(f).borderTopWidth, "1px");
+    }
+  }
+  reset();
+  const f = fieldOf(box);
+  f.dataset.state = "hover pressed";
+  assertEqual(hex(style(f).backgroundColor), "#FFFFFF@60%", "pressed = hover look");
+  assertEqual(style(f).scale, "none", "no pressed scale");
+});
+
+test("editable: the rest and hover look as not editable; focus turns the border accent with the focused fill; error and disabled", () => {
+  for (const theme of ["light", "dark"]) {
+    reset();
+    html.dataset.theme = theme;
+    const f = fieldOf(ed);
+    assertEqual(hex(style(f).backgroundColor), EXPECTED.rest[theme][0]);
+    assertEqual(hex(style(f).borderTopColor), EXPECTED.rest[theme][1]);
+    f.dataset.state = "hover";
+    assertEqual(hex(style(f).borderTopColor), EXPECTED.hover[theme][1]);
+    f.dataset.state = "focus";
+    assertEqual(hex(style(f).borderTopColor), "#007CEA");
+    assertEqual(hex(style(f).backgroundColor), theme === "light" ? "#FFFFFF" : "#1E1E1E");
+    f.removeAttribute("data-state");
+    ed.querySelector("input").setAttribute("aria-invalid", "true");
+    assertEqual(hex(style(f).borderTopColor), "#E1332A");
+    ed.querySelector("input").removeAttribute("aria-invalid");
+    ed.disabled = true;
+    assert(ed.querySelector("input").disabled, "input disabled");
+    assertEqual(hex(style(f).backgroundColor), EXPECTED.disabled[theme][0]);
+    assertEqual(hex(style(f).borderTopColor), EXPECTED.disabled[theme][1]);
+  }
+  reset();
+});
+
+test("not editable: pointer focus changes nothing; keyboard focus shows the ring alone; editable: accent border, ring on keyboard focus around the whole field", () => {
+  reset();
+  const f = fieldOf(box);
+  const rest = [style(f).backgroundColor, style(f).borderTopColor];
+  f.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  f.focus({ focusVisible: false });
+  assertEqual(style(f).outlineStyle, "none", "no ring after a pointer press");
+  assertEqual(style(f).backgroundColor, rest[0]);
+  assertEqual(style(f).borderTopColor, rest[1]);
+  f.blur();
+  f.dataset.state = "focus";
+  assertEqual(style(f).outlineStyle, "solid", "forced keyboard focus rings");
+  assertEqual(style(f).outlineWidth, "2px");
+  assertEqual(style(f).outlineOffset, "2px");
+  assertEqual(style(f).backgroundColor, rest[0], "no focus fill");
+  assertEqual(style(f).borderTopColor, rest[1], "no accent border");
+  f.removeAttribute("data-state");
+  const e = fieldOf(ed), input = ed.querySelector("input");
+  input.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  input.focus();
+  assertEqual(hex(style(e).borderTopColor), "#007CEA", "accent border on pointer focus");
+  assertEqual(style(e).outlineStyle, "none", "no ring on pointer focus");
+  $("after").focus();
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+  input.focus({ focusVisible: true });
+  assertEqual(style(e).outlineStyle, "solid", "ring around the field");
+  assertEqual(hex(style(e).borderTopColor), "#007CEA");
+  input.blur();
+});
+
+test("not editable: the ring is not the field's while an item in the open list has keyboard focus; editable: focus stays in the text, so the field keeps its ring", async () => {
+  reset();
+  box.show();
+  await tick();
+  const f = fieldOf(box);
+  assertEqual(style(f).outlineStyle, "none", "field has no ring");
+  assertEqual(document.activeElement.closest(".ui-list-item"), itemsOf(box)[1]);
+  closeAll();
+  const input = controlOf(ed);
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+  input.focus({ focusVisible: true });
+  ed.show();
+  await tick();
+  assertEqual(document.activeElement, input, "focus stays in the text");
+  assertEqual(style(fieldOf(ed)).outlineStyle, "solid", "the field shows the ring");
+  closeAll();
+});
+
+test("size: height 32 (24 Compact), padding 12 and none at the end (8 Compact), 64 px minimum width, the control squircle", () => {
+  reset();
+  for (const b of [box, ed, placeholder]) assertEqual(fieldOf(b).getBoundingClientRect().height, 32);
+  assertEqual(style(fieldOf(box).querySelector(".ui-combo-box-value")).paddingInlineStart, "12px");
+  assertEqual(style(ed.querySelector("input")).paddingInlineStart, "12px");
+  assertEqual(style(ed.querySelector("input")).paddingInlineEnd, "0px");
+  assertEqual(style(fieldOf(box)).minWidth, "64px");
+  assertEqual(style(fieldOf(box)).borderTopLeftRadius, "9.44px");
+  assertEqual(fieldOf(box).getBoundingClientRect().width, 200);
+  html.dataset.density = "compact";
+  for (const b of [box, ed]) assertEqual(fieldOf(b).getBoundingClientRect().height, 24);
+  assertEqual(style(fieldOf(box).querySelector(".ui-combo-box-value")).paddingInlineStart, "8px");
+  assertEqual(style(ed.querySelector("input")).paddingInlineStart, "8px");
+  reset();
+});
+
+test("the caret zone is a square as wide as the field is high, with the 16 px caret centred 16 (12 Compact) from the edge", () => {
+  reset();
+  for (const [density, side] of [["normal", 32], ["compact", 24]]) {
+    html.dataset.density = density;
+    for (const b of [box, ed]) {
+      const f = fieldOf(b).getBoundingClientRect();
+      const zone = b.querySelector(".ui-combo-box-caret").getBoundingClientRect();
+      const glyph = b.querySelector(".ui-combo-box-caret .ui-icon").getBoundingClientRect();
+      assertEqual(zone.width, side, `${density} zone width`);
+      assertEqual(f.right - zone.right, 0, `${density} zone flush with the field's edge`);
+      assertEqual(glyph.width, 16);
+      assertEqual(glyph.height, 16);
+      assertEqual(f.right - (glyph.left + glyph.right) / 2, side / 2, `${density} glyph centre`);
+      assertEqual((glyph.top + glyph.bottom) / 2 - f.top, side / 2, `${density} glyph vertical centre`);
+    }
+  }
+  reset();
+});
+
+test("right to left: the caret zone sits at the start edge, mirrored", () => {
+  reset();
+  html.dir = "rtl";
+  for (const b of [box, ed]) {
+    const f = fieldOf(b).getBoundingClientRect(), z = b.querySelector(".ui-combo-box-caret").getBoundingClientRect();
+    assertEqual(z.left - f.left, 0);
+    assertEqual(z.width, 32);
+  }
+  reset();
+});
+
+test("caret glyph colours: BaseMediumHigh, and Fluent's disabled value", () => {
+  reset();
+  const caret = () => style(box.querySelector(".ui-combo-box-caret")).color;
+  assertEqual(hex(caret()), "#404040");
+  html.dataset.theme = "dark";
+  assertEqual(hex(caret()), "#D9D9D9");
+  box.disabled = true;
+  assertEqual(hex(caret()), "#6B6B6B");
+  html.dataset.theme = "light";
+  assertEqual(hex(caret()), "#A6A6A6");
+  reset();
+  ed.disabled = true;
+  assertEqual(hex(style(ed.querySelector(".ui-combo-box-caret")).color), "#A6A6A6");
+});
+
+test("placeholder: BaseMedium at full opacity, the disabled text colour when disabled; the editable placeholder the same", () => {
+  reset();
+  const v = fieldOf(placeholder).querySelector(".ui-combo-box-value");
+  assertEqual(hex(style(v).color), "#686868");
+  const input = ed.querySelector("input");
+  input.value = "";
+  input.setAttribute("placeholder", "Type");
+  assertEqual(hex(style(input, "::placeholder").color), "#686868");
+  assertEqual(style(input, "::placeholder").opacity, "1");
+  placeholder.disabled = true;
+  assertEqual(hex(style(v).color), "#7A7A7A");
+  html.dataset.theme = "dark";
+  assertEqual(hex(style(v).color), "#858585");
+  reset();
+});
+
+test("the drop-down: a solid squircle with Fluent's fill and border, items inset 4, width at least the field's, at most 504 high", async () => {
+  for (const theme of ["light", "dark"]) {
+    reset();
+    html.dataset.theme = theme;
+    box.show();
+    await tick();
+    const p = popupOf(box), s = style(p);
+    assert(p.matches(":popover-open"), "open");
+    assertEqual(hex(s.backgroundColor), theme === "light" ? "#FFFFFF" : "#2A2A2A");
+    assertEqual(hex(s.borderTopColor), theme === "light" ? "#00000024".replace(/^#(......)(..)$/, "#000000@14%") : "#000000@36%");
+    assertEqual(s.borderTopWidth, "1px");
+    assertEqual(s.borderTopLeftRadius, "18.88px");
+    assert(!p.classList.contains("ui-glass"), "solid, not glass");
+    const pr = p.getBoundingClientRect(), fr = fieldOf(box).getBoundingClientRect();
+    assert(pr.width >= fr.width, `width ${pr.width}`);
+    assertEqual(Math.round(pr.left), Math.round(fr.left), "start edges line up");
+    assertEqual(Math.round(pr.top - fr.bottom), 2, "2 px below the field");
+    const first = itemsOf(box)[0].getBoundingClientRect();
+    assertEqual(Math.round(first.left - pr.left), 5, "item inset 4 + 1 border");
+    assertEqual(Math.round(first.top - pr.top), 5);
+    closeAll();
+  }
+  const many = createComboBox(Array.from({ length: 40 }, (_, i) => `Item ${i}`), { label: "Many", selected: 0 });
+  $("host").append(many);
+  many.show();
+  await tick();
+  assert(popupOf(many).getBoundingClientRect().height <= 504, `max height ${popupOf(many).getBoundingClientRect().height}`);
+  assert(listOf(many).scrollHeight > listOf(many).clientHeight, "scrolls");
+  many.hide();
+  many.remove();
+});
+
+test("items are the list's items: accent selection, and the accent flag attribute reaches them", async () => {
+  reset();
+  box.show();
+  await tick();
+  const sel = itemsOf(box)[1];
+  assertEqual(hex(style(sel).backgroundColor), "#0075DD");
+  assertEqual(hex(style(sel).color), "#FFFFFF");
+  assertEqual(style(sel).borderStartStartRadius, "9.44px", "no flag by default: round leading corners");
+  box.setAttribute("accent-flag", "");
+  assert(listOf(box).hasAttribute("accent-flag"), "list flagged");
+  assertEqual(style(sel).borderStartStartRadius, "0.01px", "flagged: square leading corners");
+  assertEqual(style(sel, "::before").opacity, "1", "bar shown");
+  assertEqual(hex(style(sel, "::before").backgroundColor), "#77BFFF");
+  closeAll();
+});
+
+test("opening: click and keys open it with focus on the selected item (the first when none); aria-expanded follows", async () => {
+  reset();
+  const c = controlOf(box);
+  c.focus();
+  c.click();
+  await tick();
+  assert(box.open, "click opens");
+  assertEqual(c.getAttribute("aria-expanded"), "true");
+  assertEqual(document.activeElement, itemsOf(box)[1], "focus on the selected item");
+  closeAll();
+  await tick();
+  assertEqual(c.getAttribute("aria-expanded"), "false");
+  const p = controlOf(placeholder);
+  for (const open of [{ k: "ArrowDown", alt: true }, { k: "ArrowUp", alt: true }, { k: "F4" }]) {
+    p.focus();
+    const e = key(p, open.k, { altKey: Boolean(open.alt) });
+    assert(e.defaultPrevented, `${open.k} handled`);
+    await tick();
+    assert(placeholder.open, `${open.k} opens`);
+    assertEqual(document.activeElement, itemsOf(placeholder)[0], "first item when none selected");
+    closeAll();
+    await tick();
+  }
+  const input = controlOf(ed);
+  input.focus();
+  key(input, "ArrowDown", { altKey: true });
+  await tick();
+  assert(ed.open, "editable opens with Alt+Down");
+  assertEqual(document.activeElement, input, "focus stays in the text");
+  assertEqual(input.getAttribute("aria-activedescendant"), itemsOf(ed)[2].id, "the chosen item is highlighted");
+  assertEqual(input.getAttribute("aria-expanded"), "true");
+  key(input, "ArrowUp", { altKey: true });
+  await tick();
+  assert(!ed.open, "Alt+Up closes");
+  key(input, "F4");
+  await tick();
+  assert(ed.open, "F4 opens");
+  key(input, "F4");
+  await tick();
+  assert(!ed.open, "F4 closes");
+  ed.disabled = true;
+  ed.show();
+  assert(!ed.open, "disabled does not open");
+});
+
+test("Enter and Space on the button open it natively (a click)", async () => {
+  reset();
+  const c = controlOf(box);
+  let clicks = 0;
+  c.addEventListener("click", () => clicks++);
+  c.click();
+  assertEqual(clicks, 1);
+  assert(box.open);
+  closeAll();
+});
+
+test("closed: Down, Up, Home, End change the selection, skipping the disabled item, with a change event; type-ahead selects", async () => {
+  reset();
+  const c = controlOf(box);
+  c.focus();
+  let changes = 0;
+  box.addEventListener("change", (e) => { if (e.target === box) changes++; });
+  assert(key(c, "ArrowDown").defaultPrevented);
+  assertEqual(box.value, "pics");
+  key(c, "ArrowDown");
+  assertEqual(box.value, "Music", "the disabled item is skipped");
+  key(c, "ArrowDown");
+  assertEqual(box.value, "Music", "stays at the end");
+  key(c, "Home");
+  assertEqual(box.value, "docs");
+  key(c, "End");
+  assertEqual(box.value, "Music");
+  key(c, "ArrowUp");
+  assertEqual(box.value, "pics");
+  assertEqual(changes, 5);
+  assertEqual(fieldOf(box).querySelector(".ui-combo-box-value").textContent, "Pictures");
+  assert(!box.open, "no list opened");
+  key(c, "d");
+  assertEqual(box.value, "docs", "type-ahead d");
+  key(c, "d", { timeStamp: 0 });
+  closeAll();
+  const pl = controlOf(placeholder);
+  key(pl, "ArrowUp");
+  assertEqual(placeholder.value, "Music", "Up with no selection goes to the last");
+});
+
+test("open list: arrows move focus and the selection with it; Enter chooses and closes, focus back on the control; Escape closes", async () => {
+  reset();
+  const c = controlOf(box);
+  c.focus();
+  box.show();
+  await tick();
+  let changes = 0;
+  box.addEventListener("change", (e) => { if (e.target === box) changes++; });
+  key(document.activeElement, "ArrowDown");
+  assertEqual(document.activeElement, itemsOf(box)[2]);
+  assertEqual(box.value, "pics");
+  assertEqual(fieldOf(box).querySelector(".ui-combo-box-value").textContent, "Pictures", "the field follows");
+  key(document.activeElement, "ArrowDown");
+  assertEqual(document.activeElement, itemsOf(box)[4], "disabled item skipped");
+  assertEqual(changes, 2);
+  key(document.activeElement, "Enter");
+  await tick();
+  assert(!box.open, "Enter closes");
+  assertEqual(document.activeElement, c, "focus returns to the control");
+  assertEqual(box.value, "Music");
+  box.show();
+  await tick();
+  popupOf(box).hidePopover();
+  await tick();
+  assertEqual(document.activeElement, c, "closing returns focus");
+  box.show();
+  await tick();
+  key(document.activeElement, "Escape");
+  popupOf(box).hidePopover(); // headless dispatch does not run the browser's Escape
+  await tick();
+  assertEqual(document.activeElement, c);
+});
+
+test("a click on an item chooses it and closes; a click on a disabled item does neither", async () => {
+  reset();
+  box.show();
+  await tick();
+  itemsOf(box)[3].click();
+  assert(box.open, "disabled item keeps it open");
+  assertEqual(box.value, "docs".replace("docs", "Downloads"));
+  itemsOf(box)[0].click();
+  await tick();
+  assert(!box.open, "closed");
+  assertEqual(box.value, "docs");
+  assertEqual(controlOf(box).getAttribute("aria-expanded"), "false");
+});
+
+test("Tab in the open list closes it and puts focus back on the control, so focus can move on", async () => {
+  reset();
+  controlOf(box).focus();
+  box.show();
+  await tick();
+  key(document.activeElement, "Tab");
+  await tick();
+  assert(!box.open);
+  assertEqual(document.activeElement, controlOf(box));
+});
+
+test("the press that light-dismisses an open list does not open it again; a click on the caret zone toggles the editable one", async () => {
+  reset();
+  const f = fieldOf(box);
+  box.show();
+  await tick();
+  f.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  popupOf(box).hidePopover();
+  f.click();
+  assert(!box.open, "stays closed");
+  f.click();
+  await tick();
+  assert(box.open, "next click opens");
+  closeAll();
+  await tick();
+  const caret = ed.querySelector(".ui-combo-box-caret");
+  caret.click();
+  await tick();
+  assert(ed.open, "caret opens editable");
+  ed.hide();
+  await tick();
+  ed.querySelector("input").click();
+  assert(!ed.open, "a click in the text does not");
+  const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+  caret.dispatchEvent(down);
+  assertEqual(document.activeElement, ed.querySelector("input"), "a press on the zone focuses the text");
+});
+
+test("editable: typing sets the value; a text equal to an item's selects it on change; Down and Up select; no change event for script", async () => {
+  reset();
+  const input = ed.querySelector("input");
+  input.focus();
+  input.value = "Mus";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(ed.value, "Mus");
+  assertEqual(ed.selectedIndex, -1, "typing clears the selection");
+  assertEqual(input.value, "Mus", "the text is kept");
+  let changes = 0;
+  ed.addEventListener("change", (e) => { if (e.target === ed) changes++; });
+  input.value = "music";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(ed.selectedIndex, 4, "matched case-insensitively");
+  assertEqual(input.value, "Music");
+  assertEqual(changes, 1);
+  ed.value = "pics";
+  assertEqual(input.value, "Pictures");
+  assertEqual(ed.value, "Pictures");
+  ed.value = "docs";
+  assertEqual(input.value, "Documents");
+  ed.value = "anything";
+  assertEqual(input.value, "anything");
+  assertEqual(ed.selectedIndex, -1);
+  assertEqual(changes, 1, "script changes fire none");
+});
+
+test("form: the value is the selected data-value or text, the typed text when editable; reset and disabled", async () => {
+  reset();
+  const data = () => Object.fromEntries(new FormData($("form")));
+  assertEqual(data().folder, "Downloads");
+  assertEqual(data().edfolder, "Pictures");
+  assertEqual(data().placeholder, undefined);
+  box.value = "docs";
+  assertEqual(data().folder, "docs");
+  ed.value = "free text";
+  assertEqual(data().edfolder, "free text");
+  $("form").reset();
+  await tick();
+  assertEqual(box.value, "Downloads");
+  assertEqual(data().edfolder, "Pictures");
+  box.disabled = true;
+  await tick();
+  assert(controlOf(box).disabled, "control disabled");
+  assertEqual(data().folder, undefined, "disabled controls do not submit");
+});
+
+test("the disabled ComboBox is not focusable and does not open", () => {
+  reset();
+  box.disabled = true;
+  controlOf(box).click();
+  assert(!box.open);
+  controlOf(box).focus();
+  assert(document.activeElement !== controlOf(box));
+});
+
+test("items added later show in the list and the field follows a changed selection", async () => {
+  reset();
+  const item = document.createElement("div");
+  item.className = "ui-list-item ui-squircle ui-focus-ring";
+  item.textContent = "Videos";
+  listOf(box).append(item);
+  await tick();
+  assertEqual(box.items.length, 6);
+  box.selectedIndex = 5;
+  assertEqual(box.value, "Videos");
+  assertEqual(fieldOf(box).querySelector(".ui-combo-box-value").textContent, "Videos");
+});
+
+test("attribute and form callbacks before the parts exist are safe, and apply once connected", () => {
+  reset();
+  const bare = document.createElement("ui-combo-box");
+  bare.setAttribute("disabled", "");
+  bare.setAttribute("placeholder", "x");
+  bare.formDisabledCallback(true);
+  bare.formResetCallback();
+  bare.value = "a";
+  bare.selectedIndex = 0;
+  bare.show();
+  bare.hide();
+  assertEqual(bare.value, "");
+  assertEqual(bare.selectedIndex, -1);
+  assert(!bare.open);
+  const built = createComboBox(FOLDERS, { label: "Late", selected: 0 });
+  built.formDisabledCallback(true);
+  $("host").append(built);
+  assert(controlOf(built).disabled, "the form's disabled state applies once built");
+  built.remove();
+});
+
+const adescendant = (b) => controlOf(b).getAttribute("aria-activedescendant");
+const highlighted = (b) => itemsOf(b).filter((i) => i.getAttribute("aria-selected") === "true");
+
+test("editable open: focus stays in the text; Down and Up move the highlight (aria-activedescendant), skipping disabled items; the text and value are unchanged", async () => {
+  reset();
+  const input = controlOf(ed);
+  input.focus();
+  assert(key(input, "ArrowDown").defaultPrevented);
+  await tick();
+  assert(ed.open, "Down opens");
+  assertEqual(adescendant(ed), itemsOf(ed)[2].id, "highlight starts on the chosen item");
+  assertEqual(document.getElementById(adescendant(ed)), itemsOf(ed)[2]);
+  assertEqual(highlighted(ed).length, 1);
+  key(input, "ArrowDown");
+  assertEqual(adescendant(ed), itemsOf(ed)[4].id, "the disabled item is skipped");
+  assertEqual(highlighted(ed)[0], itemsOf(ed)[4]);
+  assertEqual(input.value, "Pictures", "the text keeps the chosen value");
+  assertEqual(ed.value, "Pictures");
+  assertEqual(ed.selectedIndex, 2, "the chosen item is unchanged until Enter");
+  key(input, "ArrowDown");
+  assertEqual(adescendant(ed), itemsOf(ed)[4].id, "stops at the end");
+  key(input, "ArrowUp");
+  key(input, "ArrowUp");
+  assertEqual(adescendant(ed), itemsOf(ed)[1].id);
+  assertEqual(document.activeElement, input, "focus never left the text");
+  closeAll();
+});
+
+test("editable open: Enter chooses the highlighted item into the text with one change event, closes, and keeps focus", async () => {
+  reset();
+  const input = controlOf(ed);
+  input.focus();
+  let changes = 0;
+  ed.addEventListener("change", (e) => { if (e.target === ed) changes++; });
+  key(input, "ArrowDown");
+  key(input, "ArrowDown");
+  assert(key(input, "Enter").defaultPrevented, "Enter handled");
+  await tick();
+  assert(!ed.open, "closed");
+  assertEqual(input.value, "Music");
+  assertEqual(ed.value, "Music");
+  assertEqual(ed.selectedIndex, 4);
+  assertEqual(changes, 1);
+  assertEqual(document.activeElement, input);
+  assertEqual(input.getAttribute("aria-expanded"), "false");
+  assertEqual(adescendant(ed), null, "no active descendant when closed");
+  assertEqual(highlighted(ed)[0], itemsOf(ed)[4], "the chosen item shows selected again");
+  key(input, "ArrowDown");
+  key(input, "Enter");
+  assertEqual(changes, 1, "choosing the chosen item changes nothing");
+});
+
+test("editable open: typing continues with the list open; the text is the value and the highlight goes; Enter with none highlighted just closes", async () => {
+  reset();
+  const input = controlOf(ed);
+  input.focus();
+  ed.show();
+  await tick();
+  input.value = "Doc";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  assert(ed.open, "still open");
+  assertEqual(adescendant(ed), null, "highlight gone");
+  assertEqual(highlighted(ed).length, 0);
+  assertEqual(ed.value, "Doc");
+  assertEqual(ed.selectedIndex, -1);
+  assertEqual(input.value, "Doc");
+  assertEqual(document.activeElement, input);
+  key(input, "ArrowDown");
+  assertEqual(adescendant(ed), itemsOf(ed)[0].id, "Down highlights the first");
+  key(input, "ArrowUp");
+  assertEqual(adescendant(ed), itemsOf(ed)[0].id, "stays on the first");
+  input.value = "Docu";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(adescendant(ed), null);
+  assert(!key(input, "Enter").defaultPrevented, "Enter acts as in any input");
+  await tick();
+  assert(!ed.open, "Enter closed it");
+  assertEqual(input.value, "Docu", "the typed text stays");
+  assertEqual(ed.selectedIndex, -1);
+});
+
+test("editable open: Escape closes keeping the earlier selection and text; Tab and leaving the field close it", async () => {
+  reset();
+  const input = controlOf(ed);
+  input.focus();
+  ed.show();
+  key(input, "ArrowDown");
+  assertEqual(highlighted(ed)[0], itemsOf(ed)[4]);
+  const esc = key(input, "Escape");
+  assert(esc.defaultPrevented, "Escape handled");
+  await tick();
+  assert(!ed.open);
+  assertEqual(input.value, "Pictures");
+  assertEqual(ed.selectedIndex, 2);
+  assertEqual(highlighted(ed)[0], itemsOf(ed)[2], "the highlight is back on the chosen item");
+  assertEqual(adescendant(ed), null);
+  assertEqual(document.activeElement, input);
+  ed.show();
+  await tick();
+  key(input, "Tab");
+  await tick();
+  assert(!ed.open, "Tab closes");
+  ed.show();
+  await tick();
+  $("after").focus();
+  await tick();
+  assert(!ed.open, "leaving the field closes");
+});
+
+test("editable open: a click on an item chooses it without taking focus; a click on a disabled item does nothing", async () => {
+  reset();
+  const input = controlOf(ed);
+  input.focus();
+  ed.show();
+  await tick();
+  const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+  itemsOf(ed)[0].dispatchEvent(down);
+  assert(down.defaultPrevented, "a press in the list keeps focus in the text");
+  itemsOf(ed)[3].click();
+  assert(ed.open, "disabled keeps it open");
+  assertEqual(input.value, "Pictures");
+  itemsOf(ed)[1].click();
+  await tick();
+  assert(!ed.open);
+  assertEqual(input.value, "Downloads");
+  assertEqual(ed.selectedIndex, 1);
+  assertEqual(document.activeElement, input, "focus stays in the text");
+});
+
+test("the highlighted item looks selected (accent fill, white text) and takes the accent flag when it is on", async () => {
+  reset();
+  const input = controlOf(ed);
+  input.focus();
+  ed.show();
+  await tick();
+  key(input, "ArrowDown");
+  const item = itemsOf(ed)[4];
+  assertEqual(hex(style(item).backgroundColor), "#0075DD");
+  assertEqual(hex(style(item).color), "#FFFFFF");
+  assertEqual(style(item).borderStartStartRadius, "9.44px", "no flag by default");
+  assertEqual(style(itemsOf(ed)[0]).backgroundColor, "rgba(0, 0, 0, 0)", "others stay plain");
+  ed.setAttribute("accent-flag", "");
+  assertEqual(style(item).borderStartStartRadius, "0.01px", "flagged");
+  assertEqual(style(item, "::before").opacity, "1");
+  assertEqual(hex(style(item, "::before").backgroundColor), "#77BFFF");
+  assertEqual(style(itemsOf(ed)[0], "::before").backgroundColor, "rgba(0, 0, 0, 0)", "the bar shows on the selected item only");
+  closeAll();
+});
+
+test("fills and borders fade over MotionFast, instant under reduce motion", () => {
+  reset();
+  html.dataset.reduceMotion = "false";
+  for (const b of [box, ed]) {
+    assertEqual(style(fieldOf(b)).transitionProperty, "background-color, border-color");
+    assertEqual(style(fieldOf(b)).transitionDuration, "0.1s, 0.1s");
+  }
+  html.dataset.reduceMotion = "true";
+  assertEqual(style(fieldOf(box)).transitionDuration, "0s, 0s");
+  reset();
+});
+
+test("contrast: border 3:1, placeholder and text 4.5:1 over the fill on every surface; the caret 3:1; the drop-down's border and items against its fill", () => {
+  reset();
+  for (const theme of ["light", "dark"]) {
+    html.dataset.theme = theme;
+    const tint = colour("var(--ui-glass-tint-color)");
+    const opacity = parseFloat(style(html).getPropertyValue("--ui-glass-tint-opacity"));
+    const start = colour("var(--ui-backdrop-wash-start-color)"), end = colour("var(--ui-backdrop-wash-end-color)");
+    const surfaces = {
+      page: colour("var(--ui-system-region-color)"),
+      card: colour("var(--ui-system-chrome-medium-low-color)"),
+      "wash start": start,
+      "wash end": end,
+      "glass over wash start": over([...tint.slice(0, 3), opacity], start),
+      "glass over wash end": over([...tint.slice(0, 3), opacity], end),
+    };
+    const f = fieldOf(box);
+    const v = fieldOf(placeholder).querySelector(".ui-combo-box-value");
+    for (const state of ["rest", "hover"]) {
+      f.removeAttribute("data-state");
+      if (state === "hover") f.dataset.state = "hover";
+      const fill = rgba(style(f).backgroundColor);
+      for (const [name, surface] of Object.entries(surfaces)) {
+        const behind = over(fill, surface.slice(0, 3));
+        assert(contrastRatio(rgba(style(v).color).slice(0, 3), behind) >= 4.5, `${theme} ${state} placeholder on ${name}`);
+        assert(contrastRatio(rgba(style(f).color).slice(0, 3), behind) >= 4.5, `${theme} ${state} text on ${name}`);
+        assert(contrastRatio(rgba(style(box.querySelector(".ui-combo-box-caret")).color).slice(0, 3), behind) >= 3, `${theme} ${state} caret on ${name}`);
+        if (state === "rest") {
+          assert(contrastRatio(rgba(style(f).borderTopColor).slice(0, 3), surface.slice(0, 3)) >= 3, `${theme} border on ${name}`);
+        }
+      }
+    }
+    const drop = rgba(style(popupOf(box)).backgroundColor);
+    assert(contrastRatio(colour("var(--ui-system-base-high-color)").slice(0, 3), drop.slice(0, 3)) >= 4.5, `${theme} item text on the drop-down`);
+    assert(contrastRatio(colour("var(--ui-accent-button-foreground)").slice(0, 3), colour("var(--ui-accent-fill-color)").slice(0, 3)) >= 4.5, `${theme} selected item`);
+  }
+  reset();
+});
+</script>
+</body>
+</html>

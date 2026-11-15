@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en-US" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>Calendar tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/calendar.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<form id="form">
+  <ui-calendar id="cal" aria-label="Day" value="2026-11-12" name="day"></ui-calendar>
+</form>
+<ui-calendar id="other" aria-label="Other" value="2026-03-01" first-day-of-week="1" lang="de-DE"></ui-calendar>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio, parseHex } from "../style/colour.js";
+import { isoDate, today } from "../blocks/calendar.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el) => getComputedStyle(el);
+const cal = $("cal");
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+const key = (target, k, options = {}) => {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  target.dispatchEvent(e);
+  return e;
+};
+const cell = (value) => cal.querySelector(`.ui-calendar-cell[data-value="${value}"]`);
+const cursor = (c = cal) => c.querySelector(".ui-calendar-cell[tabindex='0']");
+
+function reset() {
+  for (const a of ["data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  cal.removeAttribute("disabled");
+  cal.removeAttribute("min");
+  cal.removeAttribute("max");
+  cal.displayMode = "month";
+  cal.value = "2026-11-12";
+  document.activeElement?.blur();
+}
+
+test("roles: a named group holding a grid labelled by the title, weekday headings with full names", () => {
+  reset();
+  assertEqual(cal.getAttribute("role"), "group");
+  const grid = cal.querySelector(".ui-calendar-grid");
+  assertEqual(grid.getAttribute("role"), "grid");
+  assertEqual($(grid.getAttribute("aria-labelledby")).textContent, "November 2026");
+  const th = [...grid.querySelectorAll("th")];
+  assertEqual(th.map((t) => t.textContent).join(" "), "Su Mo Tu We Th Fr Sa");
+  assertEqual(th[0].abbr, "Sunday");
+  assertEqual(th[0].scope, "col");
+  assertEqual(grid.querySelectorAll("tbody td").length, 42, "six weeks");
+  assertEqual(cal.querySelector(".ui-calendar-previous").getAttribute("aria-label"), "Previous month");
+});
+
+test("the month: a whole week before a month starting on the first weekday, outside days marked, cells named by the full date", () => {
+  reset();
+  const cells = [...cal.querySelectorAll("tbody td")];
+  assertEqual(cells[0].dataset.value, "2026-10-25");
+  assertEqual(cells[7].dataset.value, "2026-11-01");
+  assert(cells[0].hasAttribute("data-outside"), "October is outside");
+  assert(!cells[7].hasAttribute("data-outside"));
+  assertEqual(cell("2026-11-13").getAttribute("aria-label"), "Friday, November 13, 2026");
+  assertEqual(cell("2026-11-12").getAttribute("aria-selected"), "true");
+  assertEqual(cell("2026-11-13").getAttribute("aria-selected"), "false");
+});
+
+test("locale: the first weekday and names from Intl, or first-day-of-week", () => {
+  const o = $("other");
+  const th = [...o.querySelectorAll("th")].map((t) => t.textContent);
+  assertEqual(th.join(" "), "Mo Di Mi Do Fr Sa So");
+  assertEqual(o.querySelector(".ui-calendar-title").textContent, "März 2026");
+  assertEqual(o.querySelector("tbody td").dataset.value, "2026-02-23");
+});
+
+test("today is aria-current=date in accent text and Body strong", () => {
+  reset();
+  cal.valueAsDate = null;
+  cal.displayDate = today();
+  const t = cal.querySelector(`[data-value="${isoDate(today())}"]`);
+  assertEqual(t.getAttribute("aria-current"), "date");
+  assertEqual(hex(style(t).color), "#0068C4");
+  assertEqual(style(t).fontWeight, "600");
+  html.dataset.theme = "dark";
+  assertEqual(hex(style(t).color), "#1692FF");
+  reset();
+});
+
+test("one Tab stop: the cursor cell (the selected day) holds tabindex 0", () => {
+  reset();
+  const stops = [...cal.querySelectorAll(".ui-calendar-cell")].filter((c) => c.tabIndex === 0);
+  assertEqual(stops.length, 1);
+  assertEqual(stops[0].dataset.value, "2026-11-12");
+});
+
+test("keys: arrows move a day and a week, Page Up/Down a month, Home/End the month's ends; Enter selects", () => {
+  reset();
+  cursor().focus();
+  key(document.activeElement, "ArrowRight");
+  assertEqual(document.activeElement.dataset.value, "2026-11-13");
+  key(document.activeElement, "ArrowDown");
+  assertEqual(document.activeElement.dataset.value, "2026-11-20");
+  key(document.activeElement, "ArrowLeft");
+  key(document.activeElement, "ArrowUp");
+  assertEqual(document.activeElement.dataset.value, "2026-11-12");
+  const e = key(document.activeElement, "PageDown");
+  assert(e.defaultPrevented, "handled keys never scroll the page");
+  assertEqual(document.activeElement.dataset.value, "2026-12-12");
+  assertEqual(cal.querySelector(".ui-calendar-title").textContent, "December 2026");
+  key(document.activeElement, "End");
+  assertEqual(document.activeElement.dataset.value, "2026-12-31");
+  key(document.activeElement, "Home");
+  assertEqual(document.activeElement.dataset.value, "2026-12-01");
+  let changed = 0;
+  cal.addEventListener("change", () => changed++, { once: true });
+  key(document.activeElement, "Enter");
+  assertEqual(cal.value, "2026-12-01");
+  assertEqual(changed, 1);
+  assertEqual(document.activeElement.getAttribute("aria-selected"), "true");
+  reset();
+});
+
+test("keys: Left and Right swap under dir=rtl", () => {
+  reset();
+  html.dir = "rtl";
+  cursor().focus();
+  key(document.activeElement, "ArrowLeft");
+  assertEqual(document.activeElement.dataset.value, "2026-11-13");
+  reset();
+});
+
+test("views: Ctrl+Up to the year and decade views, Enter back in; the year view keeps the month's size", () => {
+  reset();
+  const size = cal.getBoundingClientRect();
+  cursor().focus();
+  key(document.activeElement, "ArrowUp", { ctrlKey: true });
+  assertEqual(cal.displayMode, "year");
+  assertEqual(cal.querySelector(".ui-calendar-title").textContent, "2026");
+  assertEqual(cal.querySelectorAll("tbody td").length, 12);
+  assertEqual(document.activeElement.textContent, "Nov");
+  assertEqual(document.activeElement.getAttribute("aria-selected"), "true");
+  const year = cal.getBoundingClientRect();
+  assertEqual(year.width, size.width, "width");
+  assertEqual(year.height, size.height, "height");
+  key(document.activeElement, "ArrowUp", { ctrlKey: true });
+  assertEqual(cal.displayMode, "decade");
+  assertEqual(cal.querySelector(".ui-calendar-title").textContent, "2020-2029");
+  assert(cal.querySelector("tbody td").hasAttribute("data-outside"), "2019 is outside the decade");
+  key(document.activeElement, "ArrowRight");
+  assertEqual(document.activeElement.textContent, "2027");
+  key(document.activeElement, "Enter");
+  assertEqual(cal.displayMode, "year");
+  assertEqual(cal.querySelector(".ui-calendar-title").textContent, "2027");
+  key(document.activeElement, "ArrowLeft");
+  key(document.activeElement, " ");
+  assertEqual(cal.displayMode, "month");
+  assertEqual(cal.querySelector(".ui-calendar-title").textContent, "October 2027");
+  assertEqual(cal.value, "2026-11-12", "opening views selects nothing");
+  reset();
+});
+
+test("pointer: the title opens the year view, the arrows page, a click selects a day", () => {
+  reset();
+  cal.querySelector(".ui-calendar-next").click();
+  assertEqual(cal.querySelector(".ui-calendar-title").textContent, "December 2026");
+  cal.querySelector(".ui-calendar-previous").click();
+  cell("2026-11-20").click();
+  assertEqual(cal.value, "2026-11-20");
+  cal.querySelector(".ui-calendar-title").click();
+  assertEqual(cal.displayMode, "year");
+  assertEqual(cal.querySelector(".ui-calendar-previous").getAttribute("aria-label"), "Previous year");
+  cal.querySelector('[data-value="2026-02"]').click();
+  assertEqual(cal.displayMode, "month");
+  assertEqual(cal.querySelector(".ui-calendar-title").textContent, "February 2026");
+  reset();
+});
+
+test("min and max: days outside are unavailable (aria-disabled, disabled text) and cannot be selected", () => {
+  reset();
+  cal.setAttribute("min", "2026-11-05");
+  cal.setAttribute("max", "2026-11-25");
+  const early = cell("2026-11-04");
+  assertEqual(early.getAttribute("aria-disabled"), "true");
+  assertEqual(hex(style(early).color), "#A6A6A6");
+  early.click();
+  assertEqual(cal.value, "2026-11-12");
+  assert(!cell("2026-11-05").hasAttribute("aria-disabled"));
+  reset();
+});
+
+test("disabled: aria-disabled, no Tab stop, buttons disabled, the selected day a BaseLow fill", () => {
+  reset();
+  cal.setAttribute("disabled", "");
+  assertEqual(cal.getAttribute("aria-disabled"), "true");
+  assertEqual(cal.querySelectorAll(".ui-calendar-cell[tabindex]").length, 0);
+  assert(cal.querySelector(".ui-calendar-next").disabled);
+  const sel = cell("2026-11-12");
+  assertEqual(hex(style(sel).backgroundColor), "#D4D4D4");
+  assertEqual(hex(style(sel).color), "#A6A6A6");
+  assertEqual(hex(style(cell("2026-11-13")).color), "#A6A6A6");
+  html.dataset.theme = "dark";
+  assertEqual(hex(style(sel).backgroundColor), "#454545");
+  assertEqual(hex(style(sel).color), "#6B6B6B");
+  reset();
+});
+
+test("cell looks: rest, outside, hover, pressed and selected fills, light and dark", () => {
+  const expected = {
+    light: { rest: "#1A1A1A", outside: "#686868", hover: "#D4D4D4", pressed: "#A6A6A6", sel: "#0075DD", selHover: "#006AC9", selPressed: "#0060B4" },
+    dark: { rest: "#F2F2F2", outside: "#9E9E9E", hover: "#404040", pressed: "#6B6B6B", sel: "#0075DD", selHover: "#006AC9", selPressed: "#0060B4" },
+  };
+  for (const theme of ["light", "dark"]) {
+    reset();
+    html.dataset.theme = theme;
+    const e = expected[theme];
+    const c = cell("2026-11-20");
+    assertEqual(hex(style(c).color), e.rest, `${theme} rest`);
+    assertEqual(hex(style(c).backgroundColor), "transparent");
+    assertEqual(hex(style(cell("2026-10-25")).color), e.outside, `${theme} outside`);
+    c.dataset.state = "hover";
+    assertEqual(hex(style(c).backgroundColor), e.hover, `${theme} hover`);
+    c.dataset.state = "pressed";
+    assertEqual(hex(style(c).backgroundColor), e.pressed, `${theme} pressed`);
+    const s = cell("2026-11-12");
+    assertEqual(hex(style(s).backgroundColor), e.sel, `${theme} selected`);
+    assertEqual(hex(style(s).color), "#FFFFFF");
+    s.dataset.state = "hover";
+    assertEqual(hex(style(s).backgroundColor), e.selHover);
+    s.dataset.state = "pressed";
+    assertEqual(hex(style(s).backgroundColor), e.selPressed);
+  }
+  reset();
+});
+
+test("panel: radius 16 squircle, the card colour, a 1 px BaseLow hairline, SpacingXS padding, Body text", () => {
+  reset();
+  const s = style(cal);
+  assertEqual(s.borderTopLeftRadius, "18.88px");
+  assertEqual(hex(s.backgroundColor), "#FFFFFF");
+  assertEqual(hex(s.borderTopColor), "#D4D4D4");
+  assertEqual(s.borderTopWidth, "1px");
+  assertEqual(s.paddingTop, "4px");
+  assertEqual(s.fontSize, "14px");
+  html.dataset.theme = "dark";
+  assertEqual(hex(style(cal).backgroundColor), "#2A2A2A");
+  assertEqual(hex(style(cal).borderTopColor), "#454545");
+  reset();
+});
+
+test("sizes: cells 32 (24 Compact) and 4 apart, seven wide; the panel 262 x 285 at Normal; weekday headings Caption in BaseMedium", () => {
+  for (const [density, size] of [["normal", 32], ["compact", 24]]) {
+    reset();
+    html.dataset.density = density;
+    const a = cell("2026-11-12").getBoundingClientRect(), b = cell("2026-11-13").getBoundingClientRect();
+    assertEqual(a.width, size, `${density} width`);
+    assertEqual(a.height, size, `${density} height`);
+    assertEqual(b.left - a.right, 4, `${density} gap`);
+    assertEqual(cal.querySelector(".ui-calendar-next").getBoundingClientRect().width, size, `${density} arrow`);
+  }
+  html.dataset.density = "normal";
+  const r = cal.getBoundingClientRect();
+  assertEqual(r.width, 262, "width: 7 x 36 + padding and hairline");
+  assertEqual(r.height, 285, "height: header 36, weekday row 23, six weeks of 36");
+  const th = cal.querySelector("th");
+  assertEqual(style(th).fontSize, "12px");
+  assertEqual(hex(style(th).color), "#686868");
+  assertEqual(style(cal.querySelector(".ui-calendar-title")).fontWeight, "600");
+  assertEqual(style(cell("2026-11-12")).borderTopLeftRadius, "9.44px");
+  reset();
+});
+
+test("focus ring on the cursor's cell for keyboard focus only", () => {
+  reset();
+  const c = cursor();
+  c.focus({ focusVisible: true });
+  assertEqual(style(c).outlineStyle, "solid");
+  assertEqual(style(c).outlineWidth, "2px");
+  c.blur();
+  c.focus({ focusVisible: false });
+  assertEqual(style(c).outlineStyle, "none");
+  reset();
+});
+
+test("form: submits the value with its name, resets to the value attribute", () => {
+  reset();
+  assertEqual(new FormData($("form")).get("day"), "2026-11-12");
+  cell("2026-11-20").click();
+  assertEqual(new FormData($("form")).get("day"), "2026-11-20");
+  $("form").reset();
+  assertEqual(cal.value, "2026-11-12");
+});
+
+const ratio2 = (a, b) => contrastRatio(parseHex(a), parseHex(b));
+
+test("contrast: text on the card and selected text on the accent fill meet AA, light and dark", () => {
+  for (const theme of ["light", "dark"]) {
+    reset();
+    html.dataset.theme = theme;
+    const card = hex(style(cal).backgroundColor);
+    for (const value of ["2026-11-20", "2026-10-25"]) {
+      const ratio = ratio2(hex(style(cell(value)).color), card);
+      assert(ratio >= 4.5, `${theme} ${value} ${ratio}`);
+    }
+    const sel = cell("2026-11-12");
+    assert(ratio2(hex(style(sel).color), hex(style(sel).backgroundColor)) >= 4.5, `${theme} selected`);
+    assert(ratio2(hex(style(cal.querySelector("th")).color), card) >= 4.5, `${theme} weekday`);
+  }
+  reset();
+});
+
+test("the value attribute is the initial value: it applies until the user or the property changes the value; reset goes back to it", () => {
+  reset();
+  $("form").reset();
+  cal.setAttribute("value", "2026-11-03");
+  assertEqual(cal.value, "2026-11-03", "a clean calendar follows the attribute");
+  cell("2026-11-20").click();
+  cal.setAttribute("value", "2026-11-04");
+  assertEqual(cal.value, "2026-11-20", "after a pick the attribute no longer applies");
+  $("form").reset();
+  assertEqual(cal.value, "2026-11-04", "reset goes back to the attribute");
+  cal.value = "2026-11-21";
+  cal.setAttribute("value", "2026-11-12");
+  assertEqual(cal.value, "2026-11-21", "after the property the attribute no longer applies");
+  $("form").reset();
+  assertEqual(cal.value, "2026-11-12");
+  reset();
+});
+</script>
+</body>
+</html>

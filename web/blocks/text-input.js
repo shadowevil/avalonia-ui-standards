@@ -58,6 +58,9 @@ let pointer = false;
 document.addEventListener("pointerdown", () => { pointer = true; }, true);
 document.addEventListener("keydown", () => { pointer = false; }, true);
 
+/** True when the last press was a pointer press, false when it was a key (for Blocks that tell pointer and keyboard openings apart). */
+export const lastPressWasPointer = () => pointer;
+
 document.addEventListener("focusin", (e) => {
   if (!e.target.matches?.(INPUT)) return;
   const host = e.target.closest(FIELD) ?? e.target;
@@ -72,8 +75,11 @@ document.addEventListener("focusout", (e) => {
 document.addEventListener("mousedown", (e) => {
   const field = e.target.closest?.(FIELD);
   if (!field || e.button !== 0 || e.target.closest(INPUT)) return;
+  const input = field.querySelector(INPUT);
+  // A field with no input of its own (a ButtonSpinner) is focusable itself: the press is the browser's.
+  if (!input) return;
   e.preventDefault();
-  if (!e.target.closest(".ui-field-button")) field.querySelector(INPUT)?.focus();
+  if (!e.target.closest(".ui-field-button")) input.focus();
 });
 
 document.addEventListener("click", (e) => {

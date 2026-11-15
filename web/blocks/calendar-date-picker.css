@@ -1,0 +1,29 @@
+/*
+  CalendarDatePicker (0038): <ui-calendar-date-picker> (calendar-date-picker.js builds its parts).
+  The field is TextInput's ui-field (0027) around a ui-text-input, which takes the inner theme and
+  draws no chrome, state or ring of its own, with a field button (24 px, 20 Compact, Subtle)
+  showing CalendarBlank. The field shows focus while its text has focus, not while the drop-down
+  has it, as on the desktop.
+  The drop-down is a glass flyout with the overlay radius 16, SpacingXS below the field, its
+  start edge on the field's; the Calendar sits on the glass with no fill or border of its own.
+*/
+ui-calendar-date-picker {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+ui-calendar-date-picker > .ui-field {
+  box-sizing: border-box;
+  inline-size: 100%;
+}
+
+.ui-calendar-date-picker-drop-down {
+  --ui-flyout-offset: var(--ui-spacing-xs);
+  --ui-flyout-min-inline-size: 0px;
+  padding: var(--ui-flyout-edge);
+}
+
+.ui-calendar-date-picker-drop-down > ui-calendar {
+  border-width: 0;
+  background-color: transparent;
+}

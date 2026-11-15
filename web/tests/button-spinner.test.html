@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>ButtonSpinner tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+<link rel="stylesheet" href="../blocks/button-spinner.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host">
+  <ui-button-spinner id="s" class="ui-field ui-button-spinner ui-squircle ui-focus-ring ui-focus-ring-within" aria-label="Size" style="width: 200px"><span class="ui-button-spinner-content">Medium</span></ui-button-spinner>
+  <ui-button-spinner id="left" class="ui-field ui-button-spinner ui-squircle ui-focus-ring ui-focus-ring-within" aria-label="Left" button-spinner-location="left" style="width: 200px">Loose content</ui-button-spinner>
+  <button id="after" type="button">After</button>
+</div>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import "../blocks/button-spinner.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const tick = () => new Promise((r) => setTimeout(r));
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+
+function reset() {
+  for (const a of ["data-theme", "data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  html.dataset.reduceMotion = "true";
+  const s = $("s");
+  for (const a of ["data-state", "data-pointer-focus", "aria-invalid", "disabled", "valid-spin-direction"]) s.removeAttribute(a);
+  $("s").querySelector(".ui-button-spinner-content").textContent = "Medium";
+  document.activeElement?.blur();
+}
+
+const EXPECTED = {
+  rest: { light: ["#FFFFFF@40%", "#686868", "#1A1A1A"], dark: ["#000000@40%", "#9E9E9E", "#F2F2F2"] },
+  hover: { light: ["#FFFFFF@60%", "#404040", "#1A1A1A"], dark: ["#000000@60%", "#D9D9D9", "#F2F2F2"] },
+  focus: { light: ["#FFFFFF", "#007CEA", "#1A1A1A"], dark: ["#1E1E1E", "#007CEA", "#F2F2F2"] },
+  error: { light: ["#FFFFFF@40%", "#E1332A", "#1A1A1A"], dark: ["#000000@40%", "#E1332A", "#F2F2F2"] },
+  disabled: { light: ["#D4D4D4", "#D4D4D4", "#7A7A7A"], dark: ["#454545", "#454545", "#858585"] },
+};
+
+test("every state takes TextInput's colours, light and dark", () => {
+  for (const theme of ["light", "dark"]) {
+    for (const [state, looks] of Object.entries(EXPECTED)) {
+      reset();
+      html.dataset.theme = theme;
+      const s = $("s");
+      if (state === "hover" || state === "focus") s.dataset.state = state;
+      if (state === "error") s.setAttribute("aria-invalid", "true");
+      if (state === "disabled") s.disabled = true;
+      const [bg, border, fg] = looks[theme];
+      assertEqual(hex(style(s).backgroundColor), bg, `${theme} ${state} background`);
+      assertEqual(hex(style(s).borderTopColor), border, `${theme} ${state} border`);
+      assertEqual(hex(style(s).color), fg, `${theme} ${state} text`);
+      assertEqual(style(s).borderTopWidth, "1px");
+    }
+  }
+  reset();
+});
+
+test("error shows over focus", () => {
+  reset();
+  $("s").dataset.state = "focus";
+  $("s").setAttribute("aria-invalid", "true");
+  assertEqual(hex(style($("s")).borderTopColor), "#E1332A");
+  reset();
+});
+
+test("a spinbutton: role, one Tab stop, its label, aria-valuetext follows the content", async () => {
+  reset();
+  const s = $("s");
+  assertEqual(s.getAttribute("role"), "spinbutton");
+  assertEqual(s.tabIndex, 0);
+  assertEqual(s.getAttribute("aria-label"), "Size");
+  assertEqual(s.getAttribute("aria-valuetext"), "Medium");
+  s.querySelector(".ui-button-spinner-content").textContent = "Large";
+  await tick();
+  assertEqual(s.getAttribute("aria-valuetext"), "Large");
+  for (const b of s.querySelectorAll(".ui-spin-button")) {
+    assertEqual(b.tabIndex, -1, "spin buttons are not tab stops");
+    assert(b.getAttribute("aria-label"), "named");
+  }
+  assertEqual(s.querySelector(".ui-spin-increase").getAttribute("aria-label"), "Increase");
+  assertEqual(s.querySelector(".ui-spin-decrease").getAttribute("aria-label"), "Decrease");
+  assertEqual($("left").querySelector(".ui-button-spinner-content").textContent, "Loose content", "loose content wrapped");
+  reset();
+});
+
+test("Up and Down fire spin with the direction, and keep the page from scrolling", () => {
+  reset();
+  const s = $("s");
+  const got = [];
+  s.addEventListener("spin", (e) => got.push(e.detail.direction));
+  for (const key of ["ArrowUp", "ArrowDown"]) {
+    const e = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+    s.dispatchEvent(e);
+    assert(e.defaultPrevented, key);
+  }
+  assertEqual(got.join(), "increase,decrease");
+  reset();
+});
+
+test("a spin button fires spin, takes focus on click, and a limit stops its direction", () => {
+  reset();
+  const s = $("s");
+  const got = [];
+  s.addEventListener("spin", (e) => got.push(e.detail.direction));
+  const up = s.querySelector(".ui-spin-increase"), down = s.querySelector(".ui-spin-decrease");
+  up.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+  assertEqual(document.activeElement, s, "focus on press");
+  up.click();
+  down.click();
+  s.validSpinDirection = "decrease";
+  assertEqual(up.getAttribute("aria-disabled"), "true", "increase at its limit");
+  assertEqual(down.getAttribute("aria-disabled"), null);
+  up.click();
+  s.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+  down.click();
+  s.validSpinDirection = "none";
+  down.click();
+  assertEqual(got.join(), "increase,decrease,decrease");
+  reset();
+});
+
+test("a press on the content focuses the field and Up then spins; a press on a spin button keeps focus on the field", () => {
+  reset();
+  const s = $("s");
+  const content = s.querySelector(".ui-button-spinner-content");
+  const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+  content.dispatchEvent(down);
+  assert(!down.defaultPrevented, "the browser's press focuses the focusable field");
+  s.focus();
+  assertEqual(document.activeElement, s);
+  const got = [];
+  s.addEventListener("spin", (e) => got.push(e.detail.direction));
+  content.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+  assertEqual(got.join(), "increase");
+  const press = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+  s.querySelector(".ui-spin-decrease").dispatchEvent(press);
+  assert(press.defaultPrevented, "a spin button never takes focus itself");
+  reset();
+});
+
+test("a button at its limit has the disabled colour, hovered too", () => {
+  reset();
+  const s = $("s"), up = s.querySelector(".ui-spin-increase"), down = s.querySelector(".ui-spin-decrease");
+  s.validSpinDirection = "decrease";
+  assertEqual(hex(style(down).color), "#404040");
+  assertEqual(hex(style(up).color), "#A6A6A6", "disabled colour");
+  up.dataset.state = "hover";
+  assertEqual(hex(style(up).color), "#A6A6A6", "hovered at its limit");
+  assertEqual(hex(style(up).backgroundColor), "transparent");
+  up.removeAttribute("data-state");
+  reset();
+});
+
+test("spin buttons: 24 px (20 Compact), inset 4 (2), side by side increase then decrease, 16 px icons, concentric corners", () => {
+  reset();
+  const s = $("s");
+  for (const [density, size, inset, radius] of [["normal", 24, 4, "4.72px"], ["compact", 20, 2, "7.08px"]]) {
+    html.dataset.density = density;
+    const up = s.querySelector(".ui-spin-increase").getBoundingClientRect();
+    const down = s.querySelector(".ui-spin-decrease").getBoundingClientRect();
+    const f = s.getBoundingClientRect();
+    assertEqual(up.width, size, `${density} width`);
+    assertEqual(up.height, size, `${density} height`);
+    assertEqual(f.height, density === "normal" ? 32 : 24, `${density} field height`);
+    assertEqual(down.left, up.right, `${density} touching`);
+    assertEqual(f.right - down.right, inset, `${density} inset end`);
+    assertEqual(up.top - f.top, inset, `${density} inset top`);
+    assertEqual(style(s.querySelector(".ui-spin-increase")).borderTopLeftRadius, radius, `${density} radius`);
+    assertEqual(s.querySelector(".ui-spin-increase .ui-icon").getBoundingClientRect().width, 16, `${density} icon`);
+  }
+  reset();
+});
+
+test("the spin buttons at the leading end with button-spinner-location=left; right to left mirrors both", () => {
+  reset();
+  const l = $("left"), f = l.getBoundingClientRect();
+  const up = l.querySelector(".ui-spin-increase").getBoundingClientRect();
+  assertEqual(up.left - f.left, 4);
+  const s = $("s");
+  html.dir = "rtl";
+  const rf = s.getBoundingClientRect(), rb = s.querySelector(".ui-spin-increase").getBoundingClientRect();
+  assertEqual(rb.left - rf.left, 4 + 24, "increase is first, at the start edge");
+  reset();
+});
+
+test("disabled: aria-disabled, out of the Tab order, buttons and keys do nothing", () => {
+  reset();
+  const s = $("s");
+  let spins = 0;
+  s.addEventListener("spin", () => spins++);
+  s.disabled = true;
+  assertEqual(s.getAttribute("aria-disabled"), "true");
+  assert(!s.hasAttribute("tabindex"), "no tabindex");
+  assert(s.querySelector(".ui-spin-increase").disabled, "buttons disabled");
+  s.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+  s.querySelector(".ui-spin-increase").click();
+  assertEqual(spins, 0);
+  s.disabled = false;
+  assertEqual(s.tabIndex, 0);
+  reset();
+});
+
+test("focus on the field: accent border and focused fill; keyboard focus the ring around the whole field", () => {
+  reset();
+  const s = $("s");
+  s.focus({ focusVisible: true });
+  assertEqual(hex(style(s).borderTopColor), "#007CEA");
+  assertEqual(hex(style(s).backgroundColor), "#FFFFFF");
+  assertEqual(style(s).outlineStyle, "solid", "ring");
+  assertEqual(style(s).outlineWidth, "2px");
+  reset();
+  s.dataset.state = "focus";
+  s.setAttribute("data-pointer-focus", "");
+  assertEqual(style(s).outlineStyle, "none", "pointer focus has no ring");
+  reset();
+});
+</script>
+</body>
+</html>

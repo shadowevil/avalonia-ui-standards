@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en-US" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>DatePicker tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<link rel="stylesheet" href="../blocks/date-picker.css">
+</head>
+<body style="padding: 100px 40px 400px">
+<pre id="results">running</pre>
+<form id="form">
+  <ui-date-picker id="dp" aria-label="Start date" value="2026-11-13" name="start"></ui-date-picker>
+</form>
+<ui-date-picker id="empty" aria-label="Empty"></ui-date-picker>
+<ui-date-picker id="de" aria-label="German" lang="de-DE" value="2026-03-05"></ui-date-picker>
+<button id="after" type="button">After</button>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { contrastRatio, parseHex } from "../style/colour.js";
+import { today } from "../blocks/calendar.js";
+import "../blocks/date-picker.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const dp = $("dp");
+const field = (p = dp) => p.querySelector(".ui-date-picker-field");
+const flyout = (p = dp) => p.querySelector(".ui-date-picker-flyout");
+const selector = (part, p = dp) => flyout(p).querySelector(`.ui-date-picker-selector[data-part="${part}"]`);
+const rows = (part, p = dp) => [...selector(part, p).querySelectorAll(".ui-date-picker-row")].map((r) => r.textContent);
+const tick = () => new Promise((r) => setTimeout(r, 20));
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+const key = (target, k, options = {}) => {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  target.dispatchEvent(e);
+  return e;
+};
+const ratio = (a, b) => contrastRatio(parseHex(a), parseHex(b));
+
+function reset() {
+  for (const a of ["data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  for (const p of document.querySelectorAll("ui-date-picker")) {
+    p.close();
+    p.removeAttribute("disabled");
+    p.removeAttribute("data-state");
+  }
+  dp.value = "2026-11-13";
+  document.activeElement?.blur();
+}
+
+test("roles: a named group, the field a button with a dialog popup, its name the segments' text", () => {
+  reset();
+  assertEqual(dp.getAttribute("role"), "group");
+  const f = field();
+  assertEqual(f.localName, "button");
+  assertEqual(f.type, "button");
+  assertEqual(f.getAttribute("aria-haspopup"), "dialog");
+  assertEqual(f.getAttribute("aria-expanded"), "false");
+  assertEqual(f.textContent, "November132026");
+  assertEqual(f.innerText.replace(/\s+/g, " ").trim(), "November 13 2026");
+});
+
+test("segments in the locale's order with Intl names; the empty field shows the placeholders", () => {
+  reset();
+  const parts = (p) => [...field(p).querySelectorAll(".ui-date-picker-segment")].map((s) => `${s.dataset.part}:${s.textContent}`);
+  assertEqual(parts(dp).join(" "), "month:November day:13 year:2026");
+  assertEqual(parts($("de")).join(" "), "day:5 month:März year:2026");
+  assertEqual(parts($("empty")).join(" "), "month:month day:day year:year");
+  assertEqual(hex(style(field($("empty")).querySelector(".ui-date-picker-segment")).color), "#686868");
+});
+
+test("field: 298 wide (Fluent's 296 inside the border), 32 high (24 Compact), the control squircle, the month at the side padding, 1 px BaseLow dividers", () => {
+  reset();
+  const r = field().getBoundingClientRect();
+  assertEqual(r.width, 298);
+  assertEqual(r.height, 32);
+  assertEqual(style(field()).borderTopLeftRadius, "9.44px");
+  const month = field().querySelector('[data-part="month"]');
+  assertEqual(style(month).paddingInlineStart, "12px");
+  const divider = field().querySelector(".ui-date-picker-divider");
+  assertEqual(divider.getBoundingClientRect().width, 1);
+  assertEqual(hex(style(divider).backgroundColor), "#D4D4D4");
+  // Fluent's columns: month 138, day 78, year 78 of the inner width.
+  const widths = [...field().querySelectorAll(".ui-date-picker-segment")].map((s) => Math.round(s.getBoundingClientRect().width));
+  assertEqual(widths.join(","), "138,78,78");
+  html.dataset.density = "compact";
+  assertEqual(field().getBoundingClientRect().height, 24);
+  assertEqual(style(month).paddingInlineStart, "8px");
+  reset();
+});
+
+test("field states: TextControl colours at rest, hover, focus and disabled, light and dark", () => {
+  const expected = {
+    light: { rest: ["#FFFFFF@40%", "#686868"], hover: ["#FFFFFF@60%", "#404040"], focus: ["#FFFFFF", "#007CEA"], disabled: ["#D4D4D4", "#D4D4D4"] },
+    dark: { rest: ["#000000@40%", "#9E9E9E"], hover: ["#000000@60%", "#D9D9D9"], focus: ["#1E1E1E", "#007CEA"], disabled: ["#454545", "#454545"] },
+  };
+  for (const theme of ["light", "dark"]) {
+    for (const [state, [bg, border]] of Object.entries(expected[theme])) {
+      reset();
+      html.dataset.theme = theme;
+      if (state === "disabled") dp.disabled = true;
+      else if (state !== "rest") dp.dataset.state = state;
+      const s = style(field());
+      assertEqual(hex(s.backgroundColor), bg, `${theme} ${state} background`);
+      assertEqual(hex(s.borderTopColor), border, `${theme} ${state} border`);
+      assertEqual(s.borderTopWidth, "1px");
+    }
+  }
+  reset();
+  dp.disabled = true;
+  assertEqual(hex(style(field().querySelector(".ui-date-picker-segment")).color), "#A6A6A6", "disabled text");
+  assert(field().disabled, "the field button is disabled");
+  reset();
+});
+
+test("focus ring around the field for keyboard focus; the accent border for any focus", () => {
+  reset();
+  field().focus({ focusVisible: true });
+  assertEqual(style(field()).outlineStyle, "solid");
+  assertEqual(hex(style(field()).borderTopColor), "#007CEA");
+  field().blur();
+  field().focus({ focusVisible: false });
+  assertEqual(style(field()).outlineStyle, "none");
+  assertEqual(hex(style(field()).borderTopColor), "#007CEA");
+  reset();
+});
+
+test("opening: Enter on the field opens the glass flyout over the field, focus on the first selector with its ring", async () => {
+  reset();
+  field().focus({ focusVisible: true });
+  key(field(), "Enter");
+  field().click();
+  await tick();
+  const f = flyout();
+  assert(f.matches(":popover-open"), "open");
+  assertEqual(f.getAttribute("role"), "dialog");
+  assertEqual(f.getAttribute("aria-label"), "Choose a date");
+  assertEqual(field().getAttribute("aria-expanded"), "true");
+  assert(f.classList.contains("ui-glass"), "glass");
+  assertEqual(document.activeElement, selector("month"));
+  assertEqual(style(selector("month"), "::after").visibility, "visible", "column ring after a keyboard opening");
+  const fr = field().getBoundingClientRect();
+  const hr = f.querySelector(".ui-date-picker-highlight").getBoundingClientRect();
+  assertEqual(f.getBoundingClientRect().width, fr.width, "as wide as the field");
+  assertEqual(Math.round(hr.top + hr.height / 2), Math.round(fr.top + fr.height / 2), "the selected row level with the field");
+  assertEqual(Math.round(f.getBoundingClientRect().left), Math.round(fr.left));
+  reset();
+});
+
+test("opening by pointer shows no column ring", async () => {
+  reset();
+  field().dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  field().click();
+  await tick();
+  assertEqual(document.activeElement, selector("month"));
+  assertEqual(style(selector("month"), "::after").visibility, "hidden");
+  reset();
+});
+
+test("selectors: spinbuttons with values, 7 rows with the selected in the middle; months and days loop, years do not", async () => {
+  reset();
+  dp.value = "2026-01-02";
+  field().click();
+  await tick();
+  const m = selector("month");
+  assertEqual(m.getAttribute("role"), "spinbutton");
+  assertEqual(m.tabIndex, 0);
+  assertEqual(m.getAttribute("aria-label"), "month");
+  assertEqual(m.getAttribute("aria-valuenow"), "1");
+  assertEqual(m.getAttribute("aria-valuetext"), "January");
+  assertEqual(rows("month").join(","), "October,November,December,January,February,March,April");
+  assertEqual(rows("day").join(","), "30,31,1,2,3,4,5");
+  assertEqual(selector("day").getAttribute("aria-valuemax"), "31");
+  const year = today().getUTCFullYear();
+  assertEqual(selector("year").getAttribute("aria-valuemin"), String(year - 100));
+  for (const r of selector("month").querySelectorAll(".ui-date-picker-row")) assertEqual(r.getAttribute("aria-hidden"), "true");
+  reset();
+});
+
+test("keys: Up and Down step, Home and End go to the ends, days follow the month; Enter accepts", async () => {
+  reset();
+  dp.value = "2026-01-31";
+  field().click();
+  await tick();
+  let e = key(selector("month"), "ArrowDown");
+  assert(e.defaultPrevented);
+  assertEqual(selector("month").getAttribute("aria-valuetext"), "February");
+  assertEqual(selector("day").getAttribute("aria-valuetext"), "28", "the day kept within February");
+  key(selector("month"), "ArrowUp");
+  key(selector("month"), "ArrowUp");
+  assertEqual(selector("month").getAttribute("aria-valuetext"), "December", "loops");
+  key(selector("month"), "Home");
+  assertEqual(selector("month").getAttribute("aria-valuetext"), "January");
+  key(selector("day"), "End");
+  assertEqual(selector("day").getAttribute("aria-valuetext"), "31");
+  key(selector("year"), "ArrowDown");
+  assertEqual(dp.value, "2026-01-31", "nothing changes before accepting");
+  let changes = 0, inputs = 0;
+  dp.addEventListener("change", () => changes++, { once: true });
+  dp.addEventListener("input", () => inputs++, { once: true });
+  selector("year").focus();
+  key(selector("year"), "Enter");
+  await tick();
+  assertEqual(dp.value, "2027-01-31");
+  assertEqual(changes, 1);
+  assertEqual(inputs, 1);
+  assert(!flyout().matches(":popover-open"), "closed");
+  assertEqual(document.activeElement, field(), "focus back on the field");
+  reset();
+});
+
+test("Tab cycles through the selectors and the buttons", async () => {
+  reset();
+  field().click();
+  await tick();
+  const order = [];
+  for (let i = 0; i < 5; i++) {
+    order.push(document.activeElement.dataset.part ?? (document.activeElement.classList.contains("ui-date-picker-accept") ? "accept" : "dismiss"));
+    key(document.activeElement, "Tab");
+  }
+  assertEqual(order.join(","), "month,day,year,accept,dismiss");
+  assertEqual(document.activeElement, selector("month"), "back to the first");
+  key(document.activeElement, "Tab", { shiftKey: true });
+  assertEqual(document.activeElement.classList.contains("ui-date-picker-dismiss"), true);
+  reset();
+});
+
+test("pointer: a click on a row selects it, the step buttons step, Dismiss changes nothing", async () => {
+  reset();
+  field().click();
+  await tick();
+  selector("day").querySelector('[data-offset="2"]').click();
+  assertEqual(selector("day").getAttribute("aria-valuetext"), "15");
+  selector("day").querySelector('.ui-date-picker-step[data-step="-1"]').click();
+  assertEqual(selector("day").getAttribute("aria-valuetext"), "14");
+  assertEqual(selector("day").querySelector(".ui-date-picker-step").tabIndex, -1, "step buttons take no focus");
+  flyout().querySelector(".ui-date-picker-dismiss").click();
+  await tick();
+  assert(!flyout().matches(":popover-open"));
+  assertEqual(dp.value, "2026-11-13");
+  field().click();
+  await tick();
+  assertEqual(selector("day").getAttribute("aria-valuetext"), "13", "reopened at the value");
+  key(document.activeElement, "Escape");
+  flyout().hidePopover();
+  reset();
+});
+
+test("an empty picker opens at today", async () => {
+  reset();
+  field($("empty")).click();
+  await tick();
+  assertEqual(selector("year", $("empty")).getAttribute("aria-valuenow"), String(today().getUTCFullYear()));
+  reset();
+});
+
+test("flyout layout: inset 4, 7 rows of 32 (24 Compact) in a radius 12 viewport, accent pill radius 8, buttons below 4 apart", async () => {
+  for (const [density, row] of [["normal", 32], ["compact", 24]]) {
+    reset();
+    html.dataset.density = density;
+    field().click();
+    await tick();
+    const f = flyout();
+    const v = f.querySelector(".ui-date-picker-viewport");
+    const vr = v.getBoundingClientRect(), fr = f.getBoundingClientRect();
+    assertEqual(vr.top - fr.top, 5, `${density} inset (4 and the glass edge)`);
+    assertEqual(vr.height, 7 * row, `${density} viewport`);
+    if (density === "normal") assertEqual(style(v).borderTopLeftRadius, "14.16px");
+    const h = f.querySelector(".ui-date-picker-highlight");
+    assertEqual(h.getBoundingClientRect().height, row);
+    assertEqual(hex(style(h).backgroundColor), "#0075DD");
+    assertEqual(style(h).borderTopLeftRadius, "9.44px");
+    const sel = selector("month").querySelector("[data-selected]");
+    assertEqual(hex(style(sel).color), "#FFFFFF");
+    const [a, d] = f.querySelectorAll(".ui-date-picker-actions .ui-button");
+    assert(a.classList.contains("ui-accent") && !d.classList.contains("ui-accent"));
+    assertEqual(a.getAttribute("aria-label"), "Accept");
+    assertEqual(d.getAttribute("aria-label"), "Dismiss");
+    assertEqual(a.getBoundingClientRect().top - vr.bottom, 4, `${density} gap above the buttons`);
+    assertEqual(d.getBoundingClientRect().left - a.getBoundingClientRect().right, 4);
+    assertEqual(a.getBoundingClientRect().height, row);
+    // No row shows outside the viewport's curve: every row sits inside the clipping viewport.
+    for (const r of f.querySelectorAll(".ui-date-picker-row")) {
+      const rr = r.getBoundingClientRect();
+      assert(rr.top >= vr.top - 0.01 && rr.bottom <= vr.bottom + 0.01, "row inside the viewport");
+    }
+    assertEqual(style(v).overflow, "clip");
+    flyout().hidePopover();
+  }
+  reset();
+});
+
+test("rows: list item hover and press fills; the selected row has none of its own; step buttons opaque in the glass tint", async () => {
+  reset();
+  field().click();
+  await tick();
+  const row = selector("month").querySelector('[data-offset="1"]');
+  row.dataset.state = "hover";
+  assertEqual(hex(style(row).backgroundColor), "#D4D4D4");
+  row.dataset.state = "pressed";
+  assertEqual(hex(style(row).backgroundColor), "#A6A6A6");
+  const sel = selector("month").querySelector("[data-selected]");
+  sel.dataset.state = "hover";
+  assertEqual(hex(style(sel).backgroundColor), "transparent");
+  const step = selector("month").querySelector(".ui-date-picker-step");
+  assertEqual(style(step).visibility, "hidden", "hidden until the pointer is over the selector");
+  selector("month").dataset.state = "hover";
+  assertEqual(style(step).visibility, "visible");
+  assertEqual(hex(style(step).backgroundColor), "#FFFFFF");
+  assertEqual(hex(style(step).color), "#686868");
+  step.dataset.state = "hover";
+  assertEqual(hex(style(step).backgroundColor), "#D4D4D4");
+  html.dataset.theme = "dark";
+  step.removeAttribute("data-state");
+  assertEqual(hex(style(step).backgroundColor), "#1E1E1E");
+  flyout().hidePopover();
+  reset();
+});
+
+test("column ring: 2 px inside the column, 4 above and below the row, a 2 px accent ring around a 2 px glass-tint gap", async () => {
+  reset();
+  field().click();
+  await tick();
+  const s = selector("day");
+  s.dataset.state = "focus";
+  const ring = style(s, "::after");
+  assertEqual(ring.visibility, "visible");
+  assertEqual(ring.borderTopWidth, "2px");
+  assertEqual(hex(ring.borderTopColor), "#007CEA");
+  assert(ring.boxShadow.includes("inset") && ring.boxShadow.includes("2px"), ring.boxShadow);
+  assertEqual(ring.insetInlineStart, "2px");
+  assertEqual(ring.height, "40px");
+  assertEqual(ring.top, "92px");
+  assertEqual(ring.borderTopLeftRadius, "14.16px");
+  flyout().hidePopover();
+  reset();
+});
+
+test("right to left: the flyout's start edge on the field's", async () => {
+  reset();
+  html.dir = "rtl";
+  field().click();
+  await tick();
+  assertEqual(Math.round(flyout().getBoundingClientRect().right), Math.round(field().getBoundingClientRect().right));
+  reset();
+});
+
+test("form: submits the value with its name, resets to the value attribute; disabled takes no part", async () => {
+  reset();
+  assertEqual(new FormData($("form")).get("start"), "2026-11-13");
+  dp.value = "2026-12-24";
+  assertEqual(new FormData($("form")).get("start"), "2026-12-24");
+  $("form").reset();
+  assertEqual(dp.value, "2026-11-13");
+  dp.disabled = true;
+  field().click();
+  await tick();
+  assert(!flyout().matches(":popover-open"), "a disabled picker does not open");
+  reset();
+});
+
+test("contrast: field text and placeholders on the field fill, selected row text on the accent fill", () => {
+  for (const theme of ["light", "dark"]) {
+    reset();
+    html.dataset.theme = theme;
+    const fill = theme === "light" ? "#FFFFFF" : "#000000"; // the 40 % field fill over its extremes is checked by TextInput; here the opaque focus fill
+    const focus = theme === "light" ? "#FFFFFF" : "#1E1E1E";
+    const text = hex(style(field().querySelector(".ui-date-picker-segment")).color);
+    const placeholder = hex(style(field($("empty")).querySelector(".ui-date-picker-segment")).color);
+    assert(ratio(text, focus) >= 4.5, `${theme} text`);
+    assert(ratio(placeholder, focus) >= 4.5, `${theme} placeholder`);
+    assert(ratio(placeholder, fill) >= 4.5, `${theme} placeholder on ${fill}`);
+    assert(ratio("#FFFFFF", "#0075DD") >= 4.5, "selected row");
+  }
+  reset();
+});
+
+test("the value attribute is the initial value: it applies until the user or the property changes the value; reset goes back to it", async () => {
+  reset();
+  $("form").reset();
+  dp.setAttribute("value", "2026-11-01");
+  assertEqual(dp.value, "2026-11-01", "a clean picker follows the attribute");
+  field().click();
+  await tick();
+  key(selector("day"), "ArrowDown");
+  flyout().querySelector(".ui-date-picker-accept").click();
+  await tick();
+  assertEqual(dp.value, "2026-11-02");
+  dp.setAttribute("value", "2026-11-05");
+  assertEqual(dp.value, "2026-11-02", "after accepting the attribute no longer applies");
+  $("form").reset();
+  assertEqual(dp.value, "2026-11-05");
+  assertEqual(field().querySelector('[data-part="day"]').textContent, "5");
+  dp.setAttribute("value", "2026-11-13");
+  reset();
+});
+
+test("the flyout's strings follow their attributes", async () => {
+  reset();
+  field().click();
+  await tick();
+  dp.setAttribute("flyout-label", "Startdatum wählen");
+  dp.setAttribute("accept-label", "OK");
+  dp.setAttribute("dismiss-label", "Abbrechen");
+  dp.setAttribute("month-placeholder", "Monat");
+  assertEqual(flyout().getAttribute("aria-label"), "Startdatum wählen");
+  assertEqual(flyout().querySelector(".ui-date-picker-accept").getAttribute("aria-label"), "OK");
+  assertEqual(flyout().querySelector(".ui-date-picker-dismiss").getAttribute("aria-label"), "Abbrechen");
+  assertEqual(selector("month").getAttribute("aria-label"), "Monat", "an open flyout's selector names follow");
+  for (const a of ["flyout-label", "accept-label", "dismiss-label", "month-placeholder"]) dp.removeAttribute(a);
+  assertEqual(flyout().getAttribute("aria-label"), "Choose a date");
+  reset();
+});
+</script>
+</body>
+</html>

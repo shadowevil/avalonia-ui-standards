@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>NumericUpDown tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+<link rel="stylesheet" href="../blocks/button-spinner.css">
+<link rel="stylesheet" href="../blocks/numeric-up-down.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host">
+  <ui-numeric-up-down id="n" class="ui-field ui-numeric-up-down ui-squircle ui-focus-ring-within" style="width: 200px"><input id="ni" class="ui-text-input" type="number" value="42" min="0" max="10" step="1" aria-label="Quantity"></ui-numeric-up-down>
+  <ui-numeric-up-down id="free" class="ui-field ui-numeric-up-down ui-squircle ui-focus-ring-within" button-spinner-location="left" style="width: 200px"><input id="fi" class="ui-text-input" type="number" value="5" step="any" aria-label="Free"></ui-numeric-up-down>
+  <button id="after" type="button">After</button>
+</div>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import "../blocks/numeric-up-down.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const tick = () => new Promise((r) => setTimeout(r));
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+const up = (id = "n") => $(id).querySelector(".ui-spin-increase");
+const down = (id = "n") => $(id).querySelector(".ui-spin-decrease");
+
+function reset() {
+  for (const a of ["data-theme", "data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  html.dataset.reduceMotion = "true";
+  for (const el of document.querySelectorAll("#host *")) {
+    for (const a of ["data-state", "data-pointer-focus", "aria-invalid"]) el.removeAttribute(a);
+  }
+  $("ni").disabled = false;
+  $("ni").value = "5";
+  $("fi").value = "5";
+  $("ni").dispatchEvent(new Event("change", { bubbles: true }));
+  document.activeElement?.blur();
+}
+
+const EXPECTED = {
+  rest: { light: ["#FFFFFF@40%", "#686868", "#1A1A1A"], dark: ["#000000@40%", "#9E9E9E", "#F2F2F2"] },
+  hover: { light: ["#FFFFFF@60%", "#404040", "#1A1A1A"], dark: ["#000000@60%", "#D9D9D9", "#F2F2F2"] },
+  focus: { light: ["#FFFFFF", "#007CEA", "#1A1A1A"], dark: ["#1E1E1E", "#007CEA", "#F2F2F2"] },
+  error: { light: ["#FFFFFF@40%", "#E1332A", "#1A1A1A"], dark: ["#000000@40%", "#E1332A", "#F2F2F2"] },
+  disabled: { light: ["#D4D4D4", "#D4D4D4", "#7A7A7A"], dark: ["#454545", "#454545", "#858585"] },
+};
+
+test("the field holds every state with TextInput's colours, light and dark", () => {
+  for (const theme of ["light", "dark"]) {
+    for (const [state, looks] of Object.entries(EXPECTED)) {
+      reset();
+      html.dataset.theme = theme;
+      const n = $("n"), input = $("ni");
+      if (state === "hover" || state === "focus") n.dataset.state = state;
+      if (state === "error") input.setAttribute("aria-invalid", "true");
+      if (state === "disabled") input.disabled = true;
+      const [bg, border, fg] = looks[theme];
+      assertEqual(hex(style(n).backgroundColor), bg, `${theme} ${state} background`);
+      assertEqual(hex(style(n).borderTopColor), border, `${theme} ${state} border`);
+      assertEqual(hex(style(input).color), fg, `${theme} ${state} text`);
+    }
+  }
+  reset();
+});
+
+test("the input is a native spinbutton with the field's label; the spin buttons are not tab stops", () => {
+  reset();
+  const input = $("ni");
+  assertEqual(input.type, "number");
+  assertEqual(input.getAttribute("aria-label"), "Quantity");
+  assertEqual(up().tabIndex, -1);
+  assertEqual(down().tabIndex, -1);
+  assertEqual(up().getAttribute("aria-label"), "Increase");
+  assertEqual(down().getAttribute("aria-label"), "Decrease");
+  assertEqual(style(input).borderTopWidth, "0px", "borderless inner input");
+  assertEqual(style(input).appearance, "textfield", "the browser's own spin buttons are off");
+  reset();
+});
+
+test("a spin button steps the value, fires input and change, and keeps focus in the input", () => {
+  reset();
+  const input = $("ni");
+  const seen = [];
+  input.addEventListener("input", () => seen.push("input"));
+  input.addEventListener("change", () => seen.push("change"));
+  up().dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+  assertEqual(document.activeElement, input, "focus on press");
+  up().click();
+  assertEqual(input.value, "6");
+  down().click();
+  down().click();
+  assertEqual(input.value, "4");
+  assertEqual(seen.join(), "input,change,input,change,input,change");
+  reset();
+});
+
+test("typed text is taken up before it steps", () => {
+  reset();
+  const input = $("ni");
+  input.value = "8";
+  up().click();
+  assertEqual(input.value, "9");
+  reset();
+});
+
+test("a button at its limit takes the disabled colour and does nothing", () => {
+  reset();
+  const input = $("ni");
+  input.value = "10";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(up().getAttribute("aria-disabled"), "true");
+  assertEqual(down().getAttribute("aria-disabled"), null);
+  assertEqual(hex(style(up()).color), "#A6A6A6");
+  assertEqual(hex(style(down()).color), "#404040");
+  up().click();
+  assertEqual(input.value, "10");
+  input.value = "0";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(down().getAttribute("aria-disabled"), "true");
+  assertEqual(up().getAttribute("aria-disabled"), null);
+  input.value = "11";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  down().click();
+  assertEqual(input.value, "10", "above max steps down to max");
+  reset();
+});
+
+test("the arrow keys step natively and the limits follow; step any steps by 1", () => {
+  reset();
+  const input = $("ni");
+  input.value = "9";
+  input.stepUp();
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(up().getAttribute("aria-disabled"), "true");
+  $("free").querySelector(".ui-spin-increase").click();
+  assertEqual($("fi").value, "6");
+  $("free").querySelector(".ui-spin-decrease").click();
+  $("free").querySelector(".ui-spin-decrease").click();
+  assertEqual($("fi").value, "4");
+  reset();
+});
+
+test("a disabled input disables the buttons", async () => {
+  reset();
+  $("ni").disabled = true;
+  await tick();
+  assert(up().disabled && down().disabled, "buttons disabled");
+  up().click();
+  assertEqual($("ni").value, "5");
+  reset();
+  await tick();
+  assert(!up().disabled, "enabled again");
+});
+
+test("a hovered spin button leaves the field in its hover look only through the field", () => {
+  reset();
+  $("n").dataset.state = "hover";
+  up().dataset.state = "hover";
+  assertEqual(hex(style($("n")).borderTopColor), "#404040");
+  assertEqual(hex(style(up()).color), "#1A1A1A");
+  reset();
+});
+
+test("spin buttons: 24 px (20 Compact), inset 4 (2) from the edge, 4 after the text, side by side, 16 px icons", () => {
+  reset();
+  for (const [density, size, inset, height] of [["normal", 24, 4, 32], ["compact", 20, 2, 24]]) {
+    html.dataset.density = density;
+    const f = $("n").getBoundingClientRect();
+    const u = up().getBoundingClientRect(), d = down().getBoundingClientRect();
+    const i = $("ni").getBoundingClientRect();
+    assertEqual(f.height, height, `${density} height`);
+    assertEqual(u.width, size, `${density} width`);
+    assertEqual(d.left, u.right, `${density} side by side`);
+    assertEqual(f.right - d.right, inset, `${density} inset`);
+    assertEqual(u.top - f.top, inset, `${density} inset top`);
+    assertEqual(u.left - (i.right - parseFloat(style($("ni")).paddingInlineEnd)), 4, `${density} after the text`);
+    assertEqual(up().querySelector(".ui-icon").getBoundingClientRect().width, 16);
+  }
+  reset();
+});
+
+test("buttons left at the leading end; right to left mirrors", () => {
+  reset();
+  const f = $("free").getBoundingClientRect(), u = up("free").getBoundingClientRect();
+  assertEqual(u.left - f.left, 4);
+  html.dir = "rtl";
+  const rf = $("n").getBoundingClientRect();
+  assertEqual(down().getBoundingClientRect().left - rf.left, 4, "decrease sits at the start edge");
+  reset();
+});
+
+test("keyboard focus in the input rings the whole field; pointer focus shows the accent border alone", () => {
+  reset();
+  const n = $("n"), input = $("ni");
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" })); // the last press was the keyboard
+  input.focus({ focusVisible: true });
+  assertEqual(hex(style(n).borderTopColor), "#007CEA");
+  assertEqual(style(n).outlineStyle, "solid");
+  assertEqual(style(input).outlineStyle, "none");
+  reset();
+  n.dataset.state = "focus";
+  n.setAttribute("data-pointer-focus", "");
+  assertEqual(style(n).outlineStyle, "none");
+  reset();
+});
+</script>
+</body>
+</html>

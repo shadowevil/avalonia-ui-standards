@@ -1,0 +1,8 @@
+/*
+  TimePicker (0038): <ui-time-picker> (time-picker.js). It takes DatePicker's field and flyout
+  parts (date-picker.css: the ui-date-picker-* classes) with equal columns for the hour, the
+  minute and the period, and Fluent's TimePickerThemeMinWidth.
+*/
+:where(ui-time-picker) {
+  --ui-date-picker-min-width: 242px;
+}

@@ -1,0 +1,24 @@
+/*
+  NumericUpDown (0029): <ui-numeric-up-down>, a TextInput field (0027) with the borderless inner
+  input and spin buttons (numeric-up-down.js adds them):
+
+    <ui-numeric-up-down class="ui-field ui-numeric-up-down ui-squircle ui-focus-ring-within">
+      <input class="ui-text-input" type="number" value="42" aria-label="Quantity">
+    </ui-numeric-up-down>
+
+  The field holds the states (hover, focus within, error, disabled) as text-input.css has them,
+  so hovering a spin button is hovering the field and an error on the input reaches the chrome.
+  The spin buttons are field buttons: Subtle, 24 px (20 Compact) with 16 px caret icons, side by
+  side at the trailing end (the leading end with button-spinner-location="left"), the disabled
+  colour at their limit (aria-disabled, set by script). The browser's own spin buttons are hidden.
+  Forced states: data-state="hover" or "focus" on the element, as on any field.
+*/
+ui-numeric-up-down .ui-text-input[type="number"] {
+  appearance: textfield;
+}
+
+ui-numeric-up-down .ui-text-input[type="number"]::-webkit-inner-spin-button,
+ui-numeric-up-down .ui-text-input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}

@@ -14,4 +14,5 @@
     - **Why:** The ring follows the visible shape, as on every Block; around the invisible handle it would outline nothing.
   - Disabled: the grip never shows and the handle takes no input.
   - While dragging with `ShowsPreview`, the preview is the grip in its drag colour.
+  - Web ([0045](0045-web-library.md)): a separator is a native `<hr>`; a GridSplitter is a `<div>` between two tracks of a CSS grid with `role="separator"` and `aria-valuenow`, the first track's share in percent. The two tracks keep their share as `minmax(0, Nfr)`, as star sizes do on desktop; a disabled splitter is `aria-disabled="true"`.
 - **Why:** Separators and splitters stay quiet structural lines that use only the existing border and scrollbar values.

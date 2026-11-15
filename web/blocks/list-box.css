@@ -30,8 +30,6 @@ ui-list-box > :is(ul, ol) {
 
 .ui-list-item {
   --ui-squircle-radius: var(--ui-corner-radius-control);
-  /* The accent flag (0042): a stroke of the item's design, 3 px at both densities. */
-  --ui-list-item-accent-flag-width: 3px;
   position: relative;
   display: flex;
   align-items: center;
@@ -56,13 +54,13 @@ ui-list-box > :is(ul, ol) {
     color var(--ui-motion-fast) var(--ui-motion-easing);
 }
 
-/* The flag's bar, transparent until the item is flagged; it fades with the fill. */
+/* The flag's bar: transparent until the item is selected, then shown where the flag is on; it fades with the fill. */
 .ui-list-item::before {
   content: "";
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
-  inline-size: var(--ui-list-item-accent-flag-width);
+  inline-size: var(--ui-accent-flag-width);
   background-color: transparent;
   pointer-events: none;
   transition: background-color var(--ui-motion-fast) var(--ui-motion-easing);
@@ -107,22 +105,39 @@ ui-list-box[aria-disabled="true"] .ui-list-item:is([aria-selected="true"], [aria
 }
 
 /*
-  Accent flag (0042): accent-flag on the list turns it on for its items; data-accent-flag="true"
-  or "false" on an item overrides it for that item. A flagged selected item squares its leading
-  corners at once and shows the bar, which fades in with the fill. The leading radius is a hair
-  above zero rather than zero, so the focus ring still rounds those corners by its offset (4).
+  Accent flag (0042): the attribute accent-flag on the list turns it on for its items;
+  data-accent-flag="true" or "false" on an item overrides it for that item and anything nested in
+  it (a tree item's subtree). The setting travels as the inherited number --ui-accent-flag (1 on,
+  0 off, Style: colour.css), so the nearest setting wins; each list starts from its own attribute, so a list inside a
+  flagged one does not take its flag. Other selection Blocks (the TreeView) read the same property.
+  A flagged selected item squares its leading corners at once and shows the bar, which fades in
+  with the fill. The leading radius is a hair above zero rather than zero, so the focus ring still
+  rounds those corners by its offset (4).
 */
-:is(ui-list-box[accent-flag] .ui-list-item:not([data-accent-flag="false"]), .ui-list-item[data-accent-flag="true"]):is([aria-selected="true"], [aria-current]:not([aria-current="false"])) {
-  border-start-start-radius: 0.01px;
-  border-end-start-radius: 0.01px;
+ui-list-box {
+  --ui-accent-flag: 0;
 }
 
-:is(ui-list-box[accent-flag] .ui-list-item:not([data-accent-flag="false"]), .ui-list-item[data-accent-flag="true"]):is([aria-selected="true"], [aria-current]:not([aria-current="false"]))::before {
+ui-list-box[accent-flag] {
+  --ui-accent-flag: 1;
+}
+
+
+.ui-list-item::before {
+  opacity: var(--ui-accent-flag);
+}
+
+.ui-list-item:is([aria-selected="true"], [aria-current]:not([aria-current="false"])) {
+  border-start-start-radius: calc(var(--ui-squircle-drawn-radius) * (1 - var(--ui-accent-flag)) + 0.01px * var(--ui-accent-flag));
+  border-end-start-radius: calc(var(--ui-squircle-drawn-radius) * (1 - var(--ui-accent-flag)) + 0.01px * var(--ui-accent-flag));
+}
+
+.ui-list-item:is([aria-selected="true"], [aria-current]:not([aria-current="false"]))::before {
   background-color: var(--ui-system-accent-color-light2);
 }
 
-:is(ui-list-box[accent-flag] .ui-list-item:not([data-accent-flag="false"]), .ui-list-item[data-accent-flag="true"]):is([aria-selected="true"], [aria-current]:not([aria-current="false"])):is([aria-disabled="true"], :disabled)::before,
-ui-list-box[accent-flag][aria-disabled="true"] .ui-list-item:is([aria-selected="true"], [aria-current]:not([aria-current="false"]))::before {
+.ui-list-item:is([aria-selected="true"], [aria-current]:not([aria-current="false"])):is([aria-disabled="true"], :disabled)::before,
+ui-list-box[aria-disabled="true"] .ui-list-item:is([aria-selected="true"], [aria-current]:not([aria-current="false"]))::before {
   background-color: var(--ui-system-base-medium-low-color);
 }
 

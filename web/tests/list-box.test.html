@@ -44,6 +44,14 @@
   <div class="ui-list-item ui-squircle ui-focus-ring">Rest</div>
   <div class="ui-list-item ui-squircle ui-focus-ring" data-flag-on-item aria-selected="true" data-accent-flag="true">Flag on the item</div>
 </ui-list-box>
+<div id="flag-scope" data-accent-flag="true">
+  <ui-list-box id="nested-outer" class="ui-squircle" accent-flag aria-label="Outer">
+    <div class="ui-list-item ui-squircle ui-focus-ring" aria-selected="true">Outer</div>
+    <ui-list-box id="nested-inner" class="ui-squircle" aria-label="Inner">
+      <div class="ui-list-item ui-squircle ui-focus-ring" aria-selected="true">Inner</div>
+    </ui-list-box>
+  </ui-list-box>
+</div>
 <script type="module">
 import { test, assert, assertEqual } from "./harness.js";
 import { setTheme, setDensity, setAccent } from "../style/index.js";
@@ -288,24 +296,56 @@ test("hover and pressed differ visibly from the list, card and drop-down surface
   setTheme("light");
 });
 
+// The bar shows when it has a colour (the item is selected) and the flag is on (opacity 1).
+const barShown = (el) => getComputedStyle(el, "::before").opacity === "1" && getComputedStyle(el, "::before").backgroundColor !== "rgba(0, 0, 0, 0)";
+
 test("accent flag: 3 px bar in the lighter accent on the leading edge, leading corners square; item and list overrides", () => {
   const [one, two, three, four] = items("flagged");
   const bar = getComputedStyle(one, "::before");
   assertEqual(bar.width, "3px");
   assertEqual(bg(one, "::before"), "#77BFFF");
+  assertEqual(barShown(one), true, "selected, flag on the list");
   assertEqual(bar.left, "0px");
   assertEqual(parseFloat(getComputedStyle(one).borderTopLeftRadius) < 0.1, true, "leading corners square");
+  assertEqual(parseFloat(getComputedStyle(one).borderBottomLeftRadius) < 0.1, true, "leading corners square");
   assertEqual(getComputedStyle(one).borderTopRightRadius, "9.44px", "trailing corners keep the radius");
-  assertEqual(getComputedStyle(two, "::before").backgroundColor, "rgba(0, 0, 0, 0)", "data-accent-flag=false on the item");
+  assertEqual(barShown(two), false, "data-accent-flag=false on the item");
   assertEqual(getComputedStyle(two).borderTopLeftRadius, "9.44px");
   assertEqual(bg(three, "::before"), "#A6A6A6", "disabled: the disabled text colour");
-  assertEqual(getComputedStyle(four, "::before").backgroundColor, "rgba(0, 0, 0, 0)", "unselected: no flag");
-  withState(four, { "data-state": "hover" }, () => assertEqual(getComputedStyle(four, "::before").backgroundColor, "rgba(0, 0, 0, 0)", "hover shows no flag"));
+  assertEqual(barShown(three), true, "disabled selected keeps the bar");
+  assertEqual(barShown(four), false, "unselected: no flag");
+  assertEqual(getComputedStyle(four).borderTopLeftRadius, "9.44px", "unselected: round");
+  withState(four, { "data-state": "hover" }, () => assertEqual(barShown(four), false, "hover shows no flag"));
+  withState(four, { "data-state": "pressed" }, () => assertEqual(barShown(four), false, "pressed shows no flag"));
+  withState(one, { "data-state": "pressed" }, () => assertEqual(barShown(one), true, "selected keeps it while pressed"));
   const own = $("states").querySelector("[data-flag-on-item]");
   assertEqual(bg(own, "::before"), "#77BFFF", "data-accent-flag=true without the list option");
+  assertEqual(barShown(own), true, "data-accent-flag=true without the list option");
+  assertEqual(barShown(items("states")[0]), false, "a list without the option");
   setTheme("dark");
   assertEqual(bg(one, "::before"), "#77BFFF", "same in dark");
   setTheme("light");
+});
+
+test("accent flag: the nearest setting wins, and a list inside a flagged one starts from its own attribute", () => {
+  const outer = $("nested-outer").querySelector(":scope > .ui-list-item");
+  const inner = $("nested-inner").querySelector(".ui-list-item");
+  assertEqual(barShown(outer), true, "outer list's own option");
+  assertEqual(barShown(inner), false, "inner list without the option, inside a flagged list and a data-accent-flag=true ancestor");
+  $("flagged").toggleAttribute("accent-flag", false);
+  assertEqual(barShown(items("flagged")[0]), false, "option removed: off");
+  assertEqual(getComputedStyle(items("flagged")[0]).borderTopLeftRadius, "9.44px", "option removed: round again");
+  $("flagged").toggleAttribute("accent-flag", true);
+  assertEqual(barShown(items("flagged")[0]), true, "option back");
+});
+
+test("accent flag: the focus ring follows the flagged shape (square leading corners, rounded by the offset)", () => {
+  const one = items("flagged")[0];
+  withState(one, { "data-state": "focus" }, () => {
+    const s = getComputedStyle(one);
+    assertEqual(s.outlineWidth, "2px");
+    assertEqual(parseFloat(s.borderTopLeftRadius) > 0, true, "a hair above zero, so the outline rounds by its offset");
+  });
 });
 
 test("accent flag follows the accent (Fluent's SystemAccentColorLight2) and stands apart from the fill", () => {

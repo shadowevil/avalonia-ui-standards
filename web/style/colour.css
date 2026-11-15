@@ -52,6 +52,40 @@
   --ui-backdrop-wash-start-color: light-dark(#DCE9F4, #1A2B3B);
   --ui-backdrop-wash-end-color: light-dark(#F5F5F5, #1E1E1E);
   --ui-backdrop-wash: linear-gradient(calc(90deg + atan2(100vh, 100vw)), var(--ui-backdrop-wash-start-color), var(--ui-backdrop-wash-end-color));
+
+  /*
+    The drop-down surface (0024, 0028): Fluent's ComboBoxDropDownBackground and
+    ComboBoxDropDownBorderBrush (black at 14 % in light, 36 % in dark), shared by the ComboBox and
+    AutoCompleteBox drop-downs.
+  */
+  --ui-combo-box-drop-down-background: var(--ui-system-chrome-medium-low-color);
+  --ui-combo-box-drop-down-border-brush: light-dark(#00000024, #0000005C);
+  --ui-combo-box-drop-down-border-width: 1px;
+}
+
+/*
+  Accent flag (0042): the inherited number --ui-accent-flag (1 on, 0 off) that list-box.css and
+  tree-view.css read. Each selection Block starts from its own accent-flag attribute;
+  data-accent-flag="true" or "false" on an item overrides it for the item and anything nested in
+  it, so the nearest setting wins. --ui-accent-flag-width is the bar's width, 3 px at both
+  densities (a stroke, like the focus ring and the tree lines, not a spacing step).
+*/
+:root {
+  --ui-accent-flag-width: 3px;
+}
+
+@property --ui-accent-flag {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+[data-accent-flag="true"] {
+  --ui-accent-flag: 1;
+}
+
+[data-accent-flag="false"] {
+  --ui-accent-flag: 0;
 }
 
 :root[data-theme="light"] {

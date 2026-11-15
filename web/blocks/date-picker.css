@@ -1,0 +1,261 @@
+/*
+  DatePicker (0038): <ui-date-picker> (date-picker.js builds its parts). These parts are shared
+  with TimePicker (time-picker.css), which builds on them.
+
+  The field: TextInput's field values (0027) on the flyout button, the ui-field chrome: height 32
+  (24 Compact), CornerRadiusControl 8, the TextControl colours per state, a 1 px border that turns
+  accent while the field has focus (pointer or keyboard; not while its flyout has it, as on the
+  desktop), and the focus ring around the field while it has keyboard focus. Segments are
+  centred in the field height between 1 px BaseLow dividers (Fluent's spacer fill, which
+  disappears on the disabled fill); the month starts at the density's side padding (12, 8
+  Compact). Fluent's minimum width 296 (242 for TimePicker) inside the field's border. Segment
+  text: TextControlForeground, the placeholder colour while empty, BaseMediumLow (Fluent's picker
+  foreground disabled) when disabled.
+
+  The flyout: a glass flyout (flyout.css) with the overlay radius 16, inset SpacingXS. Its
+  selectors scroll inside a squircle of radius 12 (16 less the inset), 7 rows of the list item
+  height; rows are list item pills (ListMedium hover, BaseMediumLow pressed), the month rows
+  starting at the control padding. The selected row is one accent pill (AccentFillColor, radius 8)
+  across all columns with white text; no column dividers. A selector with keyboard focus shows the
+  column ring: 2 px inside the column's sides and 4 px above and below the row, radius 12, a 2 px
+  accent ring with a 2 px gap in the glass tint. Step buttons over the top and bottom row (shown
+  while the pointer is over the selector): a row high, squircle, opaque in GlassTintColor with the
+  list item hover and press fills, CaretUp and CaretDown in secondary text. Accept (Accent, Check)
+  and Dismiss (Standard, X) Buttons side by side, SpacingXS apart and below the selectors.
+  Forced states for renders and tests: data-state="hover" or "focus" on the element (passed to
+  the field) or the field, "hover" or
+  "pressed" on a row or step button, "focus" on a selector.
+*/
+:where(ui-date-picker, ui-time-picker) {
+  /* Fluent's DatePickerThemeMinWidth (time-picker.css sets TimePicker's). */
+  --ui-date-picker-min-width: 296px;
+  --ui-date-picker-divider-width: 1px;
+  /* The field's border, drawn outside Fluent's minimum width as on the desktop (298 x 32). */
+  --ui-date-picker-border-width: 1px;
+}
+
+ui-date-picker,
+ui-time-picker {
+  display: inline-block;
+  min-inline-size: calc(var(--ui-date-picker-min-width) + 2 * var(--ui-date-picker-border-width));
+  vertical-align: middle;
+}
+
+/* The field: the ui-field chrome on the flyout button, its segments in columns. */
+.ui-field.ui-date-picker-field {
+  display: grid;
+  align-items: stretch;
+  inline-size: 100%;
+  cursor: default;
+  text-align: start;
+}
+
+.ui-date-picker-field:is(:focus, [data-state~="focus"]) {
+  background-color: var(--ui-text-control-background-focused);
+  border-color: var(--ui-text-control-border-brush-focused);
+}
+
+.ui-date-picker-field:disabled {
+  background-color: var(--ui-text-control-background-disabled);
+  border-color: var(--ui-text-control-border-brush-disabled);
+}
+
+.ui-date-picker-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--ui-text-control-foreground);
+  white-space: nowrap;
+}
+
+.ui-date-picker-segment[data-align="start"] {
+  justify-content: flex-start;
+  padding-inline-start: var(--ui-field-padding-inline);
+}
+
+.ui-date-picker-segment[data-placeholder] {
+  color: var(--ui-text-control-placeholder-foreground);
+}
+
+.ui-date-picker-field:disabled .ui-date-picker-segment {
+  color: var(--ui-system-base-medium-low-color);
+}
+
+.ui-date-picker-divider {
+  inline-size: var(--ui-date-picker-divider-width);
+  background-color: var(--ui-system-base-low-color);
+}
+
+/* The flyout: inset SpacingXS inside the glass edge, as menus. */
+.ui-date-picker-flyout {
+  --ui-flyout-padding: var(--ui-spacing-xs);
+  --ui-flyout-min-inline-size: 0px;
+  --ui-date-picker-row-height: var(--ui-control-min-height);
+  --ui-date-picker-ring-width: var(--ui-focus-ring-width);
+}
+
+.ui-date-picker-flyout > .ui-flyout-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-spacing-xs);
+  overflow: visible;
+}
+
+/* The selectors' viewport: a squircle concentric with the glass, which cuts the rows. */
+.ui-date-picker-viewport {
+  --ui-squircle-radius: calc(var(--ui-corner-radius-overlay) - var(--ui-flyout-padding));
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(7, var(--ui-date-picker-row-height));
+  overflow: clip;
+}
+
+.ui-date-picker-highlight {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(3 * var(--ui-date-picker-row-height));
+  block-size: var(--ui-date-picker-row-height);
+  background-color: var(--ui-accent-fill-color);
+  pointer-events: none;
+}
+
+.ui-date-picker-spacer {
+  grid-row: 1 / -1;
+}
+
+.ui-date-picker-selector {
+  position: relative;
+  display: grid;
+  grid-row: 1 / -1;
+  grid-template-rows: subgrid;
+  min-inline-size: 0;
+  outline: none;
+}
+
+.ui-date-picker-row {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  padding: var(--ui-control-padding);
+  overflow: hidden;
+  color: var(--ui-system-base-high-color);
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-date-picker-selector[data-align="start"] .ui-date-picker-row {
+  justify-content: flex-start;
+}
+
+.ui-date-picker-row:not([data-selected], [data-empty]):is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-system-list-medium-color);
+}
+
+.ui-date-picker-row:not([data-selected], [data-empty]):is(:active, [data-state~="pressed"]) {
+  background-color: var(--ui-system-base-medium-low-color);
+}
+
+/* The selected row: white text over the shared highlight, no fill of its own. */
+.ui-date-picker-row[data-selected] {
+  color: var(--ui-accent-button-foreground);
+}
+
+/* The column ring (0038): around this column's part of the highlight. */
+.ui-date-picker-selector::after {
+  --ui-squircle-radius: calc(var(--ui-corner-radius-control) + 2 * var(--ui-date-picker-ring-width));
+  content: "";
+  position: absolute;
+  inset-inline: var(--ui-date-picker-ring-width);
+  inset-block-start: calc(3 * var(--ui-date-picker-row-height) - 2 * var(--ui-date-picker-ring-width));
+  block-size: calc(var(--ui-date-picker-row-height) + 4 * var(--ui-date-picker-ring-width));
+  box-sizing: border-box;
+  border: var(--ui-date-picker-ring-width) solid var(--ui-focus-ring-color);
+  border-radius: var(--ui-squircle-drawn-radius);
+  box-shadow: inset 0 0 0 var(--ui-date-picker-ring-width) var(--ui-glass-tint-color);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+@supports (corner-shape: superellipse(2)) {
+  .ui-date-picker-selector::after {
+    corner-shape: var(--ui-corner-shape);
+  }
+}
+
+.ui-date-picker-selector:is(:focus-visible, [data-state~="focus"])::after {
+  visibility: visible;
+}
+
+/* Step buttons: over the top and bottom row while the pointer is over the selector. */
+.ui-button.ui-date-picker-step {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  --ui-button-background: var(--ui-glass-tint-color);
+  --ui-button-background-pointer-over: var(--ui-system-list-medium-color);
+  --ui-button-background-pressed: var(--ui-system-base-medium-low-color);
+  --ui-button-background-disabled: var(--ui-glass-tint-color);
+  --ui-button-foreground: var(--ui-system-base-medium-color);
+  --ui-button-foreground-pressed: var(--ui-system-base-high-color);
+  --ui-button-pressed-scale: 1;
+  position: absolute;
+  inset-inline: 0;
+  block-size: var(--ui-date-picker-row-height);
+  min-block-size: 0;
+  padding: 0;
+  visibility: hidden;
+}
+
+.ui-date-picker-step[data-step="-1"] {
+  inset-block-start: 0;
+}
+
+.ui-date-picker-step[data-step="1"] {
+  inset-block-end: 0;
+}
+
+.ui-date-picker-step:is(:hover, [data-state~="hover"]) {
+  color: var(--ui-system-base-high-color);
+}
+
+.ui-date-picker-selector:is(:hover, [data-state~="hover"]) .ui-date-picker-step {
+  visibility: visible;
+}
+
+.ui-date-picker-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ui-spacing-xs);
+}
+
+@media (forced-colors: active) {
+  .ui-date-picker-highlight {
+    background-color: Highlight;
+    forced-color-adjust: none;
+  }
+
+  .ui-date-picker-row[data-selected] {
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .ui-date-picker-divider {
+    background-color: CanvasText;
+  }
+
+  .ui-date-picker-field:disabled {
+    border-color: GrayText;
+  }
+
+  .ui-date-picker-field:disabled .ui-date-picker-segment {
+    color: GrayText;
+  }
+}

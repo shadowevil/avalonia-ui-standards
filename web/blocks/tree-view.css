@@ -1,0 +1,307 @@
+/*
+  TreeView (0035) and its accent flag (0042). <ui-tree-view> holds nested lists of items:
+
+    <ui-tree-view class="ui-squircle" aria-label="Library">
+      <ul>
+        <li class="ui-tree-view-item" aria-expanded="true">
+          <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Style</span></div>
+          <ul class="ui-tree-view-group">
+            <li class="ui-tree-view-item">
+              <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Colour</span></div>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </ui-tree-view>
+
+  tree-view.js adds the roles, levels and roving tabindex, the caret at the start of each row
+  (.ui-tree-view-caret, an Icon) and the class ui-tree-view-lined on items whose node lines are on.
+
+  The tree is transparent with padding 4 and no focus visual of its own. Each row is the tree's full
+  width and holds the inset (4 Normal, 2 Compact), the indent (one caret width per level, from
+  --ui-tree-view-level, which the script sets), the caret (the icon size: 20 Normal, 16 Compact)
+  and the content pill, the list item design (0024) from the caret's end to the row's end: the
+  control radius and height, padding 8 and 12 (8 and 8 Compact), list-medium while the pointer is
+  anywhere on the row, base-medium-low pressed, the accent fill with white text when the item is
+  selected, the focus ring around it while the item has keyboard focus. Children show and hide at
+  once; the caret turns to point down over MotionNormal.
+
+  Node lines (on unless show-lines="false" on the tree or data-show-lines="false" on an item for its
+  subtree) are 1 px hairlines in the border colour under the rows, on the caret columns: a stub down
+  from each expanded parent's caret, an elbow (radius 4) into each child's row ending 4 before its
+  caret glyph or pill, and the parent's column carrying on past every child but the last with lines.
+
+  Forced states for renders and tests: data-state="hover", "pressed" or "focus" on a row.
+*/
+:where(ui-tree-view) {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  /* One level's indent: the caret's width, the icon size of the density. */
+  --ui-tree-view-indent: var(--ui-icon-size);
+  /* The row's inset before the indent (the caret's box already insets its glyph). */
+  --ui-tree-view-inset: var(--ui-spacing-xs);
+  /* The pill's padding. */
+  --ui-tree-view-content-padding: var(--ui-spacing-xs) var(--ui-spacing-m) var(--ui-spacing-xs) var(--ui-spacing-s);
+  /* Node lines: the Separator's hairline, its radius at the elbow, and the gap before content. */
+  --ui-tree-view-line-color: var(--ui-system-base-low-color);
+  --ui-tree-view-line-width: 1px;
+  --ui-tree-view-line-radius: var(--ui-spacing-xs);
+  --ui-tree-view-line-gap: var(--ui-spacing-xs);
+  /* The caret glyph's start in its box (72 of the 256 design box). */
+  --ui-tree-view-caret-glyph-inset: 0.28125;
+}
+
+:root[data-density="compact"] :where(ui-tree-view) {
+  --ui-tree-view-inset: 2px;
+  --ui-tree-view-content-padding: 2px var(--ui-spacing-s);
+}
+
+ui-tree-view {
+  --ui-accent-flag: 0;
+  display: block;
+  box-sizing: border-box;
+  padding: var(--ui-spacing-xs);
+  background: transparent;
+  color: var(--ui-system-base-high-color);
+  font-size: var(--ui-font-size-body);
+  overflow: auto;
+  scroll-padding: var(--ui-spacing-xs);
+}
+
+ui-tree-view[accent-flag] {
+  --ui-accent-flag: 1;
+}
+
+ui-tree-view :is(ul, ol) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-tree-view-item {
+  --ui-tree-view-level: 0;
+  position: relative;
+  display: block;
+  margin: 0;
+  outline: none;
+}
+
+.ui-tree-view-item[aria-expanded="false"] > .ui-tree-view-group,
+.ui-tree-view-item[aria-expanded="false"] > ul {
+  display: none;
+}
+
+.ui-tree-view-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding-inline-start: calc(var(--ui-tree-view-inset) + var(--ui-tree-view-level) * var(--ui-tree-view-indent));
+  cursor: default;
+  user-select: none;
+}
+
+/* The caret, outside the pill: the text colour on every row state, dimmed on a disabled row. */
+.ui-tree-view-caret {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--ui-tree-view-indent);
+  block-size: var(--ui-tree-view-indent);
+  color: var(--ui-system-base-high-color);
+  transition: rotate var(--ui-motion-normal) var(--ui-motion-easing);
+}
+
+.ui-tree-view-caret > .ui-icon {
+  inline-size: var(--ui-tree-view-indent);
+  block-size: var(--ui-tree-view-indent);
+}
+
+/* Items without children keep the caret's room, empty. */
+.ui-tree-view-item:not([aria-expanded]) > .ui-tree-view-row > .ui-tree-view-caret {
+  visibility: hidden;
+}
+
+.ui-tree-view-item[aria-expanded="true"] > .ui-tree-view-row > .ui-tree-view-caret {
+  rotate: 90deg;
+}
+
+/* Right to left, the closed caret points to the start, as the icon mirrored; turned, it points down. */
+.ui-tree-view-caret:dir(rtl) {
+  scale: -1 1;
+}
+
+.ui-tree-view-item[aria-expanded="true"] > .ui-tree-view-row > .ui-tree-view-caret:dir(rtl) {
+  rotate: -90deg;
+}
+
+/* The content pill. */
+.ui-tree-view-content {
+  position: relative;
+  flex: 1 1 auto;
+  display: block;
+  align-content: center;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: var(--ui-control-min-height);
+  padding: var(--ui-tree-view-content-padding);
+  background-color: transparent;
+  color: var(--ui-system-base-high-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-tree-view-row:is(:hover, [data-state~="hover"]) > .ui-tree-view-content {
+  background-color: var(--ui-system-list-medium-color);
+}
+
+.ui-tree-view-row:is(:active, [data-state~="pressed"]) > .ui-tree-view-content {
+  background-color: var(--ui-system-base-medium-low-color);
+}
+
+.ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content {
+  background-color: var(--ui-accent-fill-color);
+  color: var(--ui-accent-button-foreground);
+}
+
+.ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row:is(:hover, [data-state~="hover"]) > .ui-tree-view-content {
+  background-color: var(--ui-accent-fill-color-pointer-over);
+}
+
+.ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row:is(:active, [data-state~="pressed"]) > .ui-tree-view-content {
+  background-color: var(--ui-accent-fill-color-pressed);
+}
+
+/* Disabled: an item, everything under it, or the whole tree. */
+:is(ui-tree-view[aria-disabled="true"], .ui-tree-view-item[aria-disabled="true"]) .ui-tree-view-content {
+  background-color: transparent;
+  color: var(--ui-system-base-medium-low-color);
+}
+
+:is(ui-tree-view[aria-disabled="true"], .ui-tree-view-item[aria-disabled="true"]) .ui-tree-view-caret {
+  color: var(--ui-system-base-medium-low-color);
+}
+
+:is(ui-tree-view[aria-disabled="true"], .ui-tree-view-item[aria-disabled="true"]) .ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content,
+:is(ui-tree-view[aria-disabled="true"], .ui-tree-view-item[aria-disabled="true"])[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content {
+  background-color: var(--ui-system-base-low-color);
+  color: var(--ui-system-base-medium-low-color);
+}
+
+/* The focus ring around the pill while its item has keyboard focus, raised over its neighbours. */
+.ui-tree-view-item:focus-visible > .ui-tree-view-row > .ui-tree-view-content,
+.ui-tree-view-row[data-state~="focus"] > .ui-tree-view-content {
+  z-index: 2;
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring-color);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
+/*
+  The accent flag (0042), on the pill's leading edge, after the caret: accent-flag on the tree,
+  data-accent-flag="true" or "false" on an item for itself and its subtree (the inherited
+  --ui-accent-flag of list-box.css).
+*/
+.ui-tree-view-content::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: var(--ui-accent-flag-width);
+  background-color: transparent;
+  opacity: var(--ui-accent-flag);
+  pointer-events: none;
+  transition: background-color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+.ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content::before {
+  background-color: var(--ui-system-accent-color-light2);
+}
+
+:is(ui-tree-view[aria-disabled="true"], .ui-tree-view-item[aria-disabled="true"]) .ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content::before,
+:is(ui-tree-view[aria-disabled="true"], .ui-tree-view-item[aria-disabled="true"])[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content::before {
+  background-color: var(--ui-system-base-medium-low-color);
+}
+
+.ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content {
+  border-start-start-radius: calc(var(--ui-squircle-drawn-radius) * (1 - var(--ui-accent-flag)) + 0.01px * var(--ui-accent-flag));
+  border-end-start-radius: calc(var(--ui-squircle-drawn-radius) * (1 - var(--ui-accent-flag)) + 0.01px * var(--ui-accent-flag));
+}
+
+/*
+  Node lines, under the rows (the pills and carets are raised above them). Positions are from the
+  row's start; a line's centre sits on the caret column (the caret box's centre), its 1 px placed
+  half a pixel either side, which lands on whole device pixels at scale 1 and 2.
+*/
+.ui-tree-view-content {
+  z-index: 1;
+}
+
+.ui-tree-view-row::before,
+.ui-tree-view-row::after,
+.ui-tree-view-item::before {
+  content: none;
+  position: absolute;
+  box-sizing: border-box;
+  border: 0 solid var(--ui-tree-view-line-color);
+  pointer-events: none;
+}
+
+/* The stub: down from below an expanded parent's caret to the bottom of its row, when a child has lines. */
+.ui-tree-view-lined[aria-expanded="true"]:has(> .ui-tree-view-group > .ui-tree-view-lined, > ul > .ui-tree-view-lined) > .ui-tree-view-row::after {
+  content: "";
+  inset-inline-start: calc(var(--ui-tree-view-inset) + (var(--ui-tree-view-level) + 0.5) * var(--ui-tree-view-indent) - var(--ui-tree-view-line-width) / 2);
+  inset-block: calc(50% + var(--ui-tree-view-indent) / 2) 0;
+  border-inline-start-width: var(--ui-tree-view-line-width);
+}
+
+/* The elbow: from the item's top down its parent's caret column, a quarter circle, then the level
+   line at the row's centre, ending before the caret glyph (or, without children, the pill). */
+.ui-tree-view-lined > :is(.ui-tree-view-group, ul) > .ui-tree-view-lined > .ui-tree-view-row::before {
+  content: "";
+  inset-inline-start: calc(var(--ui-tree-view-inset) + (var(--ui-tree-view-level) - 0.5) * var(--ui-tree-view-indent) - var(--ui-tree-view-line-width) / 2);
+  inset-block-start: 0;
+  block-size: calc(50% + var(--ui-tree-view-line-width) / 2);
+  inline-size: calc(1.5 * var(--ui-tree-view-indent) - var(--ui-tree-view-line-gap) + var(--ui-tree-view-line-width) / 2);
+  border-inline-start-width: var(--ui-tree-view-line-width);
+  border-block-end-width: var(--ui-tree-view-line-width);
+  border-end-start-radius: calc(var(--ui-tree-view-line-radius) + var(--ui-tree-view-line-width) / 2);
+}
+
+.ui-tree-view-lined > :is(.ui-tree-view-group, ul) > .ui-tree-view-lined[aria-expanded] > .ui-tree-view-row::before {
+  inline-size: calc((0.5 + var(--ui-tree-view-caret-glyph-inset)) * var(--ui-tree-view-indent) - var(--ui-tree-view-line-gap) + var(--ui-tree-view-line-width) / 2);
+}
+
+/* Where the column carries on past the child, the elbow keeps only its curve, so the lines do not
+   overlap. */
+.ui-tree-view-lined > :is(.ui-tree-view-group, ul) > .ui-tree-view-lined:has(~ .ui-tree-view-lined) > .ui-tree-view-row::before {
+  inset-block-start: calc(50% - var(--ui-tree-view-line-radius));
+  block-size: calc(var(--ui-tree-view-line-radius) + var(--ui-tree-view-line-width) / 2);
+}
+
+/* The column: the parent's caret column through a child (and its expanded rows) when a later
+   sibling has lines on, whether or not the child has them on itself. */
+.ui-tree-view-lined > :is(.ui-tree-view-group, ul) > .ui-tree-view-item:has(~ .ui-tree-view-lined)::before {
+  content: "";
+  inset-inline-start: calc(var(--ui-tree-view-inset) + (var(--ui-tree-view-level) - 0.5) * var(--ui-tree-view-indent) - var(--ui-tree-view-line-width) / 2);
+  inset-block: 0;
+  border-inline-start-width: var(--ui-tree-view-line-width);
+}
+
+/* Forced colours: the system draws the fills; selection and the lines stay visible. */
+@media (forced-colors: active) {
+  .ui-tree-view-item[aria-selected="true"] > .ui-tree-view-row > .ui-tree-view-content {
+    background-color: SelectedItem;
+    color: SelectedItemText;
+    forced-color-adjust: none;
+  }
+
+  ui-tree-view {
+    --ui-tree-view-line-color: GrayText;
+  }
+}

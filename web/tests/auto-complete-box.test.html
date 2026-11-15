@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>AutoCompleteBox tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/scroll.css">
+<link rel="stylesheet" href="../blocks/list-box.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<link rel="stylesheet" href="../blocks/combobox.css">
+<link rel="stylesheet" href="../blocks/auto-complete-box.css">
+</head>
+<body>
+<pre id="results">running</pre>
+<div id="host" style="padding: 20px">
+  <ui-auto-complete-box id="a" class="ui-field ui-auto-complete-box ui-squircle ui-focus-ring-within" style="width: 220px"><input id="ai" class="ui-text-input" aria-label="City" placeholder="City"><datalist><option value="Amsterdam"></option><option value="Athens"></option><option value="Auckland"></option><option value="Austin"></option><option value="Berlin"></option><option value="Boston"></option></datalist></ui-auto-complete-box>
+  <button id="after" type="button">After</button>
+</div>
+<div id="probe"></div>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import "../blocks/auto-complete-box.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el, pseudo) => getComputedStyle(el, pseudo);
+const a = $("a"), input = $("ai");
+const popup = () => a.querySelector(".ui-auto-complete-popup");
+const items = () => [...popup().querySelectorAll(".ui-list-item")];
+const texts = () => items().map((i) => i.textContent);
+const tick = () => new Promise((r) => setTimeout(r));
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, al] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return al === 1 ? h : al === 0 ? "transparent" : `${h}@${Math.round(al * 100)}%`;
+};
+
+function reset() {
+  a.close();
+  for (const attr of ["data-theme", "data-density", "dir"]) html.removeAttribute(attr);
+  html.dataset.theme = "light";
+  html.dataset.reduceMotion = "true";
+  for (const attr of ["data-state", "data-pointer-focus", "filter", "min-prefix-length"]) a.removeAttribute(attr);
+  input.removeAttribute("aria-invalid");
+  input.disabled = false;
+  input.value = "";
+  a.items = null;
+  document.activeElement?.blur();
+}
+
+function type(text) {
+  input.focus();
+  input.value = text;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+const key = (k, target = input) => {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true });
+  target.dispatchEvent(e);
+  return e;
+};
+
+const EXPECTED = {
+  rest: { light: ["#FFFFFF@40%", "#686868", "#1A1A1A"], dark: ["#000000@40%", "#9E9E9E", "#F2F2F2"] },
+  focus: { light: ["#FFFFFF", "#007CEA", "#1A1A1A"], dark: ["#1E1E1E", "#007CEA", "#F2F2F2"] },
+  error: { light: ["#FFFFFF@40%", "#E1332A", "#1A1A1A"], dark: ["#000000@40%", "#E1332A", "#F2F2F2"] },
+  disabled: { light: ["#D4D4D4", "#D4D4D4", "#7A7A7A"], dark: ["#454545", "#454545", "#858585"] },
+};
+
+test("the field takes TextInput's colours, light and dark", () => {
+  for (const theme of ["light", "dark"]) {
+    for (const [state, looks] of Object.entries(EXPECTED)) {
+      reset();
+      html.dataset.theme = theme;
+      if (state === "focus") a.dataset.state = "focus";
+      if (state === "error") input.setAttribute("aria-invalid", "true");
+      if (state === "disabled") input.disabled = true;
+      const [bg, border, fg] = looks[theme];
+      assertEqual(hex(style(a).backgroundColor), bg, `${theme} ${state} background`);
+      assertEqual(hex(style(a).borderTopColor), border, `${theme} ${state} border`);
+      assertEqual(hex(style(input).color), fg, `${theme} ${state} text`);
+    }
+  }
+  reset();
+});
+
+test("height 32 Normal and 24 Compact, as TextInput", () => {
+  reset();
+  assertEqual(a.getBoundingClientRect().height, 32);
+  html.dataset.density = "compact";
+  assertEqual(a.getBoundingClientRect().height, 24);
+  reset();
+});
+
+test("the input is a combobox with list autocomplete; the datalist is not connected to it", () => {
+  reset();
+  assertEqual(input.getAttribute("role"), "combobox");
+  assertEqual(input.getAttribute("aria-autocomplete"), "list");
+  assertEqual(input.getAttribute("aria-expanded"), "false");
+  assertEqual(input.getAttribute("aria-controls"), popup().querySelector("ui-list-box").id);
+  assertEqual(input.list, null);
+  assertEqual(input.getAttribute("autocomplete"), "off");
+});
+
+test("typing opens the matching suggestions; no match or no text closes them", () => {
+  reset();
+  type("a");
+  assert(a.open, "open");
+  assertEqual(input.getAttribute("aria-expanded"), "true");
+  assertEqual(texts().join(), "Amsterdam,Athens,Auckland,Austin");
+  type("au");
+  assertEqual(texts().join(), "Auckland,Austin");
+  type("zz");
+  assert(!a.open, "no match closes");
+  type("b");
+  assert(a.open);
+  type("");
+  assert(!a.open, "below the prefix length");
+  assertEqual(input.getAttribute("aria-expanded"), "false");
+  reset();
+});
+
+test("the items property replaces the datalist; filter contains and none; min-prefix-length", () => {
+  reset();
+  a.items = ["Red", "Green", "Blue"];
+  type("e");
+  assert(!a.open, "starts-with: nothing matches");
+  a.setAttribute("filter", "contains");
+  type("e");
+  assertEqual(texts().join(), "Red,Green,Blue");
+  a.setAttribute("filter", "none");
+  type("x");
+  assertEqual(texts().join(), "Red,Green,Blue");
+  a.setAttribute("filter", "starts-with");
+  a.setAttribute("min-prefix-length", "2");
+  type("r");
+  assert(!a.open, "one character is not enough");
+  type("re");
+  assert(a.open);
+  reset();
+});
+
+test("Down and Up move the highlight (aria-selected, aria-activedescendant); Up from the first returns to the text", () => {
+  reset();
+  type("a");
+  assertEqual(input.hasAttribute("aria-activedescendant"), false);
+  assert(key("ArrowDown").defaultPrevented);
+  assertEqual(input.getAttribute("aria-activedescendant"), items()[0].id);
+  assertEqual(items()[0].getAttribute("aria-selected"), "true");
+  assertEqual(items()[1].getAttribute("aria-selected"), "false");
+  key("ArrowDown");
+  key("ArrowDown");
+  key("ArrowDown");
+  key("ArrowDown");
+  assertEqual(input.getAttribute("aria-activedescendant"), items()[3].id, "stops at the last");
+  key("ArrowUp"); key("ArrowUp"); key("ArrowUp");
+  assertEqual(input.getAttribute("aria-activedescendant"), items()[0].id);
+  key("ArrowUp");
+  assertEqual(input.hasAttribute("aria-activedescendant"), false);
+  assertEqual(input.value, "a", "the typed text stays while moving");
+  assertEqual(document.activeElement, input, "focus stays in the input");
+  reset();
+});
+
+test("the highlighted suggestion has the list item's selected look", () => {
+  reset();
+  type("a");
+  key("ArrowDown");
+  assertEqual(hex(style(items()[0]).backgroundColor), "#0075DD");
+  assertEqual(hex(style(items()[0]).color), "#FFFFFF");
+  reset();
+});
+
+test("Enter chooses the highlighted suggestion with input and change, closes and keeps focus", () => {
+  reset();
+  type("a");
+  key("ArrowDown"); key("ArrowDown");
+  const seen = [];
+  input.addEventListener("input", () => seen.push("input"));
+  input.addEventListener("change", () => seen.push("change"));
+  assert(key("Enter").defaultPrevented);
+  assertEqual(input.value, "Athens");
+  assertEqual(seen.join(), "input,change");
+  assert(!a.open, "closed after choosing");
+  assertEqual(document.activeElement, input);
+  assert(!key("Enter").defaultPrevented, "Enter without a highlight acts as in any input");
+  reset();
+});
+
+test("a click on a suggestion chooses it and focus stays in the input", () => {
+  reset();
+  type("b");
+  const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+  items()[1].dispatchEvent(down);
+  assert(down.defaultPrevented, "a press keeps focus in the input");
+  items()[1].click();
+  assertEqual(input.value, "Boston");
+  assert(!a.open);
+  assertEqual(document.activeElement, input);
+  reset();
+});
+
+test("Escape closes and keeps the text; Tab and leaving the field close", async () => {
+  reset();
+  type("a");
+  assert(key("Escape").defaultPrevented);
+  assert(!a.open);
+  assertEqual(input.value, "a");
+  type("a");
+  key("Tab");
+  assert(!a.open, "Tab closes");
+  type("a");
+  $("after").focus();
+  await tick();
+  assert(!a.open, "focus leaving closes");
+  type("a");
+  document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  assert(!a.open, "a press outside closes");
+  reset();
+});
+
+test("Down opens the suggestions when closed, even below the prefix length", () => {
+  reset();
+  input.focus();
+  key("ArrowDown");
+  assert(a.open);
+  assertEqual(items().length, 6);
+  reset();
+});
+
+test("a disabled field shows no suggestions", () => {
+  reset();
+  input.disabled = true;
+  input.value = "a";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  assert(!a.open);
+  reset();
+});
+
+test("the suggestions: the field's width, 2 px below it, overlay squircle, drop-down colours, clipping the list", () => {
+  reset();
+  type("a");
+  const p = popup(), f = a.getBoundingClientRect(), r = p.getBoundingClientRect();
+  assert(p.matches(":popover-open"), "top layer");
+  assertEqual(r.width, f.width);
+  assertEqual(r.left, f.left);
+  assertEqual(Math.round(r.top - f.bottom), 2);
+  assertEqual(hex(style(p).backgroundColor), "#FFFFFF");
+  assertEqual(hex(style(p).borderTopColor), "#000000@14%");
+  assertEqual(style(p).borderTopWidth, "1px");
+  assertEqual(style(p).overflow, "clip");
+  assertEqual(style(p).borderTopLeftRadius, "18.88px");
+  const list = p.querySelector("ui-list-box");
+  assertEqual(style(list).paddingTop, "4px");
+  assertEqual(items()[0].getBoundingClientRect().left - r.left, 5, "items inset 4 inside the 1 px border");
+  assertEqual(items()[0].getBoundingClientRect().height, 32);
+  html.dataset.theme = "dark";
+  assertEqual(hex(style(p).backgroundColor), "#2A2A2A");
+  assertEqual(hex(style(p).borderTopColor), "#000000@36%");
+  html.dataset.density = "compact";
+  assertEqual(items()[0].getBoundingClientRect().height, 24);
+  reset();
+});
+
+test("accent-flag on the element reaches the suggestions' list, and follows the attribute", () => {
+  reset();
+  const list = () => popup().querySelector("ui-list-box");
+  assert(!list().hasAttribute("accent-flag"));
+  a.setAttribute("accent-flag", "");
+  assert(list().hasAttribute("accent-flag"), "on");
+  type("a");
+  key("ArrowDown");
+  assertEqual(style(items()[0], "::before").inlineSize, "3px", "the flag bar");
+  a.removeAttribute("accent-flag");
+  assert(!list().hasAttribute("accent-flag"), "off");
+  reset();
+});
+
+test("the popup is the ComboBox drop-down, with a 400 px limit", () => {
+  reset();
+  assert(popup().classList.contains("ui-combo-box-popup"));
+  type("a");
+  assertEqual(style(popup()).maxBlockSize, "400px");
+  reset();
+});
+
+test("the list scrolls past 400 px", () => {
+  reset();
+  a.items = Array.from({ length: 30 }, (_, i) => `Item ${i}`);
+  type("i");
+  const list = popup().querySelector("ui-list-box");
+  assertEqual(popup().getBoundingClientRect().height, 400, "the popup, border included");
+  assert(list.scrollHeight > 400);
+  reset();
+});
+
+test("right to left: the suggestions line up with the start edge of the field", () => {
+  reset();
+  html.dir = "rtl";
+  type("a");
+  const f = a.getBoundingClientRect(), r = popup().getBoundingClientRect();
+  assertEqual(Math.round(r.right), Math.round(f.right));
+  reset();
+});
+
+test("keyboard focus rings the whole field", () => {
+  reset();
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+  input.focus({ focusVisible: true });
+  assertEqual(style(a).outlineStyle, "solid");
+  assertEqual(style(input).outlineStyle, "none");
+  reset();
+});
+</script>
+</body>
+</html>

@@ -21,6 +21,11 @@ import expander from "./expander.js";
 import menusAndFlyouts from "./menus-and-flyouts.js";
 import tooltipNotification from "./tooltip-notification.js";
 import separator from "./separator.js";
+import comboBox from "./combobox.js";
+import treeView from "./tree-view.js";
+import numericUpDown from "./numeric-up-down.js";
+import autoCompleteBox from "./auto-complete-box.js";
+import pickers from "./pickers.js";
 
 export const pages = Object.freeze([
   colours,
@@ -34,12 +39,17 @@ export const pages = Object.freeze([
   listBox,
   icon,
   textInput,
+  comboBox,
   toggles,
   segmented,
+  treeView,
   ranges,
+  numericUpDown,
+  autoCompleteBox,
   tabs,
   expander,
   menusAndFlyouts,
   tooltipNotification,
+  pickers,
   separator,
 ]);

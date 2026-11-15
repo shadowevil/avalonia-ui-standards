@@ -1,0 +1,172 @@
+/*
+  ComboBox (0028): a field with a drop-down list. <ui-combo-box> holds the field and the drop-down,
+  and combobox.js wires the roles, keys and values. A native <select> cannot take the squircle
+  field, the item design or the editable form (0046), so it is a custom element.
+
+  Not editable (a button-like field):
+    <ui-combo-box name="folder" placeholder="Choose a folder" aria-label="Folder">
+      <button type="button" class="ui-field ui-combo-box-field ui-squircle ui-focus-ring">
+        <span class="ui-combo-box-value"></span>
+        <span class="ui-combo-box-caret" aria-hidden="true"></span>          the caret icon is added
+      </button>
+      <div class="ui-flyout ui-combo-box-popup ui-squircle" popover>
+        <ui-list-box class="ui-squircle ui-scroll">
+          <div class="ui-list-item ui-squircle ui-focus-ring" data-value="docs">Documents</div> …
+        </ui-list-box>
+      </div>
+    </ui-combo-box>
+
+  Editable (a text field with a list attached):
+    <ui-combo-box editable …>
+      <span class="ui-field ui-combo-box-field ui-squircle ui-focus-ring-within">
+        <input class="ui-text-input" aria-label="Folder">
+        <span class="ui-combo-box-caret" aria-hidden="true"></span>
+      </span>
+      <div class="ui-flyout ui-combo-box-popup …">…</div>
+    </ui-combo-box>
+
+  The field is TextInput's chrome (text-input.css, 0027): the ui-field class, height by density,
+  1 px border, TextInput's padding with none at the end (the caret zone follows the content).
+  The caret zone is a square as wide as the field is high, the 16 px caret centred. Colours are
+  Fluent's ComboBox keys (the same values as TextInput's at rest). No pressed look: pressing keeps
+  the hover look. Not editable, pointer focus changes nothing and keyboard focus shows the ring;
+  editable, the border turns accent and the fill the focused fill while the input has focus (text
+  input rules), and the ring surrounds the whole field. Error: aria-invalid="true" on the control
+  (the button or the input) turns the border the danger colour.
+  The drop-down is a solid squircle (overlay radius) over the library's flyout placement, items
+  inset 4 by the list's own padding. Set accent-flag on <ui-combo-box> for the accent flag (0042).
+  Forced states for renders and tests: data-state="hover" or "focus" on the field (focus is the
+  ring alone when not editable).
+
+  The drop-down's fill, border and border width are Style tokens (colour.css), shared with the
+  AutoCompleteBox; the glyph and disabled colours below are Fluent's ComboBox keys.
+*/
+ui-combo-box {
+  --ui-combo-box-drop-down-glyph-foreground: var(--ui-system-base-medium-high-color);
+  /* Fluent's ComboBoxForegroundDisabled and ComboBoxDropDownGlyphForegroundDisabled. */
+  --ui-combo-box-foreground-disabled: light-dark(#A6A6A6, #6B6B6B);
+  --ui-combo-box-drop-down-glyph-foreground-disabled: light-dark(#A6A6A6, #6B6B6B);
+  --ui-combo-box-max-drop-down-height: 504px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+ui-combo-box > .ui-combo-box-field {
+  inline-size: 100%;
+}
+
+/* The caret zone: a square the field's height, centred caret, flush with the field's outer edge
+   (over the border). */
+.ui-combo-box-caret {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  box-sizing: border-box;
+  inline-size: var(--ui-control-min-height);
+  margin-inline-end: calc(-1 * var(--ui-text-control-border-width));
+  color: var(--ui-combo-box-drop-down-glyph-foreground);
+  cursor: default;
+}
+
+.ui-combo-box-caret .ui-icon {
+  inline-size: var(--ui-field-icon-size);
+  block-size: var(--ui-field-icon-size);
+  pointer-events: none;
+}
+
+/* The not editable field is a button wearing the field chrome. */
+button.ui-combo-box-field {
+  padding: 0;
+  text-align: start;
+  cursor: default;
+  appearance: none;
+}
+
+.ui-combo-box-value {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  padding-inline-start: var(--ui-field-padding-inline);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-combo-box-value[data-placeholder] {
+  color: var(--ui-text-control-placeholder-foreground);
+}
+
+/* Not editable: pointer focus changes nothing (no focus fill, no accent border); the ring alone
+   marks keyboard focus. States in rising precedence: rest, hover, error, disabled. */
+button.ui-combo-box-field:is(:focus, [data-state~="focus"]) {
+  background-color: var(--ui-text-control-background);
+  border-color: var(--ui-text-control-border-brush);
+}
+
+button.ui-combo-box-field:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-text-control-background-pointer-over);
+  border-color: var(--ui-text-control-border-brush-pointer-over);
+}
+
+button.ui-combo-box-field[aria-invalid="true"] {
+  border-color: var(--ui-danger-color);
+}
+
+button.ui-combo-box-field:disabled {
+  background-color: var(--ui-text-control-background-disabled);
+  border-color: var(--ui-text-control-border-brush-disabled);
+  color: var(--ui-combo-box-foreground-disabled);
+}
+
+button.ui-combo-box-field:disabled .ui-combo-box-value[data-placeholder] {
+  color: var(--ui-text-control-foreground-disabled);
+}
+
+/* Editable: no right padding on the text, the caret zone follows it; the zone opens the list. */
+.ui-combo-box-field .ui-text-input {
+  padding-inline-end: 0;
+}
+
+.ui-combo-box-field:has(.ui-text-input:disabled) .ui-combo-box-caret,
+button.ui-combo-box-field:disabled .ui-combo-box-caret {
+  color: var(--ui-combo-box-drop-down-glyph-foreground-disabled);
+}
+
+/* The drop-down: a solid squircle surface that clips its content; the list's own 4 px padding
+   insets the items. Width is at least the field's (combobox.js). */
+.ui-flyout.ui-combo-box-popup {
+  --ui-flyout-padding: 0px;
+  --ui-flyout-edge: 0px;
+  --ui-flyout-offset: 2px;
+  --ui-flyout-min-inline-size: 0px;
+  --ui-flyout-max-inline-size: 100vw;
+  --ui-flyout-max-block-size: var(--ui-combo-box-max-drop-down-height);
+  border: var(--ui-combo-box-drop-down-border-width) solid var(--ui-combo-box-drop-down-border-brush);
+  background-color: var(--ui-combo-box-drop-down-background);
+  overflow: clip;
+}
+
+.ui-combo-box-popup > ui-list-box {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+@media (forced-colors: active) {
+  .ui-combo-box-caret {
+    color: ButtonText;
+  }
+
+  .ui-combo-box-field:is(:disabled, :has(.ui-text-input:disabled)) .ui-combo-box-caret {
+    color: GrayText;
+  }
+
+  button.ui-combo-box-field:disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  .ui-flyout.ui-combo-box-popup {
+    border-color: CanvasText;
+  }
+}

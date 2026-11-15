@@ -34,4 +34,5 @@
     - **Why:** One line language with the separators and borders; the rounded elbow follows the library's continuous corners instead of the square elbows of older trees; ending short of the caret or pill keeps the line from touching content.
   - The lines are drawn under the rows and end before the pills, so no row state covers them.
   - Children appear and disappear at once on expand and collapse; only the caret animates.
+  - Web ([0045](0045-web-library.md)): `<ui-tree-view>` of nested `<ul>` with `ui-tree-view-item` items, since no native element is an outline with selection and expand and collapse; the ARIA `tree` pattern with `treeitem`, `aria-level`, `aria-selected` and `aria-expanded`, one Tab stop with a roving tabindex, and Left and Right swapping under `dir="rtl"`. It fires `change` on the tree and `toggle` on an item.
 - **Why:** The tree reuses the list's row, shape, colours and motion, so it fits beside every other list in the library.

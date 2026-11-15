@@ -1,0 +1,175 @@
+/*
+  Calendar (0038): <ui-calendar> (calendar.js builds its content). A panel: a squircle with the
+  overlay radius 16, the card colour (ChromeMediumLow), a 1 px BaseLow hairline and SpacingXS
+  padding, Body text. Seven cells wide; the year and decade views keep the month view's size.
+  - Header: the month and year as a Subtle Button in Body strong (the density padding), then
+    CaretLeft and CaretRight as square Subtle icon buttons of the density height, each 2 px in.
+  - Weekday headings: Caption size in secondary text (BaseMedium), a Caption line with SpacingXS
+    above and below.
+  - Cells: squircle pills of the density height (32 x 32, 24 x 24 Compact) with CornerRadiusControl,
+    4 px apart; month and year cells as wide as their column. Rest BaseHigh, outside the shown
+    month BaseMedium, today (aria-current="date") AccentTextColor in Body strong, hover ListMedium,
+    pressed BaseMediumLow, unavailable (aria-disabled) and disabled BaseMediumLow with no fill;
+    selected the accent fills with white text, BaseLow with BaseMediumLow text (Fluent's
+    AccentButton*Disabled) in a disabled Calendar. The focus ring on the cursor's cell.
+  In a CalendarDatePicker drop-down it has no fill or border of its own (calendar-date-picker.css).
+  Forced states for renders and tests: data-state="hover", "pressed" or "focus" on a cell.
+*/
+ui-calendar {
+  --ui-squircle-radius: var(--ui-corner-radius-overlay);
+  --ui-calendar-border-width: 1px;
+  /* The gap around each cell, so neighbouring pills stand apart (4 between cells). */
+  --ui-calendar-cell-margin: 2px;
+  --ui-calendar-cell-size: var(--ui-control-min-height);
+  /* The weekday row: a Caption line (15 px in Inter) with SpacingXS above and below. */
+  --ui-calendar-weekday-row-height: calc(15px + 2 * var(--ui-spacing-xs));
+  /* The month view's grid height, which the year and decade views keep. */
+  --ui-calendar-body-height: calc(var(--ui-calendar-weekday-row-height) + 6 * (var(--ui-calendar-cell-size) + 2 * var(--ui-calendar-cell-margin)));
+  display: inline-flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: var(--ui-spacing-xs);
+  border: var(--ui-calendar-border-width) solid var(--ui-system-base-low-color);
+  background-color: var(--ui-system-chrome-medium-low-color);
+  color: var(--ui-system-base-high-color);
+  font-family: var(--ui-content-control-theme-font-family);
+  font-size: var(--ui-font-size-body);
+  line-height: normal;
+  vertical-align: top;
+}
+
+.ui-calendar-header {
+  display: flex;
+  align-items: center;
+}
+
+.ui-calendar-header > .ui-button {
+  margin: var(--ui-calendar-cell-margin);
+}
+
+.ui-calendar-title.ui-button {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  min-inline-size: 0;
+  font-weight: var(--ui-font-weight-body-strong);
+}
+
+.ui-calendar-arrow.ui-button {
+  inline-size: var(--ui-control-min-height);
+  padding: 0;
+}
+
+/* The carets point back and on along the line, so they mirror right to left. */
+.ui-calendar-arrow:dir(rtl) .ui-icon {
+  scale: -1 1;
+}
+
+.ui-calendar-grid {
+  border-collapse: separate;
+  border-spacing: calc(2 * var(--ui-calendar-cell-margin));
+  /* Seven cells and their gaps; the outer gaps are taken back by the margin. */
+  inline-size: calc(7 * (var(--ui-calendar-cell-size) + 2 * var(--ui-calendar-cell-margin)) + 2 * var(--ui-calendar-cell-margin));
+  margin: calc(-1 * var(--ui-calendar-cell-margin));
+  table-layout: fixed;
+}
+
+.ui-calendar-grid th {
+  block-size: calc(var(--ui-calendar-weekday-row-height) - 2 * var(--ui-calendar-cell-margin));
+  padding: 0;
+  color: var(--ui-system-base-medium-color);
+  font-size: var(--ui-font-size-caption);
+  font-weight: normal;
+  text-align: center;
+}
+
+.ui-calendar-cell {
+  --ui-squircle-radius: var(--ui-corner-radius-control);
+  box-sizing: border-box;
+  inline-size: var(--ui-calendar-cell-size);
+  block-size: var(--ui-calendar-cell-size);
+  padding: 0;
+  background-color: transparent;
+  color: var(--ui-system-base-high-color);
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-motion-easing),
+    color var(--ui-motion-fast) var(--ui-motion-easing);
+}
+
+/* The year and decade views: 4 x 3 pills spread over the month view's height. Browsers draw the
+   row gap (border-spacing) in whole pixels; the margins take up the rest. */
+.ui-calendar-grid:not([data-mode="month"]) {
+  --ui-calendar-row-gap: round(down, calc((var(--ui-calendar-body-height) - 3 * var(--ui-calendar-cell-size)) / 3), 1px);
+  border-spacing: calc(2 * var(--ui-calendar-cell-margin)) var(--ui-calendar-row-gap);
+  margin-block: calc((var(--ui-calendar-body-height) - 3 * var(--ui-calendar-cell-size) - 4 * var(--ui-calendar-row-gap)) / 2);
+}
+
+.ui-calendar-grid:not([data-mode="month"]) .ui-calendar-cell {
+  inline-size: auto;
+}
+
+.ui-calendar-cell[data-outside] {
+  color: var(--ui-system-base-medium-color);
+}
+
+.ui-calendar-cell[aria-current="date"] {
+  color: var(--ui-accent-text-color);
+  font-weight: var(--ui-font-weight-body-strong);
+}
+
+.ui-calendar-cell:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-system-list-medium-color);
+}
+
+.ui-calendar-cell:is(:active, [data-state~="pressed"]) {
+  background-color: var(--ui-system-base-medium-low-color);
+}
+
+.ui-calendar-cell[aria-disabled="true"],
+ui-calendar[aria-disabled="true"] .ui-calendar-cell {
+  background-color: transparent;
+  color: var(--ui-system-base-medium-low-color);
+}
+
+.ui-calendar-cell[aria-selected="true"] {
+  background-color: var(--ui-accent-fill-color);
+  color: var(--ui-accent-button-foreground);
+}
+
+.ui-calendar-cell[aria-selected="true"]:is(:hover, [data-state~="hover"]) {
+  background-color: var(--ui-accent-fill-color-pointer-over);
+}
+
+.ui-calendar-cell[aria-selected="true"]:is(:active, [data-state~="pressed"]) {
+  background-color: var(--ui-accent-fill-color-pressed);
+}
+
+ui-calendar[aria-disabled="true"] .ui-calendar-cell[aria-selected="true"] {
+  background-color: var(--ui-system-base-low-color);
+  color: var(--ui-system-base-medium-low-color);
+}
+
+ui-calendar[aria-disabled="true"] {
+  color: var(--ui-system-base-medium-low-color);
+}
+
+@media (forced-colors: active) {
+  .ui-calendar-cell[aria-selected="true"] {
+    background-color: SelectedItem;
+    color: SelectedItemText;
+    forced-color-adjust: none;
+  }
+
+  .ui-calendar-cell[aria-current="date"]:not([aria-selected="true"]) {
+    color: LinkText;
+  }
+
+  .ui-calendar-cell[aria-disabled="true"],
+  ui-calendar[aria-disabled="true"] .ui-calendar-cell {
+    color: GrayText;
+  }
+}

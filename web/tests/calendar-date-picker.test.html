@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en-US" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>CalendarDatePicker tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/button.css">
+<link rel="stylesheet" href="../blocks/text-input.css">
+<link rel="stylesheet" href="../blocks/flyout.css">
+<link rel="stylesheet" href="../blocks/calendar.css">
+<link rel="stylesheet" href="../blocks/calendar-date-picker.css">
+</head>
+<body style="padding: 40px 40px 400px">
+<pre id="results">running</pre>
+<form id="form">
+  <ui-calendar-date-picker id="cdp" aria-label="Due date" value="2026-11-13" name="due" style="inline-size: 200px"></ui-calendar-date-picker>
+</form>
+<ui-calendar-date-picker id="empty" aria-label="Empty" style="inline-size: 200px"></ui-calendar-date-picker>
+<ui-calendar-date-picker id="de" aria-label="German" lang="de-DE" value="2026-03-05"></ui-calendar-date-picker>
+<button id="after" type="button">After</button>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { today, isoDate } from "../blocks/calendar.js";
+import "../blocks/calendar-date-picker.js";
+
+const html = document.documentElement;
+const $ = (id) => document.getElementById(id);
+const style = (el) => getComputedStyle(el);
+const cdp = $("cdp");
+const { field, input, button, dropDown, calendar } = cdp.parts;
+const tick = () => new Promise((r) => setTimeout(r, 20));
+const key = (target, k, options = {}) => {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  target.dispatchEvent(e);
+  return e;
+};
+
+function rgba(value) {
+  let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]].map((v, i) => (i < 3 ? Math.round(v) : v));
+  throw new Error(`unparsed colour ${value}`);
+}
+const hex = (value) => {
+  const [r, g, b, a] = rgba(value);
+  const h = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+  return a === 1 ? h : a === 0 ? "transparent" : `${h}@${Math.round(a * 100)}%`;
+};
+
+function reset() {
+  for (const a of ["data-density", "dir"]) html.removeAttribute(a);
+  html.dataset.theme = "light";
+  cdp.close();
+  cdp.removeAttribute("disabled");
+  cdp.removeAttribute("data-state");
+  cdp.value = "2026-11-13";
+  document.activeElement?.blur();
+}
+
+test("parts: the text a combobox with a dialog popup; a field button that takes no focus", () => {
+  reset();
+  assertEqual(input.localName, "input");
+  assertEqual(input.getAttribute("role"), "combobox");
+  assertEqual(input.getAttribute("aria-haspopup"), "dialog");
+  assertEqual(input.getAttribute("aria-expanded"), "false");
+  assertEqual(input.getAttribute("aria-label"), "Due date");
+  assertEqual(input.getAttribute("aria-controls"), dropDown.id);
+  assertEqual(button.tabIndex, -1);
+  assertEqual(button.getAttribute("aria-label"), "Show calendar");
+  assert(button.classList.contains("ui-field-button") && button.classList.contains("ui-subtle"));
+  assertEqual(button.querySelector(".ui-icon").getBoundingClientRect().width, 16);
+  assertEqual(dropDown.getAttribute("role"), "dialog");
+  assertEqual(dropDown.getAttribute("aria-label"), "Choose a date");
+});
+
+test("text: the short date in the locale's format, the pattern as placeholder", () => {
+  reset();
+  assertEqual(input.value, "11/13/2026");
+  assertEqual($("empty").parts.input.placeholder, "<M/d/yyyy>");
+  assertEqual($("de").parts.input.value, "5.3.2026");
+  assertEqual($("de").parts.input.placeholder, "<d.M.yyyy>");
+});
+
+test("typing: a valid date on Enter sets the value and fires change; invalid text puts the last valid text back; empty clears", () => {
+  reset();
+  let changes = 0;
+  cdp.addEventListener("change", () => changes++);
+  input.value = "12/24/2026";
+  key(input, "Enter");
+  assertEqual(cdp.value, "2026-12-24");
+  assertEqual(changes, 1);
+  input.value = "13/45/2026";
+  key(input, "Enter");
+  assertEqual(cdp.value, "2026-12-24");
+  assertEqual(input.value, "12/24/2026");
+  input.value = "";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(cdp.value, "");
+  assertEqual(changes, 2);
+  $("de").parts.input.value = "24.12.2026";
+  key($("de").parts.input, "Enter");
+  assertEqual($("de").value, "2026-12-24", "the locale's order");
+  reset();
+});
+
+test("field: TextInput's field (height 32, 24 Compact; the control squircle), the inner text without chrome", () => {
+  reset();
+  assertEqual(field.getBoundingClientRect().height, 32);
+  assertEqual(field.getBoundingClientRect().width, 200);
+  assertEqual(style(field).borderTopLeftRadius, "9.44px");
+  assertEqual(style(input).borderTopWidth, "0px");
+  assertEqual(hex(style(input).backgroundColor), "transparent");
+  assertEqual(button.getBoundingClientRect().width, 24);
+  html.dataset.density = "compact";
+  assertEqual(field.getBoundingClientRect().height, 24);
+  assertEqual(button.getBoundingClientRect().width, 20);
+  reset();
+});
+
+test("states: hover, focus and disabled take the TextControl colours; a forced state on the element passes to the field", () => {
+  reset();
+  cdp.dataset.state = "hover";
+  assertEqual(hex(style(field).borderTopColor), "#404040");
+  cdp.dataset.state = "focus";
+  assertEqual(hex(style(field).borderTopColor), "#007CEA");
+  assertEqual(style(field).outlineStyle, "solid");
+  cdp.removeAttribute("data-state");
+  cdp.disabled = true;
+  assert(input.disabled && button.disabled);
+  assertEqual(hex(style(field).backgroundColor), "#D4D4D4");
+  reset();
+});
+
+test("opening: the button opens the glass drop-down SpacingXS below the field, start edges lined up, focus on the selected day", async () => {
+  reset();
+  button.click();
+  await tick();
+  assert(dropDown.matches(":popover-open"), "open");
+  assert(dropDown.classList.contains("ui-glass"));
+  assertEqual(button.getAttribute("aria-expanded"), "true");
+  assertEqual(input.getAttribute("aria-expanded"), "true");
+  const f = field.getBoundingClientRect(), d = dropDown.getBoundingClientRect();
+  assertEqual(Math.round(d.top - f.bottom), 4);
+  assertEqual(Math.round(d.left), Math.round(f.left));
+  assertEqual(document.activeElement.dataset.value, "2026-11-13");
+  assertEqual(hex(style(calendar).backgroundColor), "transparent", "no fill of its own");
+  assertEqual(style(calendar).borderTopWidth, "0px", "no border of its own");
+  assertEqual(hex(style(field).borderTopColor), "#686868", "the field shows its rest border while the drop-down has focus, as on the desktop");
+  reset();
+});
+
+test("picking a day sets the value, closes the drop-down and returns focus to the text", async () => {
+  reset();
+  let changes = 0;
+  cdp.addEventListener("change", () => changes++, { once: true });
+  input.focus();
+  key(input, "ArrowDown", { altKey: true });
+  await tick();
+  assert(dropDown.matches(":popover-open"), "Alt+Down opens");
+  key(document.activeElement, "ArrowRight");
+  key(document.activeElement, "Enter");
+  await tick();
+  assertEqual(cdp.value, "2026-11-14");
+  assertEqual(input.value, "11/14/2026");
+  assertEqual(changes, 1);
+  assert(!dropDown.matches(":popover-open"), "closed");
+  assertEqual(document.activeElement, input);
+  reset();
+});
+
+test("an empty picker opens at today", async () => {
+  reset();
+  const e = $("empty");
+  e.parts.button.click();
+  await tick();
+  assertEqual(document.activeElement.dataset.value, isoDate(today()));
+  e.close();
+  reset();
+});
+
+test("Alt+Up closes; the button toggles", async () => {
+  reset();
+  button.click();
+  await tick();
+  input.focus();
+  key(input, "ArrowUp", { altKey: true });
+  await tick();
+  assert(!dropDown.matches(":popover-open"));
+  reset();
+});
+
+test("right to left: the drop-down's start edge on the field's", async () => {
+  reset();
+  html.dir = "rtl";
+  button.click();
+  await tick();
+  assertEqual(Math.round(dropDown.getBoundingClientRect().right), Math.round(field.getBoundingClientRect().right));
+  reset();
+});
+
+test("form: submits YYYY-MM-DD with its name, resets to the value attribute", () => {
+  reset();
+  assertEqual(new FormData($("form")).get("due"), "2026-11-13");
+  cdp.value = "2026-01-01";
+  $("form").reset();
+  assertEqual(cdp.value, "2026-11-13");
+  assertEqual(input.value, "11/13/2026");
+});
+
+test("Tab out of the drop-down closes it; a redrawn cell under focus does not", async () => {
+  reset();
+  button.click();
+  await tick();
+  key(document.activeElement, "PageDown");
+  await tick();
+  assert(dropDown.matches(":popover-open"), "still open after the grid redraws");
+  $("after").focus();
+  await tick();
+  assert(!dropDown.matches(":popover-open"), "closed when focus leaves");
+  assertEqual(button.getAttribute("aria-expanded"), "false");
+  reset();
+});
+
+test("Alt+Up in the drop-down closes it and returns focus to the text", async () => {
+  reset();
+  button.click();
+  await tick();
+  const e = key(document.activeElement, "ArrowUp", { altKey: true });
+  await tick();
+  assert(e.defaultPrevented);
+  assert(!dropDown.matches(":popover-open"));
+  assertEqual(document.activeElement, input);
+  reset();
+});
+
+test("two-digit years: 00-49 in the 2000s, 50-99 in the 1900s", () => {
+  reset();
+  input.value = "3/4/49";
+  key(input, "Enter");
+  assertEqual(cdp.value, "2049-03-04");
+  input.value = "3/4/50";
+  key(input, "Enter");
+  assertEqual(cdp.value, "1950-03-04");
+  input.value = "3/4/07";
+  key(input, "Enter");
+  assertEqual(cdp.value, "2007-03-04");
+  reset();
+});
+
+test("named once: the element takes no role and gives its name to the text", () => {
+  reset();
+  assert(!cdp.hasAttribute("role"), "no role");
+  assert(!cdp.hasAttribute("aria-label"), "the name left the element");
+  assertEqual(input.getAttribute("aria-label"), "Due date");
+  cdp.setAttribute("aria-label", "Deadline");
+  assertEqual(input.getAttribute("aria-label"), "Deadline");
+  assert(!cdp.hasAttribute("aria-label"));
+});
+
+test("the value attribute is the initial value until the user changes the value; reset goes back to it", () => {
+  reset();
+  $("form").reset();
+  cdp.setAttribute("value", "2026-11-02");
+  assertEqual(cdp.value, "2026-11-02");
+  input.value = "11/20/2026";
+  key(input, "Enter");
+  cdp.setAttribute("value", "2026-11-03");
+  assertEqual(cdp.value, "2026-11-20", "after typing the attribute no longer applies");
+  $("form").reset();
+  assertEqual(cdp.value, "2026-11-03");
+  assertEqual(input.value, "11/3/2026");
+  cdp.setAttribute("value", "2026-11-13");
+  $("form").reset();
+});
+</script>
+</body>
+</html>

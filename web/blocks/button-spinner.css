@@ -1,0 +1,63 @@
+/*
+  ButtonSpinner (0029): <ui-button-spinner>, a TextInput field (0027) around any content, with
+  spin buttons (button-spinner.js adds them):
+
+    <ui-button-spinner class="ui-field ui-button-spinner ui-squircle ui-focus-ring ui-focus-ring-within"
+                       aria-label="Size"><span class="ui-button-spinner-content">Medium</span></ui-button-spinner>
+
+  The chrome, field buttons and states are text-input.css's. Focus on the element or inside its
+  content turns the border accent with the focused fill; keyboard focus adds the ring around the
+  whole field. The spin buttons are field buttons: Subtle, 24 px (20 Compact), side by side at the
+  trailing end (the leading end with button-spinner-location="left"), with caret icons at 16 px,
+  the disabled colour at their limit (aria-disabled). The content has the field's padding.
+  Forced states for renders and tests: data-state="hover" or "focus" on the element
+  (data-pointer-focus with it is pointer focus: the accent border without the ring).
+  Errors: aria-invalid="true" on the element. Disabled: the disabled attribute.
+*/
+.ui-button-spinner-content {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  align-self: stretch;
+  min-inline-size: 0;
+  padding: var(--ui-control-padding);
+  cursor: default;
+  user-select: none;
+}
+
+.ui-button-spinner {
+  cursor: default;
+}
+
+/* Focus on the element or in its content; error over focus; disabled over all. */
+.ui-button-spinner:where(:focus, :focus-within, [data-state~="focus"]) {
+  background-color: var(--ui-text-control-background-focused);
+  border-color: var(--ui-text-control-border-brush-focused);
+}
+
+.ui-button-spinner[aria-invalid="true"] {
+  border-color: var(--ui-danger-color);
+}
+
+.ui-button-spinner[aria-disabled="true"] {
+  background-color: var(--ui-text-control-background-disabled);
+  border-color: var(--ui-text-control-border-brush-disabled);
+  color: var(--ui-text-control-foreground-disabled);
+}
+
+.ui-button-spinner.ui-focus-ring[data-pointer-focus] {
+  outline: none;
+}
+
+/* A spin button at its limit keeps the disabled colour while hovered or pressed (text-input.css
+   turns a hovered field button to the text colour). */
+.ui-field .ui-field-button.ui-spin-button[aria-disabled="true"]:is(:hover, :active, [data-state~="hover"], [data-state~="pressed"]):not(:disabled) {
+  color: var(--ui-button-foreground-disabled);
+}
+
+@media (forced-colors: active) {
+  .ui-button-spinner[aria-disabled="true"] {
+    border-color: GrayText;
+  }
+}

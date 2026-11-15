@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-reduce-motion="true">
+<head>
+<meta charset="utf-8">
+<title>TreeView tests</title>
+<link rel="stylesheet" href="../style/index.css">
+<link rel="stylesheet" href="../blocks/icon.css">
+<link rel="stylesheet" href="../blocks/list-box.css">
+<link rel="stylesheet" href="../blocks/tree-view.css">
+<style>ui-tree-view { width: 280px; }</style>
+</head>
+<body>
+<pre id="results">running</pre>
+<ui-tree-view id="tree" class="ui-squircle" aria-label="Library">
+  <ul>
+    <li class="ui-tree-view-item" aria-expanded="true" data-name="style">
+      <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Style</span></div>
+      <ul>
+        <li class="ui-tree-view-item" data-name="colour"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Colour</span></div></li>
+        <li class="ui-tree-view-item" data-name="type" aria-disabled="true"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Type</span></div></li>
+        <li class="ui-tree-view-item" data-name="shape">
+          <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Shape</span></div>
+          <ul>
+            <li class="ui-tree-view-item" data-name="squircle"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Squircle</span></div></li>
+            <li class="ui-tree-view-item" data-name="radii"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Radii</span></div></li>
+          </ul>
+        </li>
+        <li class="ui-tree-view-item" data-name="motion"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Motion</span></div></li>
+      </ul>
+    </li>
+    <li class="ui-tree-view-item" data-name="blocks">
+      <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Blocks <button type="button" data-name="inner">Info</button></span></div>
+      <ul>
+        <li class="ui-tree-view-item" data-name="button"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Button</span></div></li>
+      </ul>
+    </li>
+    <li class="ui-tree-view-item" data-name="modules"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">Modules</span></div></li>
+  </ul>
+</ui-tree-view>
+<ui-tree-view id="lines" class="ui-squircle" aria-label="Lines">
+  <ul>
+    <li class="ui-tree-view-item" aria-expanded="true" data-name="a">
+      <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">A</span></div>
+      <ul>
+        <li class="ui-tree-view-item" aria-expanded="true" data-name="a1">
+          <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">A1</span></div>
+          <ul><li class="ui-tree-view-item" data-name="a1x"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">A1x</span></div></li></ul>
+        </li>
+        <li class="ui-tree-view-item" data-name="a2"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">A2</span></div></li>
+        <li class="ui-tree-view-item" data-name="a3" data-show-lines="false"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">A3</span></div></li>
+      </ul>
+    </li>
+    <li class="ui-tree-view-item" aria-expanded="true" data-name="b" data-show-lines="false">
+      <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">B</span></div>
+      <ul><li class="ui-tree-view-item" data-name="b1"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">B1</span></div></li></ul>
+    </li>
+  </ul>
+</ui-tree-view>
+<ui-tree-view id="flag" class="ui-squircle" aria-label="Flag" accent-flag>
+  <ul>
+    <li class="ui-tree-view-item" aria-expanded="true" aria-selected="true" data-name="f">
+      <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">F</span></div>
+      <ul>
+        <li class="ui-tree-view-item" aria-expanded="true" data-accent-flag="false" data-name="f1">
+          <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">F1</span></div>
+          <ul><li class="ui-tree-view-item" aria-selected="true" data-name="f1x"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">F1x</span></div></li></ul>
+        </li>
+        <li class="ui-tree-view-item" aria-selected="true" aria-disabled="true" data-name="f2"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">F2</span></div></li>
+      </ul>
+    </li>
+  </ul>
+</ui-tree-view>
+<ui-tree-view id="rtl" dir="rtl" class="ui-squircle" aria-label="RTL">
+  <ul>
+    <li class="ui-tree-view-item" data-name="r">
+      <div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">R</span></div>
+      <ul><li class="ui-tree-view-item" data-name="r1"><div class="ui-tree-view-row"><span class="ui-tree-view-content ui-squircle">R1</span></div></li></ul>
+    </li>
+  </ul>
+</ui-tree-view>
+<script type="module">
+import { test, assert, assertEqual } from "./harness.js";
+import { setTheme, setDensity, setAccent } from "../style/index.js";
+import { contrastRatio } from "../style/colour.js";
+import "../blocks/tree-view.js";
+
+const $ = (id) => document.getElementById(id);
+const tree = $("tree");
+const it = (name) => document.querySelector(`[data-name="${name}"]`);
+const row = (item) => item.querySelector(":scope > .ui-tree-view-row");
+const pill = (item) => row(item).querySelector(".ui-tree-view-content");
+const caret = (item) => row(item).querySelector(".ui-tree-view-caret");
+const expanded = (item) => item.getAttribute("aria-expanded");
+const selected = (t) => t.selectedItem?.dataset.name ?? null;
+const tick = () => new Promise((r) => setTimeout(r));
+
+function rgba(text) {
+  let m = text.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/);
+  if (m) return [...[m[1], m[2], m[3]].map((v) => Math.round(v * 255)), m[4] === undefined ? 1 : +(+m[4]).toFixed(3)];
+  m = text.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +(+m[4]).toFixed(3)];
+  throw new Error(`unparsed colour ${text}`);
+}
+const hex = (text) => "#" + rgba(text).slice(0, 3).map((c) => c.toString(16).padStart(2, "0").toUpperCase()).join("");
+const bg = (el, pseudo) => hex(getComputedStyle(el, pseudo).backgroundColor);
+const fg = (el) => hex(getComputedStyle(el).color);
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const ratio = (a, b) => contrastRatio(rgb(a), rgb(b));
+const transparent = (el, pseudo) => rgba(getComputedStyle(el, pseudo).backgroundColor)[3] === 0;
+
+function key(el, k, options = {}) {
+  const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...options });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+// A click on `el` with click count `detail`; returns whether it was handled.
+function click(el, detail = 1, options = {}) {
+  el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, ...options }));
+  const e = new MouseEvent("click", { bubbles: true, cancelable: true, detail, ...options });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+// A double click: two clicks (counts 1 and 2), then dblclick; returns whether the dblclick was handled.
+function doubleClick(el, options = {}) {
+  click(el, 1, options);
+  click(el, 2, options);
+  const e = new MouseEvent("dblclick", { bubbles: true, cancelable: true, detail: 2, ...options });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+}
+function withState(el, state, fn) {
+  el.dataset.state = state;
+  try { return fn(); } finally { delete el.dataset.state; }
+}
+function reset() {
+  tree.removeAttribute("expand-on");
+  tree.removeAttribute("collapse-on");
+  for (const name of ["style"]) it(name).setAttribute("aria-expanded", "true");
+  for (const name of ["shape", "blocks"]) it(name).setAttribute("aria-expanded", "false");
+  tree.selectedItem = null;
+}
+
+test("roles: tree of treeitems with levels, expanded state, selection, groups and names from the pill", async () => {
+  await tick();
+  assertEqual(tree.getAttribute("role"), "tree");
+  assertEqual(tree.querySelector(":scope > ul").getAttribute("role"), "none");
+  assertEqual(it("style").querySelector(":scope > ul").getAttribute("role"), "group");
+  assertEqual(it("style").getAttribute("role"), "treeitem");
+  assertEqual(it("style").getAttribute("aria-level"), "1");
+  assertEqual(it("shape").getAttribute("aria-level"), "2");
+  assertEqual(it("squircle").getAttribute("aria-level"), "3");
+  assertEqual(expanded(it("style")), "true");
+  assertEqual(expanded(it("shape")), "false", "children, collapsed by default");
+  assertEqual(it("colour").hasAttribute("aria-expanded"), false, "no children: no expanded state");
+  assertEqual(it("colour").getAttribute("aria-selected"), "false");
+  assertEqual(document.getElementById(it("colour").getAttribute("aria-labelledby")), pill(it("colour")));
+  assertEqual(caret(it("style")).getAttribute("aria-hidden"), "true", "the caret is decoration");
+  assertEqual(caret(it("style")).hasAttribute("tabindex"), false, "the caret is not a Tab stop");
+});
+
+test("roving tabindex: one Tab stop, on the selected item, else the first; disabled and hidden items take none", async () => {
+  reset();
+  await tick();
+  assertEqual(tree.items.filter((i) => i.tabIndex === 0).map((i) => i.dataset.name).join(), "style");
+  tree.selectedItem = it("motion");
+  assertEqual(tree.items.filter((i) => i.tabIndex === 0).map((i) => i.dataset.name).join(), "motion");
+  tree.selectedItem = it("squircle"); // hidden under the collapsed Shape: Tab lands on its visible ancestor
+  assertEqual(tree.items.filter((i) => i.tabIndex === 0).map((i) => i.dataset.name).join(), "shape");
+  assertEqual(it("type").tabIndex, -1);
+});
+
+test("keys: Up and Down move and select between visible rows, skipping disabled; Home and End", () => {
+  reset();
+  it("style").focus();
+  assert(key(it("style"), "ArrowDown"), "handled");
+  assertEqual(document.activeElement, it("colour"));
+  assertEqual(selected(tree), "colour");
+  key(it("colour"), "ArrowDown");
+  assertEqual(document.activeElement, it("shape"), "Type is disabled: skipped");
+  key(it("shape"), "ArrowDown");
+  assertEqual(document.activeElement, it("motion"), "Shape is collapsed: its children are skipped");
+  key(it("motion"), "ArrowUp");
+  assertEqual(document.activeElement, it("shape"));
+  assert(key(it("shape"), "End"));
+  assertEqual(document.activeElement, it("modules"));
+  assert(key(it("modules"), "Home"));
+  assertEqual(document.activeElement, it("style"));
+  assertEqual(it("style").tabIndex, 0);
+  assertEqual(it("modules").tabIndex, -1);
+});
+
+test("keys: Right expands, then moves to the first child; Left collapses, then moves to the parent; Enter toggles", () => {
+  reset();
+  it("shape").focus();
+  assert(key(it("shape"), "ArrowRight"));
+  assertEqual(expanded(it("shape")), "true");
+  assertEqual(document.activeElement, it("shape"));
+  key(it("shape"), "ArrowRight");
+  assertEqual(document.activeElement, it("squircle"));
+  key(it("squircle"), "ArrowRight");
+  assertEqual(document.activeElement, it("squircle"), "no children: nothing");
+  key(it("squircle"), "ArrowLeft");
+  assertEqual(document.activeElement, it("shape"), "Left on a leaf: the parent");
+  key(it("shape"), "ArrowLeft");
+  assertEqual(expanded(it("shape")), "false");
+  key(it("shape"), "ArrowLeft");
+  assertEqual(document.activeElement, it("style"));
+  assert(key(it("style"), "Enter"));
+  assertEqual(expanded(it("style")), "false");
+  key(it("style"), "Enter");
+  assertEqual(expanded(it("style")), "true");
+  assert(!key(it("style"), "a"), "other keys are not handled");
+});
+
+test("keys: Left and Right swap under dir=rtl", () => {
+  const r = it("r");
+  r.focus();
+  key(r, "ArrowLeft");
+  assertEqual(expanded(r), "true", "Left expands right to left");
+  key(r, "ArrowRight");
+  assertEqual(expanded(r), "false");
+});
+
+test("collapse moves focus from a hidden child to the item", () => {
+  reset();
+  it("style").setAttribute("aria-expanded", "true");
+  it("colour").focus();
+  tree.toggle(it("style"), false);
+  assertEqual(document.activeElement, it("style"));
+  tree.toggle(it("style"), true);
+});
+
+test("clicks: a click anywhere on a row selects; double click (the default) expands and collapses once", () => {
+  reset();
+  let changes = 0;
+  tree.addEventListener("change", () => changes++);
+  assertEqual(click(pill(it("shape"))), false, "a single click only selects");
+  assertEqual(selected(tree), "shape");
+  assertEqual(changes, 1);
+  assertEqual(expanded(it("shape")), "false");
+  click(row(it("colour"))); // the indent part of the row
+  assertEqual(selected(tree), "colour");
+  assert(doubleClick(pill(it("shape"))), "the toggling double click is handled");
+  assertEqual(expanded(it("shape")), "true");
+  doubleClick(row(it("shape")));
+  assertEqual(expanded(it("shape")), "false");
+  assertEqual(selected(tree), "shape");
+});
+
+test("clicks: single click expands; both: a double click acts as one click", () => {
+  reset();
+  tree.setAttribute("expand-on", "single");
+  click(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "true", "single expands");
+  click(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "true", "collapse stays on double");
+  tree.setAttribute("expand-on", "single double");
+  tree.setAttribute("collapse-on", "single double");
+  doubleClick(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "false", "the first click collapsed; the double click does nothing");
+  doubleClick(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "true");
+  tree.setAttribute("expand-on", "single");
+  tree.setAttribute("collapse-on", "double");
+  it("shape").setAttribute("aria-expanded", "false");
+  doubleClick(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "true", "single expands; the following double click does not collapse");
+  tree.setAttribute("expand-on", "none");
+  tree.setAttribute("collapse-on", "none");
+  doubleClick(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "true", "none");
+});
+
+test("clicks: an item's options override the tree's for it and its descendants", () => {
+  reset();
+  it("style").dataset.expandOn = "single";
+  it("style").dataset.collapseOn = "none";
+  click(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "true", "Shape inherits single from Style");
+  doubleClick(pill(it("shape")));
+  assertEqual(expanded(it("shape")), "true", "collapse none, inherited");
+  click(pill(it("blocks")));
+  assertEqual(expanded(it("blocks")), "false", "Blocks keeps the tree's default");
+  delete it("style").dataset.expandOn;
+  delete it("style").dataset.collapseOn;
+});
+
+test("clicks: the caret toggles on each click whatever the options and does not select; a double click on it toggles twice", () => {
+  reset();
+  tree.setAttribute("expand-on", "none");
+  tree.setAttribute("collapse-on", "none");
+  assert(click(caret(it("shape"))), "handled");
+  assertEqual(expanded(it("shape")), "true");
+  assertEqual(selected(tree), null, "the caret does not select");
+  doubleClick(caret(it("shape")));
+  assertEqual(expanded(it("shape")), "true", "two clicks: toggled twice");
+  click(caret(it("shape")), 1);
+  assertEqual(expanded(it("shape")), "false");
+});
+
+test("clicks: rows without children leave double clicks to the app; modifier clicks only change the selection; content clicks are ignored", () => {
+  reset();
+  tree.setAttribute("expand-on", "single");
+  assertEqual(doubleClick(pill(it("motion"))), false, "a leaf's double click is unhandled");
+  assertEqual(selected(tree), "motion");
+  click(pill(it("shape")), 1, { shiftKey: true });
+  assertEqual(expanded(it("shape")), "false", "Shift: no toggle");
+  assertEqual(selected(tree), "shape", "Shift selects");
+  click(pill(it("shape")), 1, { ctrlKey: true });
+  assertEqual(expanded(it("shape")), "false", "Ctrl: no toggle");
+  assertEqual(selected(tree), null, "Ctrl toggles the selection off");
+  click(pill(it("shape")), 1, { metaKey: true });
+  assertEqual(selected(tree), "shape", "Cmd toggles it on");
+  click(it("inner"));
+  assertEqual(expanded(it("blocks")), "false", "a button in the header: no toggle");
+  assertEqual(selected(tree), "shape", "and no selection");
+  click(pill(it("type")));
+  assertEqual(selected(tree), "shape", "a disabled row does not select");
+});
+
+test("toggle fires on the item and the hidden children leave the layout", () => {
+  reset();
+  let toggled = null;
+  tree.addEventListener("toggle", (e) => { toggled = e.target; }, { once: true });
+  tree.toggle(it("shape"), true);
+  assertEqual(toggled, it("shape"));
+  assert(row(it("squircle")).getBoundingClientRect().height > 0, "shown");
+  tree.toggle(it("shape"), false);
+  assertEqual(row(it("squircle")).getBoundingClientRect().height, 0, "hidden at once");
+});
+
+test("layout: rows 32 high (24 compact), inset plus one caret width per level, the pill to the row's end with its padding", () => {
+  reset();
+  tree.toggle(it("shape"), true);
+  const t = tree.getBoundingClientRect();
+  for (const [density, h, indent, inset, pad] of [["normal", 32, 20, 4, [8, 12]], ["compact", 24, 16, 2, [8, 8]]]) {
+    setDensity(density);
+    for (const [name, level] of [["style", 0], ["shape", 1], ["squircle", 2]]) {
+      const r = row(it(name)).getBoundingClientRect();
+      const c = caret(it(name)).getBoundingClientRect();
+      const p = pill(it(name)).getBoundingClientRect();
+      assertEqual(r.height, h, `${density} ${name} row height`);
+      assertEqual(r.left - t.left, 4, `${density} ${name} row inset by the tree's padding`);
+      assertEqual(r.right, t.right - 4, `${density} ${name} row to the tree's end`);
+      assertEqual(c.left - r.left, inset + level * indent, `${density} ${name} caret`);
+      assertEqual(c.width, indent, `${density} caret size`);
+      assertEqual(p.left, c.right, `${density} ${name} pill starts at the caret's end`);
+      assertEqual(p.right, r.right, `${density} ${name} pill ends at the row's end`);
+      const s = getComputedStyle(pill(it(name)));
+      assertEqual(s.paddingLeft, `${pad[0]}px`);
+      assertEqual(s.paddingRight, `${pad[1]}px`);
+    }
+  }
+  setDensity("normal");
+  assertEqual(getComputedStyle(tree).paddingTop, "4px");
+  assert(transparent(tree), "the tree is transparent");
+  assertEqual(getComputedStyle(caret(it("colour"))).visibility, "hidden", "a leaf keeps the caret's room, empty");
+});
+
+test("states: hover and press are the row's, shown on the pill; a child's hover does not light its parent", () => {
+  reset();
+  const p = pill(it("shape"));
+  assert(transparent(p), "rest");
+  withState(row(it("shape")), "hover", () => assertEqual(bg(p), "#D4D4D4"));
+  withState(row(it("shape")), "pressed", () => assertEqual(bg(p), "#A6A6A6"));
+  withState(row(it("colour")), "hover", () => assert(transparent(pill(it("style"))), "parent unlit"));
+  tree.selectedItem = it("shape");
+  assertEqual(bg(p), "#0075DD");
+  assertEqual(fg(p), "#FFFFFF");
+  withState(row(it("shape")), "hover", () => assertEqual(bg(p), "#006AC9"));
+  withState(row(it("shape")), "pressed", () => assertEqual(bg(p), "#0060B4"));
+  assertEqual(fg(caret(it("shape"))), fg(pill(it("colour"))), "the caret keeps the text colour on a selected row");
+  assertEqual(fg(pill(it("type"))), "#A6A6A6", "disabled text");
+  assertEqual(getComputedStyle(pill(it("shape"))).borderTopLeftRadius, "9.44px", "the control radius (squircle)");
+});
+
+test("contrast: selected text on every accent fill meets AA; hover and press differ from the surfaces, in both themes", () => {
+  reset();
+  tree.selectedItem = it("shape");
+  const p = pill(it("shape"));
+  for (const theme of ["light", "dark"]) {
+    setTheme(theme);
+    for (const state of [null, "hover", "pressed"]) {
+      const [b, f] = state ? withState(row(it("shape")), state, () => [bg(p), fg(p)]) : [bg(p), fg(p)];
+      assert(ratio(b, f) >= 4.5, `${theme} ${state ?? "rest"}: ${ratio(b, f).toFixed(2)}`);
+    }
+    const hover = withState(row(it("colour")), "hover", () => bg(pill(it("colour"))));
+    const pressed = withState(row(it("colour")), "pressed", () => bg(pill(it("colour"))));
+    assert(ratio(hover, pressed) >= 1.2, `${theme} hover vs pressed`);
+    assert(ratio(fg(pill(it("colour"))), theme === "light" ? "#F3F3F3" : "#202020") >= 4.5, `${theme} text`);
+  }
+  setTheme("light");
+});
+
+test("focus: the ring around the pill on keyboard focus, raised; the forced state draws the same", () => {
+  reset();
+  it("colour").focus({ focusVisible: true });
+  const s = getComputedStyle(pill(it("colour")));
+  assertEqual(s.outlineStyle, "solid");
+  assertEqual(s.outlineWidth, "2px");
+  assertEqual(s.outlineOffset, "2px");
+  assertEqual(s.zIndex, "2");
+  assertEqual(getComputedStyle(it("colour")).outlineStyle, "none", "not on the item, whose box holds its children");
+  it("colour").blur();
+  withState(row(it("shape")), "focus", () => assertEqual(hex(getComputedStyle(pill(it("shape"))).outlineColor), "#007CEA"));
+});
+
+test("motion: the caret turns over MotionNormal with the easing (instant under reduce motion); fills fade over MotionFast", () => {
+  document.documentElement.setAttribute("data-reduce-motion", "false");
+  const c = getComputedStyle(caret(it("style")));
+  assertEqual(c.transitionProperty, "rotate");
+  assertEqual(c.transitionDuration, "0.2s");
+  assertEqual(c.transitionTimingFunction, "cubic-bezier(0.3333, 1, 0.6667, 1)");
+  assertEqual(c.rotate, "90deg", "expanded points down");
+  assertEqual(getComputedStyle(caret(it("blocks"))).rotate, "none", "collapsed points right");
+  assertEqual(getComputedStyle(pill(it("style"))).transitionDuration, "0.1s, 0.1s");
+  document.documentElement.setAttribute("data-reduce-motion", "true");
+  assertEqual(getComputedStyle(caret(it("style"))).transitionDuration, "0s");
+  assertEqual(getComputedStyle(caret(it("r"))).scale, "-1 1", "mirrored right to left");
+});
+
+test("lines: the stub, elbows and column, on the caret columns; ending before the caret glyph or the pill; item overrides", async () => {
+  await tick();
+  const lines = $("lines");
+  const t = lines.getBoundingClientRect();
+  const before = (el) => getComputedStyle(el, "::before");
+  const after = (el) => getComputedStyle(el, "::after");
+  const on = (s) => s.content !== "none";
+  // A: lines on, expanded, children with lines: its stub runs from the caret box's bottom to the row's bottom.
+  const stub = after(row(it("a")));
+  assert(on(stub), "A's stub");
+  assertEqual(stub.borderLeftWidth, "1px");
+  assertEqual(hex(stub.borderLeftColor), "#D4D4D4", "the border colour");
+  assertEqual(parseFloat(stub.left), 4 + 10 - 0.5, "on A's caret column");
+  assertEqual(parseFloat(stub.top), 16 + 10, "from the caret box's bottom");
+  assertEqual(parseFloat(stub.bottom), 0);
+  // A1: elbow from its top into its row, ending 4 before its caret glyph; the column carries on past it (A2 later).
+  const a1 = before(row(it("a1")));
+  assert(on(a1), "A1's elbow");
+  assertEqual(a1.borderBottomLeftRadius, "4.5px", "radius 4 at the line's centre");
+  assertEqual(parseFloat(a1.left), 13.5);
+  assertEqual(parseFloat(a1.left) + parseFloat(a1.width), 4 + 20 + 20 * 72 / 256 - 4, "4 before the caret glyph");
+  assert(on(before(it("a1"))), "the column passes through A1's subtree");
+  // A2: a leaf, its elbow ends 4 before its pill; A3 has lines off, so A2 is the last with lines: no column past it.
+  const a2 = before(row(it("a2")));
+  const pillStart = pill(it("a2")).getBoundingClientRect().left - row(it("a2")).getBoundingClientRect().left;
+  assertEqual(parseFloat(a2.left) + parseFloat(a2.width), pillStart - 4, "4 before the pill");
+  assertEqual(parseFloat(a2.height), 16.5, "the full elbow down to the row's centre");
+  assert(!on(before(it("a2"))), "the column stops at the last child with lines");
+  assert(!on(before(row(it("a3")))), "A3's lines are off: no elbow");
+  // B: lines off: no stub; its child inherits off: no elbow.
+  assert(!on(after(row(it("b")))), "B has no stub");
+  assert(!on(before(row(it("b1")))), "B1 inherits lines off");
+  assert(!on(before(row(it("a")))), "a top item has no elbow");
+  // The tree's option turns them all off; collapse hides them.
+  lines.setAttribute("show-lines", "false");
+  await tick();
+  assert(!on(after(row(it("a")))) && !on(before(row(it("a1")))), "show-lines=false");
+  lines.removeAttribute("show-lines");
+  await tick();
+  assert(on(before(row(it("a1")))), "back on");
+  lines.toggle(it("a"), false);
+  assert(!on(after(row(it("a")))), "collapsed: no stub");
+  lines.toggle(it("a"), true);
+  // Items added later get their lines: a new last child takes the column past A2.
+  const a4 = it("a2").cloneNode(true);
+  a4.dataset.name = "a4";
+  it("a").querySelector(":scope > ul").append(a4);
+  await tick();
+  assert(on(before(it("a2"))), "column now passes A2");
+  assert(on(before(row(a4))), "A4's elbow");
+  a4.remove();
+  await tick();
+  assert(!on(before(it("a2"))), "removed: the column stops at A2 again");
+  // Compact: one 16 px caret per level.
+  setDensity("compact");
+  assertEqual(parseFloat(before(row(it("a1"))).left), 2 + 8 - 0.5);
+  setDensity("normal");
+  assert(t.width > 0);
+});
+
+test("accent flag: on the pill's leading edge for selected items; an item overrides it for its subtree; disabled uses the disabled text colour", () => {
+  const f = pill(it("f")), f1x = pill(it("f1x")), f2 = pill(it("f2"));
+  const shown = (el) => getComputedStyle(el, "::before").opacity === "1" && !transparent(el, "::before");
+  assert(shown(f), "the tree's option");
+  assertEqual(bg(f, "::before"), "#77BFFF");
+  assertEqual(getComputedStyle(f, "::before").width, "3px");
+  assertEqual(getComputedStyle(f, "::before").left, "0px", "flush on the pill's leading edge");
+  assert(parseFloat(getComputedStyle(f).borderTopLeftRadius) < 0.1, "leading corners square");
+  assertEqual(getComputedStyle(f).borderTopRightRadius, "9.44px", "trailing corners keep the radius");
+  assert(!shown(f1x), "F1's data-accent-flag=false reaches its descendants");
+  assertEqual(getComputedStyle(f1x).borderTopLeftRadius, "9.44px");
+  assert(shown(f2), "the sibling keeps the tree's option");
+  assertEqual(bg(f2, "::before"), "#A6A6A6", "disabled");
+  assert(!shown(pill(it("f1"))), "unselected: no flag");
+  withState(row(it("f1")), "hover", () => assert(!shown(pill(it("f1"))), "hover shows no flag"));
+  withState(row(it("f")), "pressed", () => assert(shown(f), "selected keeps it pressed"));
+  setAccent("#2A9D8F");
+  assertEqual(bg(f, "::before"), "#78DBCF", "follows the accent");
+  setAccent();
+  $("flag").removeAttribute("accent-flag");
+  assert(!shown(f), "off without the option");
+  $("flag").setAttribute("accent-flag", "");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+/*
+  AutoCompleteBox (0029): <ui-auto-complete-box>, a TextInput field (0027) with suggestions in the
+  ComboBox drop-down (0024). auto-complete-box.js adds the popup:
+
+    <ui-auto-complete-box class="ui-field ui-auto-complete-box ui-squircle ui-focus-ring-within">
+      <input class="ui-text-input" aria-label="City" placeholder="City">
+      <datalist><option value="Amsterdam"></option></datalist>
+    </ui-auto-complete-box>
+
+  The field, its focus (accent border, ring around the whole field) and its states are
+  text-input.css's. The popup is the ComboBox drop-down (combobox.css, class ui-combo-box-popup):
+  a flyout in the top layer, a squircle with the overlay radius (16), Fluent's drop-down background
+  and border, that clips the library list (list-box.css), whose 4 px padding insets the item squircles. It is
+  as wide as the field, 2 px below it, and fades in over MotionFast (flyout.css), instantly under
+  reduce motion. Shown in place (without the popover attribute) it is a static sample.
+  The drop-down colours and border width are the Style tokens --ui-combo-box-drop-down-* (colour.css).
+*/
+/* What differs from the ComboBox drop-down: its height limit (Avalonia's AutoCompleteBox
+   MaxDropDownHeight, past which the list scrolls), and the text cursor it would inherit from the
+   field. The width is the field's, set by the script. */
+.ui-flyout.ui-combo-box-popup.ui-auto-complete-popup {
+  --ui-auto-complete-box-max-drop-down-height: 400px;
+  --ui-combo-box-max-drop-down-height: var(--ui-auto-complete-box-max-drop-down-height);
+  cursor: default;
+}

@@ -17,14 +17,28 @@
   --ui-squircle-radius: var(--ui-corner-radius-control);
 }
 
+/* The drawn radius of --ui-squircle-radius: the plain radius without corner-shape, the radius
+   scaled by --ui-corner-radius-factor with it (the fit above). Resolved on every element and its
+   ::before and ::after from that box's own --ui-squircle-radius, so a Block that draws one corner
+   of a squircle on its own (the accent flag's square corners) or a squircle on a pseudo-element
+   reads it as var(--ui-squircle-drawn-radius) instead of repeating both branches. */
+:where(*, ::before, ::after) {
+  --ui-squircle-drawn-radius: var(--ui-squircle-radius);
+}
+
+@supports (corner-shape: superellipse(2)) {
+  :where(*, ::before, ::after) {
+    --ui-squircle-drawn-radius: calc(var(--ui-squircle-radius) * var(--ui-corner-radius-factor));
+  }
+}
+
 .ui-squircle {
-  border-radius: var(--ui-squircle-radius);
+  border-radius: var(--ui-squircle-drawn-radius);
 }
 
 @supports (corner-shape: superellipse(2)) {
   .ui-squircle {
     corner-shape: var(--ui-corner-shape);
-    border-radius: calc(var(--ui-squircle-radius) * var(--ui-corner-radius-factor));
   }
 }
 
