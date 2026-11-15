@@ -109,6 +109,7 @@ public class StandardsWindow : Window, IFrameTickSource
     internal StandardsWindow(bool? nativeFrame)
     {
         _shortcuts = new MenuShortcuts(this);
+        // Not stored: the window's own event handlers keep the guard alive.
         _ = new MenuAltGuard(this, () => IsMenuRowShown);
         _ticker = new FrameTicker(new Scheduler(this), (time, elapsed) => _frameTick?.Invoke(this, new FrameTickEventArgs(time, elapsed)));
         HasNativeFrame = nativeFrame ?? UsesNativeFrame(OperatingSystem.IsMacOS(), TryGetPlatformHandle()?.HandleDescriptor);
