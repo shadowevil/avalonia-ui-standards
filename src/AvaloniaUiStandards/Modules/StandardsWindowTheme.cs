@@ -83,6 +83,19 @@ internal static class StandardsWindowTheme
     internal static readonly object TitleBandHeightKey = new();
     internal static readonly object MenuRowHeightKey = new();
     internal static readonly object RevealTransitionsKey = new();
+    internal static readonly object PaneTransitionsKey = new();
+
+    /// <summary>
+    /// The inspector's and bottom panel's slide, the sidebar's width motion: <paramref name="duration"/> is
+    /// <c>MotionNormal</c>, or zero under reduce motion (no transition: the panels show and hide at once).
+    /// </summary>
+    public static Transitions PaneTransitions(TimeSpan duration, Easing easing) => duration == TimeSpan.Zero
+        ? []
+        :
+        [
+            new DoubleTransition { Property = PaneLayout.InspectorRevealProperty, Duration = duration, Easing = easing },
+            new DoubleTransition { Property = PaneLayout.BottomRevealProperty, Duration = duration, Easing = easing },
+        ];
 
     /// <summary>
     /// The full screen reveal's transitions: <paramref name="duration"/> is <c>MotionNormal</c>, or zero under reduce
@@ -202,7 +215,8 @@ internal static class StandardsWindowTheme
             Part<ContentPresenter>(SidebarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, Spacing.S))),
             // The content area (the glass panel, and the inspector and bottom panel when shown) keeps SpacingS from the
             // sides and the bottom.
-            Part<PaneLayout>(PanesPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, Spacing.S, Spacing.S))),
+            Part<PaneLayout>(PanesPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, Spacing.S, Spacing.S)),
+                (Animatable.TransitionsProperty, new DynamicResourceExtension(PaneTransitionsKey))),
             Part<ContentPresenter>(SidebarPart, ":sidebar-module",
                 (Layoutable.MarginProperty, new Thickness(0, 0, 0, Spacing.S)),
                 (Visual.ZIndexProperty, 1)),

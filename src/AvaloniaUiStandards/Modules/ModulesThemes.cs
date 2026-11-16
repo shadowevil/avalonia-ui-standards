@@ -42,6 +42,7 @@ internal static class ModulesThemes
     {
         resources[SidebarTheme.WidthTransitionsKey] = SidebarTheme.WidthTransitions(normal, easing);
         resources[StandardsWindowTheme.RevealTransitionsKey] = StandardsWindowTheme.RevealTransitions(normal, easing);
+        resources[StandardsWindowTheme.PaneTransitionsKey] = StandardsWindowTheme.PaneTransitions(normal, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Modules themes.</summary>

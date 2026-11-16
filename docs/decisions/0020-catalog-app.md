@@ -12,7 +12,7 @@
   - Every control page shows its variants × states side by side (rest, hover, pressed, disabled, focused) next to a live row.
   - Style pages show the actual theme values.
   - The Glass page also shows an opaque card in the window's glass panel (marked with `OpaqueRegion.IsOpaque`, with a switch to unmark it) and a live readout of the window's `BackdropVisibleRegion`: its number of rectangles and the share of the frame they cover ([0015](0015-glass.md), [0022](0022-window-layout.md)).
-  - The Split panes page fills the window's `Inspector` with a `PanelStack` (Layers, Properties with sliders, Colour collapsed) and its `BottomPanel` with a `TabControl` while it shows, with buttons that toggle them, and takes them away when another page shows, so the View menu's inspector and bottom panel items are enabled only there ([0051](0051-split-panes.md)).
+  - The Split panes page fills the window's `Inspector` with a `PanelStack` (Layers, Properties with sliders, Colour collapsed, holding a ColorPicker field, which fits the inspector's width where a ColorView does not) and its `BottomPanel` with a `TabControl` while it shows, with buttons that toggle them, and takes them away when another page shows, so the View menu's inspector and bottom panel items are enabled only there ([0051](0051-split-panes.md)).
   - It uses the library as apps do ([0017](0017-app-usage.md)).
   - It uses only library controls once they exist. It moves into the window of [0022](0022-window-layout.md) once the window frame, title band, content panel and status bar are done; its sidebar is the `Sidebar` Module ([0034](0034-sidebar.md)), one row per page with an icon from `Icons`.
   - The test project renders every catalog page (full height) to PNG, in light and dark.

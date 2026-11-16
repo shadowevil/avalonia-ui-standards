@@ -37,8 +37,8 @@ internal sealed class SplitPanesPage : UserControl
             }),
             Ui.Section("Use", Ui.Caption(
                 "The inspector is a glass panel right of the content panel, the full height of the content area: 240 wide by default, " +
-                "200 to 400. The bottom panel sits directly under the content panel: 200 high by default, at least 96 and at most half " +
-                "the content area. Each 8 px gap between panels is a resize handle; dragging it below the panel's minimum closes the " +
+                "200 to 400. The bottom panel sits directly under the content panel: 200 high by default, at least 96 and never taller " +
+                "than the content panel; in a content area under 200 it hides until the window grows. Each 8 px gap between panels is a resize handle; dragging it below the panel's minimum closes the " +
                 "panel. The inspector docks from a window width of 1248; in a narrower window it opens over the content at the right " +
                 "edge and closes on Escape or a click outside. A PanelStack holds solid cards with collapsible title strips; a tab " +
                 "group is a TabControl in a card.")));

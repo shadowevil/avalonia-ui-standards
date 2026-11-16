@@ -26,7 +26,7 @@ public class SplitPaneTests
     // A window whose frame (the visible window) is frameWidth x frameHeight.
     internal static StandardsWindow Show(double frameWidth = 1440, double frameHeight = 900, bool inspector = true, bool bottom = true,
         bool sidebar = false, ThemeVariant? theme = null, Action<StandardsWindow>? before = null, object? inspectorContent = null,
-        object? bottomContent = null, object? content = null)
+        object? bottomContent = null, object? content = null, bool reduceMotion = true)
     {
         var window = new StandardsWindow(nativeFrame: false)
         {
@@ -41,7 +41,7 @@ public class SplitPaneTests
             RequestedThemeVariant = theme ?? ThemeVariant.Light,
             Background = new SolidColorBrush(Color.Parse(theme == ThemeVariant.Dark ? "#3A3D42" : "#C9CDD3")),
         };
-        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = reduceMotion });
         before?.Invoke(window);
         window.Show();
         window.Activate();
@@ -197,7 +197,7 @@ public class SplitPaneTests
             Pump(window);
             var area = Part<Control>(window, StandardsWindowTheme.PanesPart).Bounds.Height;
             Assert.Equal(2000, window.BottomPanelHeight);
-            Assert.Equal(area / 2, Bottom(window).Bounds.Height);
+            Assert.Equal((area - PaneLayout.Gap) / 2, Bottom(window).Bounds.Height);
         }
         finally
         {
@@ -282,7 +282,7 @@ public class SplitPaneTests
             Assert.Equal(250, window.BottomPanelHeight);
             window.MouseMove(start - new Point(0, 2000));
             Pump(window);
-            Assert.Equal(area / 2, window.BottomPanelHeight);
+            Assert.Equal((area - PaneLayout.Gap) / 2, window.BottomPanelHeight);
             window.MouseMove(start + new Point(0, 200 - StandardsWindow.BottomPanelMinHeight + 1));
             Pump(window);
             Assert.False(window.IsBottomPanelOpen);
@@ -717,7 +717,296 @@ public class SplitPaneTests
         }
     }
 
+    // --- Short windows --------------------------------------------------------------------------
+
+    // A toolbar band and a status bar, so the content area can be shorter than 200 above the minimum window size.
+    private static void ShortChrome(StandardsWindow window)
+    {
+        window.ToolbarBand = new ToolbarBand { Items = { new Button { Content = "Bold" } } };
+        window.StatusBar = new TextBlock { Text = "Ready" };
+    }
+
+    // Resizes the window so the content area is exactly areaHeight tall.
+    private static void SetAreaHeight(StandardsWindow window, double areaHeight)
+    {
+        var area = Part<Control>(window, StandardsWindowTheme.PanesPart);
+        window.Height += areaHeight - area.Bounds.Height;
+        Pump(window);
+        Assert.Equal(areaHeight, area.Bounds.Height);
+    }
+
+    [AvaloniaFact]
+    public void TheBottomPanel_ShowsAtExactlyTwiceItsMinimumPlusTheGap_WithTheContentPanelAsTall()
+    {
+        var window = Show(bottom: true, inspector: false, before: ShortChrome);
+        try
+        {
+            SetAreaHeight(window, PaneLayout.BottomRoom);
+            Assert.True(Bottom(window).IsVisible);
+            Assert.Equal(StandardsWindow.BottomPanelMinHeight, Bottom(window).Bounds.Height);
+            Assert.Equal(StandardsWindow.BottomPanelMinHeight, ContentPanel(window).Bounds.Height);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AShortWindow_HidesTheBottomPanelFromTheLayout_AndItReturnsWhenTheWindowGrows()
+    {
+        BottomPanelMenuItem item = null!;
+        var window = Show(inspector: false, before: w =>
+        {
+            ShortChrome(w);
+            item = AddItems(w).Bottom;
+        });
+        try
+        {
+            SetAreaHeight(window, PaneLayout.BottomRoom - 1);
+            Assert.False(Bottom(window).IsVisible);
+            Assert.False(BottomSplitter(window).IsVisible);
+            Assert.True(window.IsBottomPanelOpen);
+            Assert.False(window.IsBottomPanelShown);
+            Assert.Equal("Show Bottom Panel", item.Header);
+            Assert.Equal(InLayers(window, Part<Control>(window, StandardsWindowTheme.PanesPart)), InLayers(window, ContentPanel(window)));
+            Assert.DoesNotContain(GlassSharedBackdropTests.Sampler(window).Consumers, c => c.Glass == Bottom(window));
+
+            SetAreaHeight(window, 500);
+            Assert.True(Bottom(window).IsVisible);
+            Assert.Equal(StandardsWindow.BottomPanelDefaultHeight, Bottom(window).Bounds.Height);
+            Assert.Equal("Hide Bottom Panel", item.Header);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheContentPanel_IsAlwaysAtLeastAsTallAsTheBottomPanel()
+    {
+        var window = Show(inspector: false, before: w =>
+        {
+            ShortChrome(w);
+            w.BottomPanelHeight = 5000;
+        });
+        try
+        {
+            foreach (var area in new[] { PaneLayout.BottomRoom, 201.0, 333, 700 })
+            {
+                SetAreaHeight(window, area);
+                Assert.True(ContentPanel(window).Bounds.Height >= Bottom(window).Bounds.Height, $"area {area}");
+                // Within layout rounding (an odd area splits on a half pixel).
+                Assert.Equal((area - PaneLayout.Gap) / 2, Bottom(window).Bounds.Height, 0.5);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void EscapeDuringABottomDrag_PutsBackTheAskedHeight()
+    {
+        var window = Show(inspector: false, before: w => w.BottomPanelHeight = 5000);
+        try
+        {
+            var shown = Bottom(window).Bounds.Height;
+            Assert.True(shown < 5000);
+            var splitter = BottomSplitter(window);
+            var start = Centre(splitter, window);
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new Point(0, 40));
+            Pump(window);
+            Assert.Equal(shown - 40, window.BottomPanelHeight);
+            splitter.Focus();
+            MenuRowTests.Press(window, Key.Escape);
+            Assert.Equal(5000, window.BottomPanelHeight);
+            window.MouseUp(start, MouseButton.Left);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // --- Overlay focus and popups ---------------------------------------------------------------
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void OpeningTheOverlay_FocusesTheFirstFocusableControlInIt(bool reduceMotion)
+    {
+        var before = new Button { Content = "Before" };
+        var first = new Button { Content = "First" };
+        var inspector = new StackPanel { Children = { new TextBlock { Text = "Label" }, first, new Button { Content = "Second" } } };
+        var window = Show(frameWidth: 900, bottom: false, content: before, inspectorContent: inspector, reduceMotion: reduceMotion);
+        try
+        {
+            before.Focus(NavigationMethod.Tab);
+            window.ToggleInspector();
+            Pump(window);
+            Assert.True(first.IsFocused);
+            MenuRowTests.Press(window, Key.Escape);
+            Assert.True(before.IsFocused);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Escape_ClosesAnOpenDropDownInTheOverlayFirst()
+    {
+        var combo = new ComboBox { Items = { "Normal", "Multiply", "Screen" }, Width = 180 };
+        var window = Show(frameWidth: 900, bottom: false, inspectorContent: combo);
+        try
+        {
+            window.ToggleInspector();
+            Pump(window);
+            Assert.True(combo.IsFocused);
+            combo.IsDropDownOpen = true;
+            Pump(window);
+            Assert.Equal(-1, combo.SelectedIndex);
+            MenuRowTests.Press(window, Key.Escape);
+            Assert.False(combo.IsDropDownOpen);
+            Assert.True(window.IsInspectorOverlayOpen);
+            MenuRowTests.Press(window, Key.Escape);
+            Assert.False(window.IsInspectorOverlayOpen);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // --- Motion ---------------------------------------------------------------------------------
+
+    private static void Elapse(Window window, TimeSpan time)
+    {
+        for (var elapsed = TimeSpan.Zero; elapsed < time; elapsed += TimeSpan.FromMilliseconds(40))
+        {
+            Thread.Sleep(40);
+            Pump(window);
+        }
+    }
+
+    private static double Reveal(StandardsWindow w, StyledProperty<double> property) =>
+        Part<PaneLayout>(w, StandardsWindowTheme.PanesPart).GetValue(property);
+
+    private static (Rect Content, Rect Inspector, Rect Bottom) Layout(StandardsWindow w) =>
+        (InLayers(w, ContentPanel(w)), Inspector(w).IsVisible ? InLayers(w, Inspector(w)) : default, Bottom(w).IsVisible ? InLayers(w, Bottom(w)) : default);
+
+    [AvaloniaFact]
+    public void ShowingAndHiding_Slides_ResizingDoesNot_AndEndsWhereReduceMotionDoes()
+    {
+        var moving = Show(reduceMotion: false);
+        var reduced = Show(reduceMotion: true);
+        try
+        {
+            var panes = Part<PaneLayout>(moving, StandardsWindowTheme.PanesPart);
+            Assert.Equal(2, panes.Transitions?.Count);
+            Assert.All(panes.Transitions!.OfType<Avalonia.Animation.DoubleTransition>(), t => Assert.Equal(TimeSpan.FromMilliseconds(200), t.Duration));
+            Assert.Empty(Part<PaneLayout>(reduced, StandardsWindowTheme.PanesPart).Transitions!);
+
+            foreach (var w in new[] { moving, reduced })
+            {
+                w.IsInspectorOpen = false;
+                w.IsBottomPanelOpen = false;
+            }
+            // Reduced: at once. With motion: the slide starts from where the panels were, and they stay shown meanwhile.
+            Assert.Equal(0, Reveal(reduced, PaneLayout.InspectorRevealProperty));
+            Assert.Equal(0, Reveal(reduced, PaneLayout.BottomRevealProperty));
+            Assert.False(Inspector(reduced).IsVisible);
+            Assert.Equal(1, Reveal(moving, PaneLayout.InspectorRevealProperty));
+            Assert.Equal(1, Reveal(moving, PaneLayout.BottomRevealProperty));
+            Assert.True(Inspector(moving).IsVisible);
+            Assert.True(Bottom(moving).IsVisible);
+            Pump(reduced);
+            Elapse(moving, TimeSpan.FromMilliseconds(400));
+            Assert.Equal(Layout(reduced), Layout(moving));
+            Assert.False(Inspector(moving).IsVisible);
+            Assert.False(Bottom(moving).IsVisible);
+
+            foreach (var w in new[] { moving, reduced })
+            {
+                w.IsInspectorOpen = true;
+                w.IsBottomPanelOpen = true;
+            }
+            Assert.Equal(1, Reveal(reduced, PaneLayout.InspectorRevealProperty));
+            Assert.Equal(0, Reveal(moving, PaneLayout.InspectorRevealProperty));
+            Assert.Equal(0, Reveal(moving, PaneLayout.BottomRevealProperty));
+            Assert.True(Inspector(moving).IsVisible);
+            Pump(reduced);
+            Elapse(moving, TimeSpan.FromMilliseconds(400));
+            Assert.Equal(Layout(reduced), Layout(moving));
+
+            // Crossing the threshold hides the docked inspector at once.
+            moving.Width = 1000 + Margin.Left + Margin.Right;
+            Pump(moving);
+            Assert.False(Inspector(moving).IsVisible);
+        }
+        finally
+        {
+            moving.Close();
+            reduced.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheOverlay_SlidesInFromTheRightEdge_LikeTheSidebarOverlay()
+    {
+        var window = Show(frameWidth: 900, bottom: false, reduceMotion: false);
+        try
+        {
+            var panes = InLayers(window, Part<Control>(window, StandardsWindowTheme.PanesPart));
+            window.ToggleInspector();
+            // It starts at the right edge, outside the area.
+            Assert.True(Inspector(window).IsVisible);
+            Assert.Equal(0, Reveal(window, PaneLayout.InspectorRevealProperty));
+            var start = Part<PaneLayout>(window, StandardsWindowTheme.PanesPart).Arrangement(Part<PaneLayout>(window, StandardsWindowTheme.PanesPart).Bounds.Size).Inspector;
+            Assert.Equal(panes.Width, start.X);
+            Elapse(window, TimeSpan.FromMilliseconds(400));
+            Assert.Equal(new Rect(panes.Right - 240, panes.Top, 240, panes.Height), InLayers(window, Inspector(window)));
+            window.ToggleInspector();
+            Assert.Equal(1, Reveal(window, PaneLayout.InspectorRevealProperty));
+            Assert.True(Inspector(window).IsVisible);
+            Elapse(window, TimeSpan.FromMilliseconds(400));
+            Assert.False(Inspector(window).IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // --- Catalog --------------------------------------------------------------------------------
+
+    [AvaloniaFact]
+    public void Catalog_AtTheMinimumWindowSize_TheSplitPanesPageHidesTheBottomPanel()
+    {
+        // The 480 x 320 frame plus the shadow margin.
+        var window = new Catalog.MainWindow { Width = 528, Height = 368 };
+        window.Styles.Add(new StandardsTheme(AccessibilitySettings.NotReduced) { ReduceMotion = true });
+        window.Show();
+        try
+        {
+            window.SelectPage(Catalog.CatalogPages.All.ToList().FindIndex(p => p.Title == "Split panes"));
+            Pump(window);
+            Assert.True(Part<Control>(window, StandardsWindowTheme.PanesPart).Bounds.Height < PaneLayout.BottomRoom);
+            Assert.True(window.IsBottomPanelOpen);
+            Assert.False(Bottom(window).IsVisible);
+            Assert.Equal(Part<Control>(window, StandardsWindowTheme.PanesPart).Bounds.Height, ContentPanel(window).Bounds.Height);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     [AvaloniaFact]
     public void Catalog_SplitPanesPage_FillsThePanels_AndItsViewMenuItemsFollow()
