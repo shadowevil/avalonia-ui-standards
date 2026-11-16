@@ -321,12 +321,22 @@ public class StandardsWindow : Window, IFrameTickSource
             IsInspectorOpen = !IsInspectorOpen;
     }
 
-    /// <summary>Shows or hides the bottom panel (<see cref="IsBottomPanelOpen"/>); does nothing without a <see cref="BottomPanel"/>. A <see cref="BottomPanelMenuItem"/> calls it.</summary>
+    /// <summary>
+    /// Shows or hides the bottom panel (<see cref="IsBottomPanelOpen"/>); does nothing without a <see cref="BottomPanel"/>,
+    /// or while the content area is too short for it (the panel cannot show, so a toggle would only lose the kept
+    /// setting). A <see cref="BottomPanelMenuItem"/> calls it.
+    /// </summary>
     public void ToggleBottomPanel()
     {
-        if (BottomPanel is not null)
+        if (CanToggleBottomPanel)
             IsBottomPanelOpen = !IsBottomPanelOpen;
     }
+
+    /// <summary>Whether the content area is tall enough for the bottom panel.</summary>
+    internal bool HasBottomRoom => _panes?.HasBottomRoom ?? true;
+
+    /// <summary>Whether <see cref="ToggleBottomPanel"/> acts: with a bottom panel and room for it.</summary>
+    internal bool CanToggleBottomPanel => BottomPanel is not null && HasBottomRoom;
 
     /// <summary>Where the inspector shows now.</summary>
     internal InspectorPlacement InspectorPlacement => Inspector is null ? InspectorPlacement.None

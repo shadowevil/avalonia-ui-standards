@@ -783,6 +783,42 @@ public class SplitPaneTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(WindowLayoutMode.MacOS)]
+    [InlineData(WindowLayoutMode.Windows)]
+    public void InAShortWindow_TheToggleAndItsItemAndGesture_DoNothing_SoThePanelReturns(WindowLayoutMode layout)
+    {
+        BottomPanelMenuItem item = null!;
+        var window = Show(inspector: false, before: w =>
+        {
+            ShortChrome(w);
+            item = AddItems(w).Bottom;
+            w.LayoutMode = layout;
+        });
+        try
+        {
+            SetAreaHeight(window, PaneLayout.BottomRoom - 1);
+            Assert.False(item.IsEnabled);
+            Assert.Equal("Show Bottom Panel", item.Header);
+            window.ToggleBottomPanel();
+            Choose(item);
+            if (layout == WindowLayoutMode.Windows)
+                MenuRowTests.Press(window, Key.J, RawInputModifiers.Control, "j", PhysicalKey.J);
+            else
+                MenuRowTests.Press(window, Key.J, RawInputModifiers.Alt | RawInputModifiers.Meta, "j", PhysicalKey.J);
+            Assert.True(window.IsBottomPanelOpen);
+
+            SetAreaHeight(window, 500);
+            Assert.True(item.IsEnabled);
+            Assert.True(Bottom(window).IsVisible);
+            Assert.Equal("Hide Bottom Panel", item.Header);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void TheContentPanel_IsAlwaysAtLeastAsTallAsTheBottomPanel()
     {
@@ -852,6 +888,33 @@ public class SplitPaneTests
             Assert.True(first.IsFocused);
             MenuRowTests.Press(window, Key.Escape);
             Assert.True(before.IsFocused);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // A fresh PanelStack given to a narrow window has never been laid out (the hidden inspector is not measured): focus
+    // follows once layout has created the cards. The window's first layout pass, before it knows its width, docks the
+    // inspector, so the stack is set once the window is open.
+    [AvaloniaFact]
+    public void OpeningTheOverlay_InAFreshNarrowWindow_FocusesTheFirstCardsHeader()
+    {
+        var stack = NewPanelStack();
+        var window = Show(frameWidth: 900, bottom: false);
+        try
+        {
+            window.Inspector = stack;
+            Pump(window);
+            // The cards have no template yet: there is nothing to focus when the overlay opens.
+            var first = Assert.IsType<PanelStackItem>(stack.Items[0]);
+            Assert.Empty(first.GetVisualDescendants());
+            window.ToggleInspector();
+            Assert.Empty(first.GetVisualDescendants());
+            Pump(window);
+            var header = first.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().First(t => t.Name == ExpanderTheme.HeaderPart);
+            Assert.True(header.IsFocused);
         }
         finally
         {

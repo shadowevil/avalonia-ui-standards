@@ -58,7 +58,8 @@ public class InspectorMenuItem : NativeMenuItem, IWindowMenuItem
 /// The View menu's bottom panel item, for a <see cref="StandardsWindow"/>'s <see cref="NativeMenu"/>: "Show Bottom Panel",
 /// or "Hide Bottom Panel" while the bottom panel shows. Choosing it calls <see cref="StandardsWindow.ToggleBottomPanel"/>.
 /// Its gesture is Opt+Cmd+J in the macOS layout and Ctrl+J in the Windows layout. It is disabled while the window has no
-/// <see cref="StandardsWindow.BottomPanel"/>. The headers come from the <c>BottomPanelShowHeader</c> and
+/// <see cref="StandardsWindow.BottomPanel"/>, and while its content area is too short for the panel (the toggle would only
+/// lose the kept setting). The headers come from the <c>BottomPanelShowHeader</c> and
 /// <c>BottomPanelHideHeader</c> resources, so an app can translate them.
 /// </summary>
 /// <remarks>The window finds the item anywhere in its menu, at any depth, and keeps it up to date.</remarks>
@@ -80,7 +81,7 @@ public class BottomPanelMenuItem : NativeMenuItem, IWindowMenuItem
     public BottomPanelMenuItem()
     {
         _state = new PaneMenuItemState(this, new PaneMenuItemState.Texts(ShowHeaderKey, HideHeaderKey, ShowHeader, HideHeader),
-            MacOSGesture, WindowsGesture, w => w.BottomPanel is not null, w => w.IsBottomPanelShown);
+            MacOSGesture, WindowsGesture, w => w.CanToggleBottomPanel, w => w.IsBottomPanelShown);
         Click += (_, _) => Window?.ToggleBottomPanel();
     }
 
@@ -99,8 +100,8 @@ public class BottomPanelMenuItem : NativeMenuItem, IWindowMenuItem
 }
 
 /// <summary>
-/// Keeps a panel's menu item in step with its window: the show or hide header, enabled while the window has the
-/// panel's content, and the gesture of the window's layout (before it has a window, the layout of this OS).
+/// Keeps a panel's menu item in step with its window: the show or hide header, enabled while its toggle can act, and
+/// the gesture of the window's layout (before it has a window, the layout of this OS).
 /// </summary>
 internal sealed class PaneMenuItemState
 {
@@ -110,18 +111,18 @@ internal sealed class PaneMenuItemState
     private readonly Texts _texts;
     private readonly KeyGesture _macOS;
     private readonly KeyGesture _windows;
-    private readonly Func<StandardsWindow, bool> _hasContent;
+    private readonly Func<StandardsWindow, bool> _canToggle;
     private readonly Func<StandardsWindow, bool> _isShown;
     private StandardsWindow? _window;
 
     public PaneMenuItemState(NativeMenuItem item, Texts texts, KeyGesture macOS, KeyGesture windows,
-        Func<StandardsWindow, bool> hasContent, Func<StandardsWindow, bool> isShown)
+        Func<StandardsWindow, bool> canToggle, Func<StandardsWindow, bool> isShown)
     {
         _item = item;
         _texts = texts;
         _macOS = macOS;
         _windows = windows;
-        _hasContent = hasContent;
+        _canToggle = canToggle;
         _isShown = isShown;
         item.Header = texts.Show;
         item.IsEnabled = false;
@@ -163,7 +164,7 @@ internal sealed class PaneMenuItemState
         var shown = _isShown(window);
         var key = shown ? _texts.HideKey : _texts.ShowKey;
         _item.Header = window.TryFindResource(key, out var value) && value is string text ? text : shown ? _texts.Hide : _texts.Show;
-        _item.IsEnabled = _hasContent(window);
+        _item.IsEnabled = _canToggle(window);
         var gesture = window.ResolvedLayoutMode == WindowLayoutMode.MacOS ? _macOS : _windows;
         if (!gesture.Equals(_item.Gesture))
             _item.Gesture = gesture;
