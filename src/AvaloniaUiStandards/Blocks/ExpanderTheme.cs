@@ -137,12 +137,23 @@ internal static class ExpanderTheme
         ? []
         : [new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = duration, Easing = easing }];
 
-    private static Control Build(Expander expander, INameScope scope)
+    private static Control Build(Expander expander, INameScope scope) => Build(expander, scope, null);
+
+    /// <summary>
+    /// The expander's card. The header row shows <paramref name="headerContent"/> when given (a Module's own header,
+    /// for example an icon before the header), else the expander's <see cref="HeaderedContentControl.Header"/>.
+    /// </summary>
+    internal static Control Build(Expander expander, INameScope scope, Control? headerContent)
     {
         var header = new ToggleButton { Name = HeaderPart, Theme = HeaderTheme };
         header.Bind(ToggleButton.IsCheckedProperty, new TemplateBinding(Expander.IsExpandedProperty) { Mode = BindingMode.TwoWay });
-        header.Bind(ContentControl.ContentProperty, new TemplateBinding(HeaderedContentControl.HeaderProperty));
-        header.Bind(ContentControl.ContentTemplateProperty, new TemplateBinding(HeaderedContentControl.HeaderTemplateProperty));
+        if (headerContent is not null)
+            header.Content = headerContent;
+        else
+        {
+            header.Bind(ContentControl.ContentProperty, new TemplateBinding(HeaderedContentControl.HeaderProperty));
+            header.Bind(ContentControl.ContentTemplateProperty, new TemplateBinding(HeaderedContentControl.HeaderTemplateProperty));
+        }
 
         // The caret follows the expander's state and direction while the header is in the tree.
         Icon? caret = null;

@@ -41,6 +41,13 @@ internal static class StandardsWindowTheme
     public const string SidebarTogglePart = "PART_SidebarToggle";
     public const string ContentPanelPart = "PART_ContentPanel";
     public const string ContentScrollViewerPart = "PART_ContentScrollViewer";
+    public const string PanesPart = "PART_Panes";
+    public const string InspectorPart = "PART_Inspector";
+    public const string InspectorPresenterPart = "PART_InspectorPresenter";
+    public const string InspectorSplitterPart = "PART_InspectorSplitter";
+    public const string BottomPanelPart = "PART_BottomPanel";
+    public const string BottomPanelPresenterPart = "PART_BottomPanelPresenter";
+    public const string BottomPanelSplitterPart = "PART_BottomPanelSplitter";
     public const string BackdropPart = "PART_Backdrop";
     public const string BackdropSamplerPart = "PART_BackdropSampler";
     public const string StatusBarPart = "PART_StatusBar";
@@ -193,12 +200,14 @@ internal static class StandardsWindowTheme
             Part<Image>(TitleIconPart, ":title-icon", (Visual.IsVisibleProperty, true)),
             Part<TextBlock>(TitlePart, ":title-icon", (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, 0))),
             Part<ContentPresenter>(SidebarPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, 0, Spacing.S))),
-            Part<GlassBorder>(ContentPanelPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, Spacing.S, Spacing.S))),
+            // The content area (the glass panel, and the inspector and bottom panel when shown) keeps SpacingS from the
+            // sides and the bottom.
+            Part<PaneLayout>(PanesPart, null, (Layoutable.MarginProperty, new Thickness(Spacing.S, 0, Spacing.S, Spacing.S))),
             Part<ContentPresenter>(SidebarPart, ":sidebar-module",
                 (Layoutable.MarginProperty, new Thickness(0, 0, 0, Spacing.S)),
                 (Visual.ZIndexProperty, 1)),
-            // Full screen without a toolbar band: the glass panel and the sidebar keep SpacingS from the top edge.
-            new Avalonia.Styling.Style(x => x.Nesting().Class(":fullscreen").Not(y => y.Class(":toolbar-band")).Template().OfType<GlassBorder>().Name(ContentPanelPart))
+            // Full screen without a toolbar band: the glass panels and the sidebar keep SpacingS from the top edge.
+            new Avalonia.Styling.Style(x => x.Nesting().Class(":fullscreen").Not(y => y.Class(":toolbar-band")).Template().OfType<PaneLayout>().Name(PanesPart))
             {
                 Setters = { new Setter(Layoutable.MarginProperty, new Thickness(Spacing.S)) },
             },
@@ -316,6 +325,14 @@ internal static class StandardsWindowTheme
         });
         var panel = Named(new GlassBorder { Child = scroller }, ContentPanelPart);
 
+        // The inspector to the right of the content panel and the bottom panel under it: glass panels like the content
+        // panel, padded like it, giving their content the panel's size. Each gap between panels is a resize handle.
+        var inspector = Named(new GlassBorder { Child = Named(PanelSlot(StandardsWindow.InspectorProperty), InspectorPresenterPart) }, InspectorPart);
+        var bottomPanel = Named(new GlassBorder { Child = Named(PanelSlot(StandardsWindow.BottomPanelProperty), BottomPanelPresenterPart) }, BottomPanelPart);
+        var inspectorSplitter = Named(new PaneSplitter { ResizeDirection = GridResizeDirection.Columns }, InspectorSplitterPart);
+        var bottomSplitter = Named(new PaneSplitter { ResizeDirection = GridResizeDirection.Rows }, BottomPanelSplitterPart);
+        var panes = Named(new PaneLayout(panel, inspector, bottomPanel, inspectorSplitter, bottomSplitter), PanesPart);
+
         // Frame (the backdrop behind everything in it), shadow and resize grips. The sampler right after the backdrop
         // takes the shared backdrop sample that first-level glass on the window's layers reads; the top (with the full
         // screen reveal sheet, drawn over the content) takes its own.
@@ -330,7 +347,7 @@ internal static class StandardsWindowTheme
                 new Grid
                 {
                     RowDefinitions = new RowDefinitions("*,Auto"),
-                    Children = { new DockPanel { Children = { sidebar, panel } }, statusBar },
+                    Children = { new DockPanel { Children = { sidebar, panes } }, statusBar },
                 },
             },
         };
@@ -384,6 +401,14 @@ internal static class StandardsWindowTheme
         toggle.Bind(Layoutable.WidthProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
         toggle.Bind(Layoutable.HeightProperty, new DynamicResourceExtension(ButtonParts.MinHeightKey));
         return toggle;
+    }
+
+    // A panel's content: the window's property, padded by SpacingM, at the panel's size.
+    private static ContentPresenter PanelSlot(AvaloniaProperty property)
+    {
+        var presenter = new ContentPresenter { Padding = new Thickness(Spacing.M) };
+        presenter.Bind(ContentPresenter.ContentProperty, new TemplateBinding(property));
+        return presenter;
     }
 
     // An optional slot: a presenter for the window's property, shown only when it is set.

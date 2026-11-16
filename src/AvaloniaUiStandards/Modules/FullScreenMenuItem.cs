@@ -12,7 +12,7 @@ namespace AvaloniaUiStandards.Modules;
 /// <c>FullScreenEnterHeader</c> and <c>FullScreenExitHeader</c> resources, so an app can translate them.
 /// </summary>
 /// <remarks>The window finds the item anywhere in its menu, at any depth, and keeps it up to date.</remarks>
-public class FullScreenMenuItem : NativeMenuItem
+public class FullScreenMenuItem : NativeMenuItem, IWindowMenuItem
 {
     public const string EnterHeaderKey = "FullScreenEnterHeader";
     public const string ExitHeaderKey = "FullScreenExitHeader";
@@ -46,6 +46,12 @@ public class FullScreenMenuItem : NativeMenuItem
                 _window.PropertyChanged += OnWindowPropertyChanged;
             Update();
         }
+    }
+
+    StandardsWindow? IWindowMenuItem.Window
+    {
+        get => Window;
+        set => Window = value;
     }
 
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)

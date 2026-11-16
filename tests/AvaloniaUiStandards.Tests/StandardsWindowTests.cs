@@ -396,7 +396,7 @@ public class StandardsWindowTests
             var panel = Part<GlassBorder>(full, StandardsWindowTheme.ContentPanelPart);
             Assert.Contains(full.Content as Visual, panel.GetVisualDescendants());
             Assert.Equal(new CornerRadius(16), panel.CornerRadius);
-            Assert.Equal(new Thickness(8, 0, 8, 8), panel.Margin);
+            Assert.Equal(new Thickness(8, 0, 8, 8), Part<Control>(full, StandardsWindowTheme.PanesPart).Margin);
         }
         finally
         {
@@ -513,7 +513,7 @@ public class StandardsWindowTests
         Assert.Equal(bandRect.Right, close.TranslatePoint(new Point(close.Bounds.Width, 0), window)!.Value.X, 0.01);
 
         var panel = Part<Control>(window, StandardsWindowTheme.ContentPanelPart);
-        Assert.Equal(new Thickness(8, 0, 8, 8), panel.Margin);
+        Assert.Equal(new Thickness(8, 0, 8, 8), Part<Control>(window, StandardsWindowTheme.PanesPart).Margin);
     }
 
     // Renders the title band's right end with a hovered close and a pressed maximise button.

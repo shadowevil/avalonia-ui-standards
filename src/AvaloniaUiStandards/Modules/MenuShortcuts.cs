@@ -12,14 +12,15 @@ namespace AvaloniaUiStandards.Modules;
 /// and the Application's) is clicked by its gesture, whenever the platform does not export the menu to a system menu
 /// bar (which then handles them itself). They work in either layout mode, with or without the menu row. The focused
 /// control handles a key first: a shortcut acts only on a key no control handled, as in native desktop apps.
-/// It also gives each <see cref="FullScreenMenuItem"/> in the menus its window.
+/// It also gives each window menu item in the menus (<see cref="FullScreenMenuItem"/>, <see cref="InspectorMenuItem"/>,
+/// <see cref="BottomPanelMenuItem"/>) its window.
 /// </summary>
 internal sealed class MenuShortcuts : IDisposable
 {
     private readonly TopLevel _window;
     private readonly List<(KeyGesture Gesture, IReadOnlyList<NativeMenuItem> Path)> _shortcuts = [];
     private readonly List<IDisposable> _watches = [];
-    private readonly List<FullScreenMenuItem> _fullScreenItems = [];
+    private readonly List<IWindowMenuItem> _windowItems = [];
     private NativeMenu? _menu;
     private bool _refreshPosted;
     private bool _watchingApp;
@@ -117,10 +118,10 @@ internal sealed class MenuShortcuts : IDisposable
             watch.Dispose();
         _watches.Clear();
         // An item moved to another window's menu keeps that window.
-        foreach (var item in _fullScreenItems)
+        foreach (var item in _windowItems)
             if (item.Window == _window)
                 item.Window = null;
-        _fullScreenItems.Clear();
+        _windowItems.Clear();
         if (_menu is null)
             return;
 
@@ -146,10 +147,10 @@ internal sealed class MenuShortcuts : IDisposable
             item.PropertyChanged += itemChanged;
             _watches.Add(new Disposable(() => item.PropertyChanged -= itemChanged));
 
-            if (item is FullScreenMenuItem fullScreen && _window is StandardsWindow window)
+            if (item is IWindowMenuItem windowItem && _window is StandardsWindow window)
             {
-                fullScreen.Window = window;
-                _fullScreenItems.Add(fullScreen);
+                windowItem.Window = window;
+                _windowItems.Add(windowItem);
             }
 
             List<NativeMenuItem> path = [.. parents, item];
