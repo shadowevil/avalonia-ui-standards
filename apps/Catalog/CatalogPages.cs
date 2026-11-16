@@ -44,6 +44,7 @@ internal static class CatalogPages
         new("ColorPicker", Icons.Eyedropper, () => new ColorPickerPage()),
         new("Toolbar band", Icons.AppWindow, () => new ToolbarBandPage()),
         new("Status bar", Icons.CheckCircle, () => new StatusBarPage()),
+        new("Split panes", Icons.SidebarSimple, () => new SplitPanesPage()),
     ];
 
     public static readonly IReadOnlyList<PageInfo> Footer =
