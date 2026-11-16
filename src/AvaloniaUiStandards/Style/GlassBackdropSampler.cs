@@ -139,7 +139,8 @@ internal sealed class GlassBackdropSampler : Avalonia.Controls.Control
         var size = new Rect(Bounds.Size);
         foreach (var glass in regions.Glass)
         {
-            if (glass.Sampler != this || !Accepts(glass) || glass.TransformToVisual(this) is not { } toSampler)
+            // Hidden glass (a closed panel or overlay) reads nothing.
+            if (glass.Sampler != this || !glass.IsEffectivelyVisible || !Accepts(glass) || glass.TransformToVisual(this) is not { } toSampler)
                 continue;
             var rect = new Rect(glass.Bounds.Size).TransformToAABB(toSampler);
             var skip = glass.Skip;

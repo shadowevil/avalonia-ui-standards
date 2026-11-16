@@ -18,8 +18,8 @@ namespace AvaloniaUiStandards.Modules;
 /// buttons, the <see cref="Window.Title"/> and the <see cref="Toolbar"/>; below it are the menu row
 /// (in the Windows layout, for the window's <see cref="NativeMenu"/>), the optional
 /// <see cref="ToolbarBand"/> across the window, the optional <see cref="Sidebar"/> on the window background, the glass content panel holding
-/// <see cref="ContentControl.Content"/> (scrolled by the panel, see <see cref="IsContentScrollable"/>),
-/// and the optional <see cref="StatusBar"/>. An optional <see cref="Backdrop"/> sits behind them all.
+/// <see cref="ContentControl.Content"/> (scrolled by the panel, see <see cref="IsContentScrollable"/>), the optional
+/// <see cref="Inspector"/> and <see cref="BottomPanel"/> glass panels beside and under it, and the optional <see cref="StatusBar"/>. An optional <see cref="Backdrop"/> sits behind them all.
 /// </summary>
 /// <remarks>
 /// Drag the window by the title band (double-click maximises or restores; in the macOS layout it
@@ -45,6 +45,42 @@ public class StandardsWindow : Window, IFrameTickSource
 
     public static readonly StyledProperty<object?> StatusBarProperty =
         AvaloniaProperty.Register<StandardsWindow, object?>(nameof(StatusBar));
+
+    public static readonly StyledProperty<object?> InspectorProperty =
+        AvaloniaProperty.Register<StandardsWindow, object?>(nameof(Inspector));
+
+    public static readonly StyledProperty<object?> BottomPanelProperty =
+        AvaloniaProperty.Register<StandardsWindow, object?>(nameof(BottomPanel));
+
+    public static readonly StyledProperty<bool> IsInspectorOpenProperty =
+        AvaloniaProperty.Register<StandardsWindow, bool>(nameof(IsInspectorOpen), defaultValue: true,
+            defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
+
+    public static readonly StyledProperty<double> InspectorWidthProperty =
+        AvaloniaProperty.Register<StandardsWindow, double>(nameof(InspectorWidth), InspectorDefaultWidth,
+            defaultBindingMode: Avalonia.Data.BindingMode.TwoWay,
+            coerce: (_, v) => double.IsFinite(v) ? Math.Clamp(v, InspectorMinWidth, InspectorMaxWidth) : InspectorDefaultWidth);
+
+    public static readonly StyledProperty<bool> IsBottomPanelOpenProperty =
+        AvaloniaProperty.Register<StandardsWindow, bool>(nameof(IsBottomPanelOpen), defaultValue: true,
+            defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
+
+    public static readonly StyledProperty<double> BottomPanelHeightProperty =
+        AvaloniaProperty.Register<StandardsWindow, double>(nameof(BottomPanelHeight), BottomPanelDefaultHeight,
+            defaultBindingMode: Avalonia.Data.BindingMode.TwoWay,
+            coerce: (_, v) => double.IsFinite(v) ? Math.Max(v, BottomPanelMinHeight) : BottomPanelDefaultHeight);
+
+    /// <summary>The inspector's smallest, default and largest width, in px.</summary>
+    internal const double InspectorMinWidth = 200, InspectorDefaultWidth = 240, InspectorMaxWidth = 400;
+
+    /// <summary>The bottom panel's smallest and default height, in px; it shows at most (content area height - 8) / 2, so the content panel is at least as tall.</summary>
+    internal const double BottomPanelMinHeight = 96, BottomPanelDefaultHeight = 200;
+
+    /// <summary>
+    /// The window width from which the inspector shows docked: the sidebar's expanded threshold plus the inspector's
+    /// default width (1008 + 240). Below it the inspector shows only as an overlay.
+    /// </summary>
+    internal const double InspectorThreshold = Modules.Sidebar.DefaultExpandedThreshold + InspectorDefaultWidth;
 
     public static readonly StyledProperty<object?> BackdropProperty =
         AvaloniaProperty.Register<StandardsWindow, object?>(nameof(Backdrop));
@@ -108,6 +144,17 @@ public class StandardsWindow : Window, IFrameTickSource
     private IDisposable? _regionsListener;
     private readonly FrameTicker _ticker;
     private EventHandler<FrameTickEventArgs>? _frameTick;
+    private PaneLayout? _panes;
+    private Control? _inspectorPanel;
+    private PaneSplitter? _inspectorSplitter;
+    private PaneSplitter? _bottomSplitter;
+    // Below the inspector threshold: the inspector shows only as the overlay.
+    private bool _narrow;
+    private bool _inspectorOverlay;
+    private Control? _focusBeforeOverlay;
+    private double _dragStartSize;
+    // The asked bottom panel height at a drag's start, which Escape puts back.
+    private double _dragStartAsked;
 
     public StandardsWindow()
         : this(nativeFrame: null)
@@ -197,6 +244,119 @@ public class StandardsWindow : Window, IFrameTickSource
         get => GetValue(StatusBarProperty);
         set => SetValue(StatusBarProperty, value);
     }
+
+    /// <summary>
+    /// Optional content of the inspector: a second glass panel to the right of the content panel, the full height of
+    /// the content area, <see cref="InspectorWidth"/> wide, with a resize handle in the gap between them (normally a
+    /// <see cref="PanelStack"/>). It shows docked while <see cref="IsInspectorOpen"/> in a window at least 1248 px wide;
+    /// in a narrower window it is hidden from the layout, and <see cref="ToggleInspector"/> shows it as an overlay at
+    /// the right edge. The panel pads its content by 12 px and gives it the panel's size.
+    /// </summary>
+    public object? Inspector
+    {
+        get => GetValue(InspectorProperty);
+        set => SetValue(InspectorProperty, value);
+    }
+
+    /// <summary>
+    /// Optional content of the bottom panel: a glass panel directly under the content panel, <see cref="BottomPanelHeight"/>
+    /// high, with a resize handle in the gap between them; shown while <see cref="IsBottomPanelOpen"/>. The panel pads its
+    /// content by 12 px and gives it the panel's size.
+    /// </summary>
+    public object? BottomPanel
+    {
+        get => GetValue(BottomPanelProperty);
+        set => SetValue(BottomPanelProperty, value);
+    }
+
+    /// <summary>
+    /// Whether the inspector shows docked (default true) where the window is wide enough. Dragging its resize handle
+    /// below the inspector's minimum width (200) sets it false. Two-way, so an app can keep it.
+    /// </summary>
+    public bool IsInspectorOpen
+    {
+        get => GetValue(IsInspectorOpenProperty);
+        set => SetValue(IsInspectorOpenProperty, value);
+    }
+
+    /// <summary>The inspector's width: 240 by default, kept between 200 and 400. Two-way, so an app can keep it.</summary>
+    public double InspectorWidth
+    {
+        get => GetValue(InspectorWidthProperty);
+        set => SetValue(InspectorWidthProperty, value);
+    }
+
+    /// <summary>
+    /// Whether the bottom panel shows (default true). Dragging its resize handle below the panel's minimum height (96)
+    /// sets it false. Two-way, so an app can keep it.
+    /// </summary>
+    public bool IsBottomPanelOpen
+    {
+        get => GetValue(IsBottomPanelOpenProperty);
+        set => SetValue(IsBottomPanelOpenProperty, value);
+    }
+
+    /// <summary>
+    /// The bottom panel's height: 200 by default, at least 96; it shows at most (content area height - 8) / 2, and hides while the content area is shorter than 200. Two-way,
+    /// so an app can keep it.
+    /// </summary>
+    public double BottomPanelHeight
+    {
+        get => GetValue(BottomPanelHeightProperty);
+        set => SetValue(BottomPanelHeightProperty, value);
+    }
+
+    /// <summary>
+    /// Shows or hides the inspector: where the window is wide enough to dock it, toggles <see cref="IsInspectorOpen"/>;
+    /// in a narrower window, opens or closes it as an overlay at the right edge. Does nothing without an
+    /// <see cref="Inspector"/>. An <see cref="InspectorMenuItem"/> calls it.
+    /// </summary>
+    public void ToggleInspector()
+    {
+        if (Inspector is null)
+            return;
+        if (_narrow)
+            SetInspectorOverlay(!_inspectorOverlay, restoreFocus: true, NavigationMethod.Tab);
+        else
+            IsInspectorOpen = !IsInspectorOpen;
+    }
+
+    /// <summary>
+    /// Shows or hides the bottom panel (<see cref="IsBottomPanelOpen"/>); does nothing without a <see cref="BottomPanel"/>,
+    /// or while the content area is too short for it (the panel cannot show, so a toggle would only lose the kept
+    /// setting). A <see cref="BottomPanelMenuItem"/> calls it.
+    /// </summary>
+    public void ToggleBottomPanel()
+    {
+        if (CanToggleBottomPanel)
+            IsBottomPanelOpen = !IsBottomPanelOpen;
+    }
+
+    /// <summary>Whether the content area is tall enough for the bottom panel.</summary>
+    internal bool HasBottomRoom => _panes?.HasBottomRoom ?? true;
+
+    /// <summary>Whether <see cref="ToggleBottomPanel"/> acts: with a bottom panel and room for it.</summary>
+    internal bool CanToggleBottomPanel => BottomPanel is not null && HasBottomRoom;
+
+    /// <summary>Where the inspector shows now.</summary>
+    internal InspectorPlacement InspectorPlacement => Inspector is null ? InspectorPlacement.None
+        : _narrow ? _inspectorOverlay ? InspectorPlacement.Overlay : InspectorPlacement.None
+        : IsInspectorOpen ? InspectorPlacement.Docked : InspectorPlacement.None;
+
+    /// <summary>Whether the inspector shows, docked or as the overlay.</summary>
+    internal bool IsInspectorShown => InspectorPlacement != InspectorPlacement.None;
+
+    /// <summary>Whether the bottom panel shows.</summary>
+    internal bool IsBottomPanelShown => BottomPanel is not null && IsBottomPanelOpen && (_panes?.HasBottomRoom ?? true);
+
+    /// <summary>Whether the inspector is open as the overlay (a narrow window).</summary>
+    internal bool IsInspectorOverlayOpen => _inspectorOverlay;
+
+    /// <summary>Whether the window is narrower than the inspector threshold.</summary>
+    internal bool IsInspectorNarrow => _narrow;
+
+    /// <summary>Raised when what the inspector or the bottom panel shows changes.</summary>
+    internal event Action? PanesChanged;
 
     /// <summary>
     /// Optional content drawn over the frame's wash and behind everything else in the frame (the
@@ -442,8 +602,13 @@ public class StandardsWindow : Window, IFrameTickSource
         _buttons = e.NameScope.Find<WindowButtons>(StandardsWindowTheme.WindowButtonsPart);
         if (_buttons is not null)
             _buttons.Clicked += OnWindowButton;
+        if (_frame is not null)
+            _frame.PropertyChanged -= OnFramePropertyChanged;
         _frame = e.NameScope.Find<SquircleBorder>(StandardsWindowTheme.FramePart);
+        if (_frame is not null)
+            _frame.PropertyChanged += OnFramePropertyChanged;
         _backdrop = e.NameScope.Find<Control>(StandardsWindowTheme.BackdropPart);
+        ApplyPanesTemplate(e.NameScope);
         ListenToRegions();
         ReleaseTitleIcon();
         _titleIcon = e.NameScope.Find<Image>(StandardsWindowTheme.TitleIconPart);
@@ -523,6 +688,12 @@ public class StandardsWindow : Window, IFrameTickSource
             PseudoClasses.Set(":sidebar-module", change.NewValue is Sidebar);
         if (change.Property == StatusBarProperty)
             PseudoClasses.Set(":status-bar-module", change.NewValue is StatusBar);
+        // Opening and closing a panel slides it (instant under reduce motion); a new slot or size applies at once.
+        if (change.Property == IsInspectorOpenProperty || change.Property == IsBottomPanelOpenProperty)
+            UpdatePanes(animate: true);
+        else if (change.Property == InspectorProperty || change.Property == BottomPanelProperty
+            || change.Property == InspectorWidthProperty || change.Property == BottomPanelHeightProperty)
+            UpdatePanes();
         if (change.Property == IsActiveProperty || change.Property == WindowStateProperty
             || change.Property == ReduceMotionProperty || change.Property == HighRefreshRateProperty)
             UpdateTicker();
@@ -858,6 +1029,216 @@ public class StandardsWindow : Window, IFrameTickSource
     {
         if (_panel is not null && _frame?.Child is Visual layers && _panel.TranslatePoint(default, layers) is { } origin)
             ContentPanelBounds = new Rect(origin, _panel.Bounds.Size);
+    }
+
+    private void ApplyPanesTemplate(INameScope scope)
+    {
+        if (_inspectorSplitter is not null)
+        {
+            _inspectorSplitter.DragBegan -= OnInspectorDragBegan;
+            _inspectorSplitter.Dragged -= OnInspectorDragged;
+            _inspectorSplitter.DragCanceled -= OnDragCanceledInspector;
+            _inspectorSplitter.Stepped -= OnInspectorStepped;
+        }
+        if (_bottomSplitter is not null)
+        {
+            _bottomSplitter.DragBegan -= OnBottomDragBegan;
+            _bottomSplitter.Dragged -= OnBottomDragged;
+            _bottomSplitter.DragCanceled -= OnDragCanceledBottom;
+            _bottomSplitter.Stepped -= OnBottomStepped;
+        }
+        if (_panes is not null)
+            _panes.BottomRoomChanged -= OnBottomRoomChanged;
+        _panes = scope.Find<PaneLayout>(StandardsWindowTheme.PanesPart);
+        if (_panes is not null)
+            _panes.BottomRoomChanged += OnBottomRoomChanged;
+        _inspectorPanel = scope.Find<Control>(StandardsWindowTheme.InspectorPart);
+        _inspectorSplitter = scope.Find<PaneSplitter>(StandardsWindowTheme.InspectorSplitterPart);
+        _bottomSplitter = scope.Find<PaneSplitter>(StandardsWindowTheme.BottomPanelSplitterPart);
+        if (_inspectorSplitter is not null)
+        {
+            _inspectorSplitter.DragBegan += OnInspectorDragBegan;
+            _inspectorSplitter.Dragged += OnInspectorDragged;
+            _inspectorSplitter.DragCanceled += OnDragCanceledInspector;
+            _inspectorSplitter.Stepped += OnInspectorStepped;
+        }
+        if (_bottomSplitter is not null)
+        {
+            _bottomSplitter.DragBegan += OnBottomDragBegan;
+            _bottomSplitter.Dragged += OnBottomDragged;
+            _bottomSplitter.DragCanceled += OnDragCanceledBottom;
+            _bottomSplitter.Stepped += OnBottomStepped;
+        }
+        UpdatePanes();
+    }
+
+    // The inspector's handle: dragging it left widens the inspector, up to its maximum; dragging it below the minimum
+    // closes the inspector. The arrow keys step the width within the minimum and maximum.
+    private void OnInspectorDragBegan() => _dragStartSize = InspectorWidth;
+
+    private void OnInspectorDragged(double moved)
+    {
+        if (InspectorPlacement != InspectorPlacement.Docked)
+            return;
+        var proposed = _dragStartSize - moved;
+        if (proposed < InspectorMinWidth)
+        {
+            IsInspectorOpen = false;
+            _inspectorSplitter?.EndDrag();
+        }
+        else
+            InspectorWidth = Math.Min(proposed, InspectorMaxWidth);
+    }
+
+    private void OnDragCanceledInspector() => InspectorWidth = _dragStartSize;
+
+    private void OnInspectorStepped(double moved) => InspectorWidth -= moved;
+
+    // The bottom panel's handle: as the inspector's, upwards, with the largest height that keeps the content panel at least as tall.
+    private double ShownBottomHeight => Math.Min(BottomPanelHeight, _panes?.BottomMaxHeight ?? BottomPanelHeight);
+
+    private void OnBottomDragBegan()
+    {
+        _dragStartSize = ShownBottomHeight;
+        _dragStartAsked = BottomPanelHeight;
+    }
+
+    private void OnBottomDragged(double moved)
+    {
+        if (!IsBottomPanelShown)
+            return;
+        var proposed = _dragStartSize - moved;
+        if (proposed < BottomPanelMinHeight)
+        {
+            IsBottomPanelOpen = false;
+            _bottomSplitter?.EndDrag();
+        }
+        else
+            BottomPanelHeight = Math.Min(proposed, _panes?.BottomMaxHeight ?? proposed);
+    }
+
+    private void OnDragCanceledBottom() => BottomPanelHeight = _dragStartAsked;
+
+    private void OnBottomStepped(double moved) =>
+        BottomPanelHeight = Math.Clamp(ShownBottomHeight - moved, BottomPanelMinHeight, _panes?.BottomMaxHeight ?? double.MaxValue);
+
+    // The frame's width (the visible window) sets whether the inspector can dock.
+    private void OnFramePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != BoundsProperty || _frame is not { } frame || frame.Bounds.Width <= 0)
+            return;
+        var narrow = frame.Bounds.Width < InspectorThreshold;
+        if (narrow == _narrow)
+            return;
+        _narrow = narrow;
+        // Crossing the threshold closes the overlay and docks or hides the inspector at once.
+        SetInspectorOverlay(false, restoreFocus: true, animate: false);
+        UpdatePanes();
+    }
+
+    // The area became too short for the bottom panel, or tall enough again.
+    private void OnBottomRoomChanged() => PanesChanged?.Invoke();
+
+    private void UpdatePanes(bool animate = false)
+    {
+        if (_inspectorOverlay && (Inspector is null || !_narrow))
+        {
+            SetInspectorOverlay(false, restoreFocus: true, animate: false);
+            return;
+        }
+        _panes?.Apply(InspectorPlacement, InspectorWidth, BottomPanel is not null && IsBottomPanelOpen, BottomPanelHeight, animate);
+        PanesChanged?.Invoke();
+    }
+
+    // Opens or closes the inspector overlay. Closing with restoreFocus gives the keyboard back to what had it when the
+    // overlay opened, when focus was in the overlay (it goes away).
+    // Opening it moves focus to the first focusable control in it, as the sidebar overlay focuses a row. It slides in and
+    // out over MotionNormal when animate (instant under reduce motion).
+    private void SetInspectorOverlay(bool open, bool restoreFocus = false, NavigationMethod focusMethod = NavigationMethod.Unspecified,
+        bool animate = true)
+    {
+        if (open && (!_narrow || Inspector is null))
+            open = false;
+        if (open == _inspectorOverlay)
+            return;
+        var focused = FocusManager?.GetFocusedElement() as Control;
+        var focusInside = focused is not null && _inspectorPanel is not null && (focused == _inspectorPanel || _inspectorPanel.IsVisualAncestorOf(focused));
+        if (open)
+            _focusBeforeOverlay = focusInside ? null : focused;
+        _inspectorOverlay = open;
+        if (open)
+        {
+            AddHandler(PointerPressedEvent, OnOverlayPointerPressed, RoutingStrategies.Tunnel);
+            AddHandler(KeyDownEvent, OnOverlayKeyDown, RoutingStrategies.Tunnel);
+        }
+        else
+        {
+            RemoveHandler(PointerPressedEvent, OnOverlayPointerPressed);
+            RemoveHandler(KeyDownEvent, OnOverlayKeyDown);
+        }
+        UpdatePanes(animate);
+        if (open)
+            FocusIntoInspector();
+        else
+        {
+            var previous = _focusBeforeOverlay;
+            _focusBeforeOverlay = null;
+            if (restoreFocus && focusInside && previous is { IsEffectivelyVisible: true, IsEffectivelyEnabled: true })
+                previous.Focus(focusMethod);
+        }
+    }
+
+    // The first focusable control in the inspector takes focus. Content that was never laid out (it was hidden) is
+    // focused once layout has run.
+    private void FocusIntoInspector()
+    {
+        if (FirstFocusableInInspector() is { } now)
+        {
+            now.Focus();
+            return;
+        }
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_inspectorOverlay && FirstFocusableInInspector() is { } late)
+                late.Focus();
+        }, DispatcherPriority.Loaded);
+    }
+
+    private InputElement? FirstFocusableInInspector() =>
+        _inspectorPanel?.GetVisualDescendants().OfType<InputElement>()
+            .FirstOrDefault(c => c.Focusable && c.IsTabStop && c.IsEffectivelyEnabled && c.IsEffectivelyVisible);
+
+    // Whether a popup is open that Escape should close first: one in the window's overlay layer (a drop-down or flyout
+    // opened from the inspector), or one opened from a control in the inspector.
+    private bool IsPopupOpen()
+    {
+        if (OverlayLayer.GetOverlayLayer(this) is { } layer && layer.Children.OfType<OverlayPopupHost>().Any(h => h.IsVisible))
+            return true;
+        return _inspectorPanel is { } panel
+               && (panel.GetVisualDescendants().OfType<Popup>().Any(p => p.IsOpen) || panel.GetLogicalDescendants().OfType<Popup>().Any(p => p.IsOpen));
+    }
+
+    // Whether a press or key comes from inside the inspector, or from a popup (a drop-down, a menu), which is its own.
+    private bool IsInspectorOrPopup(object? source) =>
+        source is Visual visual && ((_inspectorPanel is { } panel && (visual == panel || panel.IsVisualAncestorOf(visual)))
+                                    || visual.GetSelfAndVisualAncestors().Any(v => v is OverlayPopupHost or PopupRoot));
+
+    // A press outside the overlay closes it and is not passed on, as a light-dismiss popup does.
+    private void OnOverlayPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (IsInspectorOrPopup(e.Source))
+            return;
+        SetInspectorOverlay(false, restoreFocus: true, NavigationMethod.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnOverlayKeyDown(object? sender, KeyEventArgs e)
+    {
+        // Escape closes an open popup first (its owner may keep focus while it is open).
+        if (e.Key != Key.Escape || IsPopupOpen() || (e.Source is Visual v && v.GetSelfAndVisualAncestors().Any(a => a is OverlayPopupHost or PopupRoot)))
+            return;
+        SetInspectorOverlay(false, restoreFocus: true, NavigationMethod.Tab);
+        e.Handled = true;
     }
 
     // The window buttons win over the resize grips where they overlap and are visible: inside the

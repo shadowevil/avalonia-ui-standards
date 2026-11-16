@@ -57,6 +57,9 @@ internal sealed class CatalogMenu
         PreviousPage.Click += (_, _) => MovePage(-1);
         // Full screen (macOS only; the item hides itself elsewhere).
         FullScreen = new FullScreenMenuItem();
+        // The panels (enabled while the window has them: on the Split panes page).
+        Inspector = new InspectorMenuItem();
+        BottomPanel = new BottomPanelMenuItem();
         var view = new NativeMenuItem("_View")
         {
             Menu = new NativeMenu
@@ -66,6 +69,9 @@ internal sealed class CatalogMenu
                 new NativeMenuItemSeparator(),
                 NextPage,
                 PreviousPage,
+                new NativeMenuItemSeparator(),
+                Inspector,
+                BottomPanel,
                 new NativeMenuItemSeparator(),
                 FullScreen,
             },
@@ -111,6 +117,12 @@ internal sealed class CatalogMenu
 
     /// <summary>View: Enter Full Screen / Exit Full Screen (macOS).</summary>
     public FullScreenMenuItem FullScreen { get; }
+
+    /// <summary>View: Show Inspector / Hide Inspector.</summary>
+    public InspectorMenuItem Inspector { get; }
+
+    /// <summary>View: Show Bottom Panel / Hide Bottom Panel.</summary>
+    public BottomPanelMenuItem BottomPanel { get; }
 
     private static NativeMenu MenuOf(IEnumerable<NativeMenuItem> items)
     {

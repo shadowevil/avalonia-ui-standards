@@ -22,6 +22,13 @@ internal static class ModulesThemes
         resources[MenuRow.HelpHeaderKey] = MenuRow.HelpHeader;
         resources[FullScreenMenuItem.EnterHeaderKey] = FullScreenMenuItem.EnterHeader;
         resources[FullScreenMenuItem.ExitHeaderKey] = FullScreenMenuItem.ExitHeader;
+        resources[InspectorMenuItem.ShowHeaderKey] = InspectorMenuItem.ShowHeader;
+        resources[InspectorMenuItem.HideHeaderKey] = InspectorMenuItem.HideHeader;
+        resources[BottomPanelMenuItem.ShowHeaderKey] = BottomPanelMenuItem.ShowHeader;
+        resources[BottomPanelMenuItem.HideHeaderKey] = BottomPanelMenuItem.HideHeader;
+        resources[typeof(PanelStack)] = PanelStackTheme.Create();
+        // The Blocks themes are in the resources already: the items keep the Expander's.
+        resources[typeof(PanelStackItem)] = PanelStackTheme.Item(resources.TryGetResource(typeof(Expander), null, out var expander) ? expander as ControlTheme : null);
         resources[typeof(StatusBar)] = StatusBarTheme.Create();
         resources[StatusBarTheme.TextKey] = StatusBarTheme.Text;
         resources[StatusBarTheme.CancelTextKey] = StatusBarTheme.CancelText;
@@ -35,6 +42,7 @@ internal static class ModulesThemes
     {
         resources[SidebarTheme.WidthTransitionsKey] = SidebarTheme.WidthTransitions(normal, easing);
         resources[StandardsWindowTheme.RevealTransitionsKey] = StandardsWindowTheme.RevealTransitions(normal, easing);
+        resources[StandardsWindowTheme.PaneTransitionsKey] = StandardsWindowTheme.PaneTransitions(normal, easing);
     }
 
     /// <summary>Sets the density-dependent values of the Modules themes.</summary>
